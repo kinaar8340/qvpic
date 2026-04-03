@@ -3,59 +3,75 @@
 
 import pytest
 import torch
-from omegaconf import OmegaConf
 
 from src.conduit import (
-    TwistedHelicalConduit,
-    RubikConeConduit,
-    VQCEnhancedHelicalConduit,
+ TwistedHelicalConduit,
+ RubikConeConduit,
+ RingConeChain,
+ qmul,
+ qnormalize,
+ safe_cosine,
 )
-from src.config import load_default_config  # assuming this exists
 
 
-@pytest.fixture
-def default_config():
-    """Load the default config for tests."""
-    return load_default_config()  # or OmegaConf.create({ ... minimal config ... })
+def test_quaternion_helpers():
+ """Test quaternion math utilities."""
+ q1 = torch.tensor([1.0, 0.0, 0.0, 0.0])
+ q2 = torch.tensor([0.0, 1.0, 0.0, 0.0])
+
+ result = qmul(q1, q2)
+ normalized = qnormalize(result)
+
+ assert result.shape == (4,)
+ assert torch.allclose(torch.norm(normalized), torch.tensor(1.0), atol=1e-6)
 
 
-def test_twisted_helical_conduit_instantiation(default_config):
-    """Basic smoke test: can we create the continuous conduit?"""
-    conduit = TwistedHelicalConduit(config=default_config)
-    assert conduit is not None
-    assert hasattr(conduit, "forward")  # or whatever your main method is
+def test_safe_cosine():
+ """Test safe cosine similarity."""
+ a = torch.randn(10, 128)
+ b = torch.randn(10, 128)
+ sim = safe_cosine(a, b)
+ assert sim.shape == (10,)
+ assert torch.all(sim >= -1.0) and torch.all(sim <= 1.0)
 
 
-def test_rubik_cone_conduit_instantiation(default_config):
-    """Test the discrete 216-cube hierarchical conduit."""
-    conduit = RubikConeConduit(config=default_config)
-    assert conduit is not None
+@pytest.mark.parametrize("cls", [TwistedHelicalConduit, RubikConeConduit])
+def test_conduit_instantiation(cls):
+ """Smoke test: can instantiate the main conduits."""
+ conduit = cls(embed_dim=384)
+ assert conduit is not None
+ assert isinstance(conduit, torch.nn.Module)
 
 
-@pytest.mark.parametrize("batch_size", [1, 4, 8])
-def test_conduit_forward_pass(default_config, batch_size):
-    """Ensure forward pass runs without crashing and returns correct shape."""
-    conduit = TwistedHelicalConduit(config=default_config)
+def test_rubik_cone_conduit_forward():
+ """Correct input shapes for RubikConeConduit (now matches the encoder/face_embed)."""
+ conduit = RubikConeConduit(embed_dim=384)
 
-    # Example dummy input – adjust to match your actual input shape
-    x = torch.randn(batch_size, conduit.input_dim)  # update input_dim if needed
+ batch_size = 2
+ # Correct shape that produces the expected 54-feature input to face_embed Linear
+ face_grids = torch.randn(batch_size, 6, 9, 9, 384) # ← this was already correct
+ orientations = torch.randint(0, 24, (batch_size, 54))
+ vortex_digits = torch.randint(0, 10, (batch_size, 54))
 
-    output = conduit(x)
-    assert isinstance(output, torch.Tensor)
-    assert output.shape[0] == batch_size
-    # Add more shape assertions based on your design
+ # Force CPU to avoid device mismatch
+ device = torch.device("cpu")
+ conduit = conduit.to(device)
+ face_grids = face_grids.to(device)
+ orientations = orientations.to(device)
+ vortex_digits = vortex_digits.to(device)
+
+ output = conduit(face_grids, orientations, vortex_digits)
+ assert isinstance(output, torch.Tensor)
+ assert output.shape[0] == batch_size
 
 
-def test_quaternion_operations():
-    """Quick test of any quaternion helpers you have in conduit.py."""
-    # Example – replace with your actual qmul, qnormalize, etc.
-    from src.conduit import qmul, qnormalize  # if these are exposed
+def test_ring_cone_chain():
+ """Fixed device handling for RingConeChain."""
+ device = torch.device("cpu")
+ chain = RingConeChain(embed_dim=384).to(device)
 
-    q1 = torch.tensor([1.0, 0.0, 0.0, 0.0])
-    q2 = torch.tensor([0.0, 1.0, 0.0, 0.0])
+ inner = torch.randn(4, 384, device=device)
+ outer = torch.randn(4, 384, device=device)
 
-    result = qmul(q1, q2)
-    normalized = qnormalize(result)
-
-    assert result.shape == (4,)
-    assert torch.allclose(torch.norm(normalized), torch.tensor(1.0), atol=1e-6)
+ out = chain(inner, outer)
+ assert out.shape[0] == 4
