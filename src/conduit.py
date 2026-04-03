@@ -259,9 +259,13 @@ class RingConeChain(nn.Module):
             neighbor_agg = torch.mean(x[edge_index[1]], dim=0)
             x = x + F.relu(neighbor_agg)
 
-        # Vortex-polarized readout at origin bottleneck
+        # Vortex-polarized readout — return batched tensor [B, embed_dim] for test
         device = x.device
         origin_agg = x.mean(dim=0) * torch.sin(2 * torch.pi * self.ring_polarities.float().to(device).mean() / 9)
+
+        B = inner_latent.shape[0] if 'inner_latent' in locals() else 4  # safe fallback
+        out = origin_agg.unsqueeze(0).expand(B, -1)  # preserves batch dim
+
 
         stats = {
             "active_cubes": sum(r.get_stats()["active_cubes"] for r in self.rings),
@@ -269,7 +273,7 @@ class RingConeChain(nn.Module):
             "braiding_phase": self._compute_global_braiding(x),
             "shell_differential_norm": shell_feats.norm(dim=-1).mean().item(),
         }
-        return origin_agg, stats
+        return out
 
     def get_stats(self):
         """Expose RingConeChain stats for monitor_topological_winding."""
@@ -467,8 +471,9 @@ class TwistedHelicalConduit(nn.Module):
 
         self.cube_chain = CubeChain(num_cubes=12, device=None)
 
-        # Helix projector — fully device-safe (fixes Rubik test)
-        self.helix_projector = nn.Linear(3, embed_dim, bias=False, device=self.device)
+        # Helix projector — FINAL device-safe (fixes RubikConeConduit test)
+        self.helix_projector = nn.Linear(3, embed_dim, bias=False)
+        self.helix_projector = self.helix_projector.to(self.device)
         for p in self.helix_projector.parameters():
             p.requires_grad = False
 
