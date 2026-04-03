@@ -18,12 +18,12 @@
 
 ## Executive Summary
 
-The Quaternion Vortex Persistent Identity Conduit (QVPIC) is a new architecture that combines **orbital angular momentum (OAM)** light beams, **quaternion mathematics**, and **topological helical shielding** to solve two major problems at once:
+The Quaternion Vortex Persistent Identity Conduit (QVPIC) combines **orbital angular momentum (OAM)** light beams, **quaternion mathematics**, **topological helical shielding**, and now a **Minimal Copresheaf Topological Neural Network (TNN)** layer to solve two major problems at once:
 
-- The capacity limits of modern optical communication networks
-- The stateless, drift-prone nature of AI agents
+- Capacity limits of modern optical communication
+- Stateless, drift-prone nature of AI agents
 
-By encoding data as compact “shards” carried on spinning donut-shaped light modes and protecting them with nested helical phase structures, QVPIC achieves up to **100× density gain**, multi-terabit-per-second throughput, and >96% fidelity even over turbulent links. In software form it also delivers **5.68× better drift protection** for persistent AI memory.
+QVPIC achieves up to **100× density gain**, multi-terabit-per-second throughput, >96% fidelity, and **5.68× better drift protection** for persistent AI memory. The new TNN layer adds higher-order sheaf diffusion reasoning directly on the protected RingConeChain geometry while keeping the underlying topological identity lock completely frozen.
 
 QVPIC is the open-source software embodiment of the VQC patent and runs today on ordinary computers while remaining directly compatible with future photonic and superconducting hardware.
 
@@ -45,14 +45,14 @@ Nested helical phase fronts act like protective springs of light, shielding the 
 
 The result is a system that behaves like a **topological fiber bundle** — a geometric structure that preserves information even under severe distortion.
 
-## 3. Core Innovations
+## Core Innovations (v10.2)
 
 - **OAM Mode Division Multiplexing** — dozens to hundreds of independent spinning donuts per wavelength channel.
-- **Quaternion Compression** — encodes shards in 4D hypercomplex numbers, yielding 50–100× density gains while preserving rotational properties.
-- **Nested Helical Shielding** — concentric helical phase fronts protect inner data beams (like Russian dolls made of light).
-- **Pyramidal Spectral Shards** — data appears as vertical barcode patterns across a rainbow of frequencies.
-- **Beam-Motion-Gated Learning (BMGL) + QEC** — p-wave altermagnetic boosts and 16-qubit error correction maintain near-perfect fidelity.
-- **Topological Invariants** — winding numbers and linking phases act as global fingerprints that survive noise.
+- **Quaternion Compression** — 50–100× density gains.
+- **Nested Helical Shielding** — protective concentric phase fronts.
+- **Pyramidal Spectral Shards** — barcode-like intensity patterns.
+- **Minimal Copresheaf Topological Neural Network (TNN)** — sheaf diffusion layer for higher-order topological reasoning on the RingConeChain combinatorial complex (new April 2026 addition). This provides sophisticated message passing while the geometric invariants (ShellCube differential, braiding phase, winding numbers) remain frozen and immutable.
+- **Beam-Motion-Gated Learning (BMGL) + 16-qubit QEC** with p-wave altermagnetic boosts.
 
 ## 4. How It Works – Simple Analogy
 

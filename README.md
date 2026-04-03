@@ -13,14 +13,17 @@
 
 ## Abstract
 
-The Quaternion Vortex Persistent Identity Conduit (QVPIC v10.2) is the software realization of the **Vortex Quaternion Conduit (VQC)** system described in U.S. Provisional Patent Application No. 63/913,110 (filed November 6, 2025) and the corresponding non-provisional application titled *“Vortex Quaternion Conduit (VQC): Ultra-High-Density Quantum-Secure Data Transmission via Orbital Angular Momentum Mode Division Multiplexing with Quaternion Compression and Nested Helical Shielding”*.
+The Quaternion Vortex Persistent Identity Conduit (QVPIC v10.2) is the software realization of the **Vortex Quaternion Conduit (VQC)** system described in U.S. Provisional Patent Application No. 63/913,110 (filed November 6, 2025) and the corresponding non-provisional application.
 
-QVPIC encodes data as quaternion-compressed shards embedded in a **helical fiber bundle over a Clifford-torus base**. Global topological invariants — winding number, quaternion linking/braiding phase, and zero-point ShellCube radial differential — serve as the single source of truth for memory. Optional OAM modulation (via the `VQCEnhancedHelicalConduit`) directly mirrors the patent’s nested helical shielding and mode-division multiplexing.  
+QVPIC encodes data as quaternion-compressed shards embedded in a helical fiber bundle over a Clifford-torus base. Global topological invariants — winding number, quaternion linking/braiding phase, and zero-point ShellCube radial differential — serve as the single source of truth for memory. Optional OAM modulation mirrors the patent’s nested helical shielding.
 
-On standard benchmarks, QVPIC achieves **0.98–1.000 cosine recall fidelity** with **5.68× drift protection** relative to conventional vector-store baselines, while preserving exact topological invariants under coordinate and vector noise. This provides a practical, reproducible software prototype of VQC’s ultra-high-density, quantum-secure encoding principles for AI agents.
+**New in v10.2**: A **Minimal Copresheaf Topological Neural Network (TNN)** layer performs higher-order sheaf diffusion reasoning directly on the RingConeChain combinatorial complex while keeping the underlying geometric identity lock completely frozen.
+
+On standard benchmarks, QVPIC achieves **0.98–1.000 cosine recall fidelity** with **5.68× drift protection** relative to conventional vector-store baselines.
 
 ## Key Features (v10.2)
 
+- **Minimal Copresheaf Topological Neural Network (TNN)**: Sheaf diffusion layer providing higher-order topological reasoning on the RingConeChain geometry (added April 2026).
 - **Topological persistence layer**: Winding number, quaternion linking phase, and ShellCube radial differential (inscribed r=1 + circumscribed R=√3) enforce global consistency.
 - **Dual-mode architecture**:
   - Default: `RubikConeConduit` + RingConeChain (216-cube hierarchical double-cone with message passing).
@@ -76,6 +79,7 @@ The patent abstract and full specification are included in the repository as `do
 
 - **Continuous backbone**: `TwistedHelicalConduit` (Clifford-torus projection + quaternion Frenet spine).
 - **Discrete layer**: `RingConeChain` (24→3 ring double-cone) + `ShellCube` radial differential.
+- **Higher-order reasoning**: Minimal Copresheaf `TnnLayer` (sheaf diffusion on edge_index and ring polarities — the new 2026 cutting-edge addition).
 - **Encoder/Decoder**: `RubikEncoder` / `RubikDecoder` with vortex-polarized message passing.
 - **Read/Write**: `recover_depth` + `read` (soft-weighted, safe_cosine enforced) or RingCone recall.
 - **Topological monitoring**: `monitor_topological_winding()` reports invariants at every step.
@@ -109,17 +113,20 @@ qvpic/
 ```
 
 ## License
-
 MIT
 
-## Acknowledgments
+## Aknowledgements
 
-https://github.com/kinaar8340/pic  
-https://github.com/kinaar8340/vqc_sims_public  
-Email: kinaar0@protonmail.com  
-X: @kinaar8340
+**Contact:** 
+- kinaar0@protonmail.com
+- X: @kinaar8340
 
-Built as the reference software implementation of the VQC patent by Aaron Michael Kinder.  
-Inspired by advances in topological photonics, geometric deep learning, and quaternion neural networks.  
+**Repository:**
+- https://github.com/kinaar8340/pic 
+- https://github.com/kinaar8340/qvpic
+- https://github.com/kinaar8340/vqc_sims_public
 
-**Global topological invariants (winding, linking, braiding + ShellCube differential) are the single source of truth.**
+
+Built as the reference software implementation of the VQC patent.
+Inspired by advances in topological photonics, geometric deep learning, 
+quaternion neural networks, and sheaf/copresheaf topological neural networks.
