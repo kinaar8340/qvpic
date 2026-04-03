@@ -7,6 +7,7 @@ import torch
 from src.conduit import (
     TwistedHelicalConduit,
     RubikConeConduit,
+    RingConeChain,
     qmul,
     qnormalize,
     safe_cosine,
@@ -42,11 +43,28 @@ def test_conduit_instantiation(cls):
     assert isinstance(conduit, torch.nn.Module)
 
 
-@pytest.mark.skip(reason="TODO: match exact RubikEncoder input shape for forward pass")
 def test_rubik_cone_conduit_forward():
-    pass
+    """Re-enabled: RubikConeConduit forward pass with correct shapes + CPU."""
+    device = torch.device("cpu")
+    conduit = RubikConeConduit(embed_dim=384).to(device)
+
+    batch_size = 2
+    face_grids = torch.randn(batch_size, 6, 9, 9, 384, device=device)
+    orientations = torch.randint(0, 24, (batch_size, 54), device=device)
+    vortex_digits = torch.randint(0, 10, (batch_size, 54), device=device)
+
+    output = conduit(face_grids, orientations, vortex_digits)
+    assert output.shape[0] == batch_size
 
 
-@pytest.mark.skip(reason="TODO: fix device mismatch in RingConeChain")
 def test_ring_cone_chain():
-    pass
+    """Re-enabled: RingConeChain forward pass with correct device handling."""
+    device = torch.device("cpu")
+    chain = RingConeChain(embed_dim=384).to(device)
+
+    batch_size = 4
+    inner = torch.randn(batch_size, 384, device=device)
+    outer = torch.randn(batch_size, 384, device=device)
+
+    out = chain(inner, outer)
+    assert out.shape[0] == batch_size
