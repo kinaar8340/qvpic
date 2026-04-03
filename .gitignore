@@ -1,36 +1,21 @@
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-
-# Python bytecode
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-# PyTorch / model artifacts
-checkpoints/
-outputs/
-models/
-*.pt
-*.pth
-*.bin
+# Virtual environments
+.venv/
+venv/
+ENV/
 
-# Logs and temp files
-*.log
-logs/
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+.coverage.*
 
-# OS junk
-.DS_Store
-Thumbs.db
-
-# Jupyter / notebooks (if you ever use them)
-.ipynb_checkpoints/
-
-# Environment variables / secrets
-.env
-*.env
+# pytest
+.pytest_cache/
 
 # IDE / editor files
 .vscode/
@@ -38,10 +23,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Large data or cached files
-*.h5
-*.onnx
-
-# QVPIC-specific (optional but recommended)
-snapshots/
-braided_lattice/
+# OS
+.DS_Store
+Thumbs.db
