@@ -962,11 +962,19 @@ class RubikConeConduit(TwistedHelicalConduit):
         pos_emb = torch.stack([self.position(s.item()) for s in s_query])
         outer_latent = outer_latent + pos_emb.unsqueeze(0) * math.sqrt(3.0) * 0.3
 
-        # 3. Message-pass through double-cone (radial differential already applied inside)
+        # 3. RingConeChain call (keeps sticker-aware latent)
         cone_out, stats = self.ring_cone(inner_latent.squeeze(0), outer_latent.squeeze(0))
 
+        # FINAL: decoder expects [B, 54, embed_dim] (Rubik sticker shape)
+        B = face_grids.shape[0]  # batch_size = 2 in test
+
+        # Expand collapsed cone output to per-sticker latent
+        if cone_out.dim() == 1:
+            cone_out = cone_out.unsqueeze(0).expand(B, -1)
+        decoder_input = cone_out.unsqueeze(1).expand(B, 54, -1)  # [B, 54, embed_dim]
+
         # 4. Decode back to cube state + next move
-        recon = self.decoder(cone_out.unsqueeze(0))
+        recon = self.decoder(decoder_input)
 
         # Merge RingConeChain stats (fixes active_cubes and shell_differential_norm in summary)
         ring_stats = self.ring_cone.get_stats()
