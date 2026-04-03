@@ -628,8 +628,9 @@ class TwistedHelicalConduit(nn.Module):
         knot_phase = self._compute_369_knot_phase(pol_idx, s_float)
         local_offset = local_offset * torch.cos(torch.tensor(knot_phase, device=self.device))
 
-        # FINAL defensive device alignment (kills the last Rubik test failure)
-        geo_3d = geo_3d.to(self.device)
+        # FINAL robust device alignment (uses weight.device directly — bypasses stale self.device)
+        device = self.helix_projector.weight.device
+        geo_3d = geo_3d.to(device)
         residual = self.helix_projector(geo_3d.unsqueeze(0)).squeeze(0) * self.residual_scale
         quat_residual = self.quat_spine(torch.zeros(self.quat_logical_dim, device=self.device) * self.quat_scale)
         geo_repeat = geo_3d.repeat(self.embed_dim // 3)[:self.embed_dim] * 1.0
