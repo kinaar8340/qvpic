@@ -1,8 +1,10 @@
-# Quaternion Vortex Persistent Identity Conduit (QVPIC) v1.0
+# Quaternion Vortex Persistent Identity Conduit (QVPIC) v10.2
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+
+![Banner](images/qvpic.png)
 
 **Geometric deep-learning memory architecture for drift-resistant persistent identity in AI agents**  
 **Software embodiment of the Vortex Quaternion Conduit (VQC) patent**
@@ -11,13 +13,13 @@
 
 ## Abstract
 
-The Quaternion Vortex Persistent Identity Conduit (QVPIC v1.0) is the software realization of the **Vortex Quaternion Conduit (VQC)** system described in U.S. Provisional Patent Application No. 63/913,110 (filed November 6, 2025) and the corresponding non-provisional application titled *“Vortex Quaternion Conduit (VQC): Ultra-High-Density Quantum-Secure Data Transmission via Orbital Angular Momentum Mode Division Multiplexing with Quaternion Compression and Nested Helical Shielding”*.
+The Quaternion Vortex Persistent Identity Conduit (QVPIC v10.2) is the software realization of the **Vortex Quaternion Conduit (VQC)** system described in U.S. Provisional Patent Application No. 63/913,110 (filed November 6, 2025) and the corresponding non-provisional application titled *“Vortex Quaternion Conduit (VQC): Ultra-High-Density Quantum-Secure Data Transmission via Orbital Angular Momentum Mode Division Multiplexing with Quaternion Compression and Nested Helical Shielding”*.
 
 QVPIC encodes data as quaternion-compressed shards embedded in a **helical fiber bundle over a Clifford-torus base**. Global topological invariants — winding number, quaternion linking/braiding phase, and zero-point ShellCube radial differential — serve as the single source of truth for memory. Optional OAM modulation (via the `VQCEnhancedHelicalConduit`) directly mirrors the patent’s nested helical shielding and mode-division multiplexing.  
 
 On standard benchmarks, QVPIC achieves **0.98–1.000 cosine recall fidelity** with **5.68× drift protection** relative to conventional vector-store baselines, while preserving exact topological invariants under coordinate and vector noise. This provides a practical, reproducible software prototype of VQC’s ultra-high-density, quantum-secure encoding principles for AI agents.
 
-## Key Features (v1.0)
+## Key Features (v10.2)
 
 - **Topological persistence layer**: Winding number, quaternion linking phase, and ShellCube radial differential (inscribed r=1 + circumscribed R=√3) enforce global consistency.
 - **Dual-mode architecture**:
@@ -45,20 +47,20 @@ The patent abstract and full specification are included in the repository as `do
    ```bash
    pip install -r requirements.txt
    ```
-3. (Optional) Place facts in `scripts/public_facts.txt` and `scripts/private_facts.txt`.
+3. Edit identity files: `scripts/agent_public.md`, `scripts/agent_private.md`, `scripts/user_public.md`, `scripts/user_private.md`.
 4. Run the agent:
    ```bash
    python scripts/agent_demo.py --no-reset
    ```
 5. Experimental VQC OAM mode:
    ```bash
-   python scripts/pic_test.py --vqc
+   python scripts/qvpic_test.py --vqc
    ```
 
-Full diagnostics and baking:
-```bash
-python scripts/pic_test.py --strong-train --no-viz
-```
+6. Full diagnostics and baking:
+    ```bash
+    python scripts/qvpic_test.py --strong-train --no-viz
+    ```
 
 ## Benchmarks (RubikCone + ShellCube path)
 
@@ -93,10 +95,11 @@ qvpic/
 │   └── decoder.py
 ├── scripts/
 │   ├── agent_demo.py               # User Interface via Gradio
-│   ├── qvpic_test.py               # Full benchmark & diagnostics
-│   └── heartbeat.py
+│   ├── qvpic_test.py               # Full Benchmark & Diagnostics
+│   └── heartbeat.py                # Task Scheduler
 ├── identity/
-│   ├── agent_bud.md                # Agent's Identity
+│   ├── agent_public.md             # Agent's Public Identity
+│   ├── agent_private.md            # Agent's Private Identity
 │   ├── user_public.md              # User's Public Identity
 │   └── user_private.md             # User's Private Identity
 ├── docs/
@@ -111,8 +114,12 @@ MIT
 
 ## Acknowledgments
 
+https://github.com/kinaar8340/pic  
+https://github.com/kinaar8340/vqc_sims_public  
+Email: kinaar0@protonmail.com  
+X: @kinaar8340
+
 Built as the reference software implementation of the VQC patent by Aaron Michael Kinder.  
 Inspired by advances in topological photonics, geometric deep learning, and quaternion neural networks.  
 
 **Global topological invariants (winding, linking, braiding + ShellCube differential) are the single source of truth.**
-
