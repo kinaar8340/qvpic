@@ -3,6 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+![Coverage](https://codecov.io/gh/kinaar8340/qvpic/branch/main/graph/badge.svg)
 
 ![Banner](images/qvpic.png)
 

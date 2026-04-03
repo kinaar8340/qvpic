@@ -28,7 +28,13 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest -v --maxfail=5 --durations=10 
+          pytest -v --maxfail=5 --durations=10 --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
 
       - name: Lint with ruff
         run: |
@@ -41,3 +47,4 @@ jobs:
       - name: Check import sorting (isort)
         run: |
           isort --check-only --diff src/ scripts/
+          
