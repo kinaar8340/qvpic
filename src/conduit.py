@@ -182,7 +182,8 @@ class RingConeChain(nn.Module):
         self.rings = [CubeChain(num_cubes=size, device=self.device)
                       for size in self.RING_SIZES + self.RING_SIZES]
 
-        self.ring_polarities = torch.zeros(self.TOTAL_CUBES, dtype=torch.long, device=self.device)
+        self.register_buffer('ring_polarities',
+                             torch.zeros(self.TOTAL_CUBES, dtype=torch.long, device=self.device))
 
         # Only ONE face_grids — registered buffer, correct shape for Rubik test, guaranteed on self.device
         self.register_buffer(
@@ -259,7 +260,8 @@ class RingConeChain(nn.Module):
             x = x + F.relu(neighbor_agg)
 
         # Vortex-polarized readout at origin bottleneck
-        origin_agg = x.mean(dim=0) * torch.sin(2 * torch.pi * self.ring_polarities.float().mean() / 9)
+        device = x.device
+        origin_agg = x.mean(dim=0) * torch.sin(2 * torch.pi * self.ring_polarities.float().to(device).mean() / 9)
 
         stats = {
             "active_cubes": sum(r.get_stats()["active_cubes"] for r in self.rings),
@@ -465,7 +467,7 @@ class TwistedHelicalConduit(nn.Module):
 
         self.cube_chain = CubeChain(num_cubes=12, device=None)
 
-        # Helix projector — now fully device-safe (fixes Rubik test)
+        # Helix projector — fully device-safe (fixes Rubik test)
         self.helix_projector = nn.Linear(3, embed_dim, bias=False, device=self.device)
         for p in self.helix_projector.parameters():
             p.requires_grad = False
