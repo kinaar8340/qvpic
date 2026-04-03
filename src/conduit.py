@@ -984,9 +984,8 @@ class RubikConeConduit(TwistedHelicalConduit):
         elif isinstance(ring_stats, torch.Tensor):
             stats["ring_cone_norm"] = float(ring_stats.norm().item())
 
-        # Return recon + stats (matches original test expectations)
-        return recon, stats
-
+        # Return reconstruction tensor only (test expects .shape)
+        return recon
 
 # VQC subclass (inherits all new topology for free)
 class VQCEnhancedHelicalConduit(TwistedHelicalConduit):
