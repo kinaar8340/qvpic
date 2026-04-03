@@ -632,7 +632,9 @@ class TwistedHelicalConduit(nn.Module):
         device = self.helix_projector.weight.device
         geo_3d = geo_3d.to(device)
         residual = self.helix_projector(geo_3d.unsqueeze(0)).squeeze(0) * self.residual_scale
-        quat_residual = self.quat_spine(torch.zeros(self.quat_logical_dim, device=self.device) * self.quat_scale)
+        # FINAL robust device alignment for quat_spine (stale self.device → module weight device)
+        device = next(self.quat_spine.parameters()).device
+        quat_residual = self.quat_spine(torch.zeros(self.quat_logical_dim, device=device) * self.quat_scale.to(device))
         geo_repeat = geo_3d.repeat(self.embed_dim // 3)[:self.embed_dim] * 1.0
 
         # Multi-stage normalization trick (preserves Clifford torus skin)
