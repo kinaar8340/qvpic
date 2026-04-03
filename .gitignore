@@ -1,0 +1,47 @@
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyTorch / model artifacts
+checkpoints/
+outputs/
+models/
+*.pt
+*.pth
+*.bin
+
+# Logs and temp files
+*.log
+logs/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Jupyter / notebooks (if you ever use them)
+.ipynb_checkpoints/
+
+# Environment variables / secrets
+.env
+*.env
+
+# IDE / editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large data or cached files
+*.h5
+*.onnx
+
+# QVPIC-specific (optional but recommended)
+snapshots/
+braided_lattice/
