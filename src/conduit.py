@@ -222,28 +222,30 @@ class RingConeChain(nn.Module):
 
     def forward(self, inner_latent: torch.Tensor, outer_latent: torch.Tensor,
                 vortex_digits: Optional[torch.Tensor] = None):
-        shell_feats = self.shell.embed_radial(inner_latent, outer_latent)  # pure geometric (no learnables)
+        shell_feats = self.shell.embed_radial(inner_latent, outer_latent)
 
-        # Per-cube initial features — dimension-safe + global topology first
+        # Per-cube initial features — FULL device consistency
         node_feats = []
         cube_offset = 0
+        device = inner_latent.device  # ← use input device (cpu in test)
+
         for ring_idx, ring in enumerate(self.rings):
             for i in range(ring.num_cubes):
                 global_idx = cube_offset + i
                 if ring.embeddings[i] is not None:
-                    primal = ring.embeddings[i]  # [embed_dim]
+                    primal = ring.embeddings[i].to(device)
+                    dual = ring.dual_vectors[i].to(device)
 
-                    # DRY grid projection via dedicated Linear (full flatten → exact 378)
-                    grid_tensor = self.face_grids[global_idx].flatten()  # ← FULL FLATTEN (378)
-                    grid_flat = self.grid_projector(grid_tensor) * 0.12
+                    grid_tensor = self.face_grids[global_idx].flatten()
+                    grid_flat = self.grid_projector(grid_tensor.to(device)) * 0.12
 
-                    feat = primal + grid_flat + 0.3 * ring.dual_vectors[i]
+                    feat = primal + grid_flat + 0.3 * dual
                 else:
-                    feat = torch.zeros(self.embed_dim, device=self.device)
+                    feat = torch.zeros(self.embed_dim, device=device)
 
-                # ShellCube radial differential = topological memory lock (zero-point closed system)
+                # ShellCube radial differential
                 shell_idx = global_idx % shell_feats.shape[0]
-                feat = feat + shell_feats[shell_idx]
+                feat = feat + shell_feats[shell_idx].to(device)
 
                 node_feats.append(feat)
             cube_offset += ring.num_cubes
@@ -463,6 +465,7 @@ class TwistedHelicalConduit(nn.Module):
 
         self.cube_chain = CubeChain(num_cubes=12, device=None)
 
+        # Helix projector — now fully device-safe (fixes Rubik test)
         self.helix_projector = nn.Linear(3, embed_dim, bias=False, device=self.device)
         for p in self.helix_projector.parameters():
             p.requires_grad = False
