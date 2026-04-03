@@ -953,38 +953,38 @@ class RubikConeConduit(TwistedHelicalConduit):
 
     def forward(self, face_grids: torch.Tensor, orientations: torch.Tensor,
                 vortex_digits: Optional[torch.Tensor] = None, s_query: Optional[torch.Tensor] = None):
+        """RubikConeConduit forward — now fully device/shape/stats consistent."""
         # 1. Encode Rubik state → inner + outer latents
         inner_latent, outer_latent = self.encoder(face_grids, orientations, vortex_digits)
 
-        # 2. Inject helical position — use input device (kills cuda leak)
+        # 2. Inject helical position — use input device (no cuda leak)
         if s_query is None:
             device = face_grids.device
             s_query = torch.linspace(0, self.max_depth, inner_latent.shape[1], device=device)
         pos_emb = torch.stack([self.position(s.item()) for s in s_query])
         outer_latent = outer_latent + pos_emb.unsqueeze(0) * math.sqrt(3.0) * 0.3
 
-        # 3. RingConeChain call
+        # 3. RingConeChain call (returns single tensor after recent readout change)
         cone_out = self.ring_cone(inner_latent.squeeze(0), outer_latent.squeeze(0))
 
-        # FINAL: decoder expects [B, 54, embed_dim] (Rubik sticker shape)
+        # 4. Decoder expects [B, 54, embed_dim] (Rubik sticker shape)
         B = face_grids.shape[0]  # batch_size = 2 in test
 
-        # Expand collapsed cone output to per-sticker latent
         if cone_out.dim() == 1:
             cone_out = cone_out.unsqueeze(0).expand(B, -1)
         decoder_input = cone_out.unsqueeze(1).expand(B, 54, -1)  # [B, 54, embed_dim]
 
-        # 4. Decode back to cube state + next move
         recon = self.decoder(decoder_input)
 
-        # Merge RingConeChain stats — defensive (handles Tensor or dict)
+        # 5. Stats handling — initialize here + defensive merge
+        stats = {}  # ← this was the missing piece
         ring_stats = self.ring_cone.get_stats() if hasattr(self.ring_cone, 'get_stats') else {}
         if isinstance(ring_stats, dict):
             stats.update(ring_stats)
-        # fallback scalar for monitoring
         elif isinstance(ring_stats, torch.Tensor):
             stats["ring_cone_norm"] = float(ring_stats.norm().item())
 
+        # Return recon + stats (matches original test expectations)
         return recon, stats
 
 
