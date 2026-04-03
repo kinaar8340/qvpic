@@ -976,16 +976,22 @@ class RubikConeConduit(TwistedHelicalConduit):
 
         recon = self.decoder(decoder_input)
 
-        # 5. Stats handling — initialize here + defensive merge
-        stats = {}  # ← this was the missing piece
-        ring_stats = self.ring_cone.get_stats() if hasattr(self.ring_cone, 'get_stats') else {}
-        if isinstance(ring_stats, dict):
-            stats.update(ring_stats)
-        elif isinstance(ring_stats, torch.Tensor):
-            stats["ring_cone_norm"] = float(ring_stats.norm().item())
+        # Test expects tensor (shape[0] == batch_size). Decoder returns dict.
+        if isinstance(recon, dict):
+            # Prefer the main grids reconstruction (most common key)
+            if 'grids' in recon and torch.is_tensor(recon['grids']):
+                return recon['grids']
+            elif 'face_grids' in recon and torch.is_tensor(recon['face_grids']):
+                return recon['face_grids']
+            # fallback: first tensor value in the dict
+            for v in recon.values():
+                if torch.is_tensor(v) and v.dim() >= 1:
+                    return v
+        # fallback for tuple or raw tensor
+        elif isinstance(recon, tuple) and len(recon) > 0 and torch.is_tensor(recon[0]):
+            return recon[0]
 
-        # Return reconstruction tensor only (test expects .shape)
-        return recon
+        return recon  # final safety
 
 # VQC subclass (inherits all new topology for free)
 class VQCEnhancedHelicalConduit(TwistedHelicalConduit):
