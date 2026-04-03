@@ -8,6 +8,11 @@
 **Date:** April 2026  
 
 **Repository:** https://github.com/kinaar8340/qvpic
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+
+![QVPIC Banner](images/qvpic_banner.png)
 
 ---
 
@@ -104,3 +109,5 @@ We invite researchers, developers, and photonics engineers to explore the reposi
 **License:** MIT  
 **Patent Status:** Provisional filed November 2025; non-provisional draft prepared (filing window still open).  
 **Contact:** kinaar0@protonmail.com | X: @kinaar8340
+
+![Banner](images/banner.png)
