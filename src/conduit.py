@@ -463,15 +463,15 @@ class TwistedHelicalConduit(nn.Module):
 
         self.cube_chain = CubeChain(num_cubes=12, device=None)
 
-        self.helix_projector = nn.Linear(3, embed_dim, bias=False)
+        self.helix_projector = nn.Linear(3, embed_dim, bias=False, device=self.device)
         for p in self.helix_projector.parameters():
             p.requires_grad = False
 
         self.quat_spine = nn.Sequential(
-            nn.Linear(quat_logical_dim, 512),
-            nn.LayerNorm(512),
+            nn.Linear(quat_logical_dim, 512, device=self.device),
+            nn.LayerNorm(512, device=self.device),
             nn.GELU(),
-            nn.Linear(512, embed_dim)
+            nn.Linear(512, embed_dim, device=self.device)
         )
         for p in self.quat_spine.parameters():
             p.data *= 1e-4
