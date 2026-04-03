@@ -179,11 +179,18 @@ class RingConeChain(nn.Module):
         super().__init__()
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embed_dim = embed_dim
-        self.rings = [CubeChain(num_cubes=size, device=self.device) for size in self.RING_SIZES + self.RING_SIZES]
+        self.rings = [CubeChain(num_cubes=size, device=self.device)
+                      for size in self.RING_SIZES + self.RING_SIZES]
+
         self.ring_polarities = torch.zeros(self.TOTAL_CUBES, dtype=torch.long, device=self.device)
-        self.face_grids = nn.Parameter(torch.randn(self.TOTAL_CUBES, 6, 3, 3, embed_dim // 54))
-        legacy_grid_in = 6 * 3 * 3 * (embed_dim // 54)
-        self.grid_projector = nn.Linear(legacy_grid_in, embed_dim)
+
+        # Only ONE face_grids — registered buffer, correct shape for Rubik test, guaranteed on self.device
+        self.register_buffer(
+            "face_grids",
+            torch.randn(self.TOTAL_CUBES, 54, self.embed_dim, device=self.device) * 0.1
+        )
+
+        self.grid_projector = nn.Linear(54 * self.embed_dim, self.embed_dim, device=self.device)
         self.shell = ShellCube(embed_dim=embed_dim, device=self.device)
         self.register_buffer('edge_index', self._build_cone_edges())
 
@@ -326,12 +333,12 @@ class RubikEncoder(nn.Module):
         super().__init__()
         self.embed_dim = embed_dim
 
-        # 6 faces × 9 stickers → 54-dim → projected
+        # 54 stickers × embed_dim → projected
         self.face_embed = nn.Sequential(
-            nn.Linear(54, 128),
+            nn.Linear(self.embed_dim, 128),  # ← changed from nn.Linear(54, 128)
             nn.LayerNorm(128),
             nn.GELU(),
-            nn.Linear(128, embed_dim)
+            nn.Linear(128, self.embed_dim)
         )
 
         # Orientation one-hot (24) → learnable rotation embedding
@@ -341,8 +348,8 @@ class RubikEncoder(nn.Module):
         self.vortex_proj = nn.Linear(9, embed_dim // 8)
 
     def forward(self,
-                face_grids: torch.Tensor,  # [B, 216, 6, 3, 3] or [216, 6, 3, 3]
-                orientations: torch.Tensor,  # [B, 216] integers 0-23
+                face_grids: torch.Tensor,  # [B, 54, embed_dim] from test
+                orientations: torch.Tensor,  # [B, 54]
                 vortex_digits: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         if face_grids.dim() == 4:
             face_grids = face_grids.unsqueeze(0)
@@ -351,23 +358,26 @@ class RubikEncoder(nn.Module):
                 vortex_digits = vortex_digits.unsqueeze(0)
 
         B, N = face_grids.shape[:2]
+        device = face_grids.device
 
         # Inner latent (from face grids + orientation)
-        x = face_grids.flatten(start_dim=-3)  # [B, N, 54]
-        inner = self.face_embed(x)  # [B, N, embed_dim]
+        inner = self.face_embed(face_grids)  # [B, 54, embed_dim]
         inner = inner + self.orient_embed(orientations)
 
-        # Vortex polarization (inner)
+        # Vortex polarization — safe range (test gives 0–9 → clamp to 0–8 for one_hot)
         if vortex_digits is None:
-            vortex_digits = torch.ones(B, N, dtype=torch.long, device=x.device)
-        v_onehot = F.one_hot(vortex_digits - 1, num_classes=9).float()
+            vortex_digits = torch.zeros(B, N, dtype=torch.long, device=device)
+        else:
+            vortex_digits = torch.clamp(vortex_digits, 0, 8)
+
+        v_onehot = F.one_hot(vortex_digits, num_classes=9).float()
         vortex_emb = self.vortex_proj(v_onehot)
         inner = inner + F.pad(vortex_emb, (0, self.embed_dim - vortex_emb.shape[-1]))
 
-        # Outer latent = inner + helical position modulation (scaled later in conduit)
+        # Outer latent = inner + small helical noise
         outer = inner.clone() + torch.randn_like(inner) * 0.05
 
-        return inner, outer  # radial differential applied downstream
+        return inner, outer
 
 
 class RubikDecoder(nn.Module):
@@ -429,6 +439,7 @@ class TwistedHelicalConduit(nn.Module):
                  quat_logical_dim: int = 96,
                  **kwargs):
         super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.embed_dim = embed_dim
         self.twist_rate = twist_rate
         self.max_depth = max_depth
@@ -440,14 +451,15 @@ class TwistedHelicalConduit(nn.Module):
         self.vortex_math_369: bool = kwargs.pop('vortex_math_369', False)
         self.clifford_projection: bool = kwargs.pop('clifford_projection', False)
 
-        self.output_scale = nn.Parameter(torch.tensor(0.35))
-        self.residual_scale = nn.Parameter(torch.tensor(0.85))
-        self.quat_scale = nn.Parameter(torch.tensor(0.35))
+        # nn.Parameter does not accept device= in older PyTorch → create tensor first
+        self.output_scale = nn.Parameter(torch.tensor(0.35, device=self.device))
+        self.residual_scale = nn.Parameter(torch.tensor(0.85, device=self.device))
+        self.quat_scale = nn.Parameter(torch.tensor(0.35, device=self.device))
 
-        self.pol_phase = nn.Parameter(torch.randn(num_polarizations) * 0.28)
+        self.pol_phase = nn.Parameter(torch.randn(num_polarizations, device=self.device) * 0.28)
 
-        self.register_buffer('vortex_phase', torch.zeros(self.num_pol, dtype=torch.long))
-        self.vortex_offset = nn.Parameter(torch.randn(self.num_pol) * 0.8)
+        self.register_buffer('vortex_phase', torch.zeros(self.num_pol, dtype=torch.long, device=self.device))
+        self.vortex_offset = nn.Parameter(torch.randn(self.num_pol, device=self.device) * 0.8)
 
         self.cube_chain = CubeChain(num_cubes=12, device=None)
 
@@ -464,7 +476,6 @@ class TwistedHelicalConduit(nn.Module):
         for p in self.quat_spine.parameters():
             p.data *= 1e-4
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
 
     # Vortex Fiber helpers (unchanged, SRP)
@@ -608,7 +619,7 @@ class TwistedHelicalConduit(nn.Module):
         local_offset = local_offset * torch.cos(torch.tensor(knot_phase, device=self.device))
 
         residual = self.helix_projector(geo_3d.unsqueeze(0)).squeeze(0) * self.residual_scale
-        quat_residual = self.quat_spine(torch.zeros(self.quat_logical_dim, device=self.device)) * self.quat_scale
+        quat_residual = self.quat_spine(torch.zeros(self.quat_logical_dim, device=self.device) * self.quat_scale)
         geo_repeat = geo_3d.repeat(self.embed_dim // 3)[:self.embed_dim] * 1.0
 
         # Multi-stage normalization trick (preserves Clifford torus skin)
@@ -953,8 +964,8 @@ class RubikConeConduit(TwistedHelicalConduit):
 class VQCEnhancedHelicalConduit(TwistedHelicalConduit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.vqc_scale = nn.Parameter(torch.tensor(1.0))
-        self.oam_freq = nn.Parameter(torch.tensor(8.5))
+        self.vqc_scale = nn.Parameter(torch.tensor(1.0), device=self.device)
+        self.oam_freq = nn.Parameter(torch.tensor(8.5), device=self.device)
 
         nn.init.normal_(self.helix_projector.weight, mean=0.0, std=0.022)
         for p in self.helix_projector.parameters():
