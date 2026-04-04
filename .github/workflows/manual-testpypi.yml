@@ -1,19 +1,20 @@
-name: Manual Publish to TestPyPI
+name: Manual Bootstrap to TestPyPI
 
 on:
   workflow_dispatch:
 
 jobs:
-  publish:
+  bootstrap:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Set up Python
+      - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -39,4 +40,5 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
         env:
-          TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
