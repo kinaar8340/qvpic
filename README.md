@@ -44,22 +44,43 @@ QVPIC implements the patent’s core claims:
 
 The patent abstract and full specification are included in the repository as `docs/United_States_Non-Provisional_Patent_Application.pdf`.
 
-## Quick Start
+## Quick Start: Quaternion Vortex Persistent Identity Conduit
 
-1. Clone the repository.
+1. Install from PyPI with:
+    ```bash
+    pip install qvpic
+    ```
+    Or you can clone the repository:
+    ```bash
+    git clone https://github.com/kinaar8340/qvpic.git
+    ```
+   
 2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Edit identity files: `scripts/agent_public.md`, `scripts/agent_private.md`, `scripts/user_public.md`, `scripts/user_private.md`.
+    ```bash
+    pip install -r requirements.txt
+    ```
+   
+3. Edit identity files:
+
+    ```bash
+    `scripts/agent_public.md`   
+
+    `scripts/agent_private.md` 
+
+    `scripts/user_public.md`
+
+    `scripts/user_private.md`
+    ```
+
 4. Run the agent:
-   ```bash
-   python scripts/agent_demo.py --no-reset
-   ```
+    ```bash
+    python scripts/agent_demo.py --no-reset
+    ```
+
 5. Experimental VQC OAM mode:
-   ```bash
-   python scripts/qvpic_test.py --vqc
-   ```
+    ```bash
+    python scripts/qvpic_test.py --vqc
+    ```
 
 6. Full diagnostics and baking:
     ```bash
