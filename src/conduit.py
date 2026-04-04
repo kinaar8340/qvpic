@@ -516,7 +516,8 @@ class TwistedHelicalConduit(nn.Module):
 
     # Vortex Fiber helpers (unchanged, SRP)
     def fib(self, n: int) -> int:
-        if n <= 1: return n
+        if n <= 1:
+            return n
         a, b = 0, 1
         for _ in range(2, n + 1):
             a, b = b, a + b
@@ -531,7 +532,8 @@ class TwistedHelicalConduit(nn.Module):
     def vortex_advance(self, digit: int, steps: int = 1) -> int:
         for _ in range(steps):
             digit = (digit * 2) % 9
-            if digit == 0: digit = 9
+            if digit == 0:
+                digit = 9
         return digit
 
     def get_vortex_digit_fib(self, pol_idx: int = 0, s: Optional[float] = None, fib_index: int = 8) -> int:
