@@ -1,15 +1,17 @@
-name: Nightly Dev Build
+name: Nightly Dev Build + TestPyPI
 
 on:
   schedule:
-    - cron: '0 2 * * *'      # Runs every day at 2:00 AM UTC
-  workflow_dispatch:         # Allows manual trigger from GitHub UI
+    - cron: '0 2 * * *'      # Every day at 2:00 AM UTC
+  workflow_dispatch:         # Manual trigger
 
 jobs:
   nightly:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write         # Required for Trusted Publishing
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,14 +33,23 @@ jobs:
           rm -rf src/__pycache__ tests/__pycache__ .pytest_cache
           python -m pytest -q --cov --cov-report=xml
 
-      - name: Build package with dev version
+      - name: Bump dev version
         run: |
-          # Dynamic dev version (example: 10.2.1.dev20260404)
           DATE=$(date +%Y%m%d)
           sed -i "s/version = \"10.2.0\"/version = \"10.2.1.dev${DATE}\"/" pyproject.toml
-          python -m build
 
-      - name: Create Nightly Release
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+        env:
+          TWINE_USERNAME: __token__   # not used with Trusted Publishing, but required by the action
+
+      - name: Create/Update Nightly GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nightly
