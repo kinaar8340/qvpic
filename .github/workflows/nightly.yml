@@ -1,0 +1,53 @@
+name: Nightly Dev Build
+
+on:
+  schedule:
+    - cron: '0 2 * * *'      # Runs every day at 2:00 AM UTC
+  workflow_dispatch:         # Allows manual trigger from GitHub UI
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install CPU-only Torch + dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e .[dev]
+
+      - name: Run full test suite
+        run: |
+          rm -rf src/__pycache__ tests/__pycache__ .pytest_cache
+          python -m pytest -q --cov --cov-report=xml
+
+      - name: Build package with dev version
+        run: |
+          # Dynamic dev version (example: 10.2.1.dev20260404)
+          DATE=$(date +%Y%m%d)
+          sed -i "s/version = \"10.2.0\"/version = \"10.2.1.dev${DATE}\"/" pyproject.toml
+          python -m build
+
+      - name: Create Nightly Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: QVPIC Nightly Build (dev)
+          prerelease: true
+          draft: false
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
