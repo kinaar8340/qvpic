@@ -11,12 +11,8 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
 dependencies = [
@@ -56,18 +52,8 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.ruff]
-line-length = 100
-target-version = "py310"
-
-[tool.black]
-line-length = 100
-
-[tool.isort]
-profile = "black"
-line_length = 100
-
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "--strict-markers --strict-config --cov=src --cov-report=term-missing --cov-fail-under=25"
-testpaths = ["tests", "src", "scripts"]
+testpaths = ["tests"]
+norecursedirs = ["scripts", "__pycache__", ".git", "checkpoints"]
