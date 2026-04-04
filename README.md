@@ -87,7 +87,7 @@ The patent abstract and full specification are included in the repository as `do
     ```
 
 
-5. Experimental VQC OAM mode:
+5. Experimental VQC Enhancements:
     ```bash
     python scripts/qvpic_test.py --vqc
     ```

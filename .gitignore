@@ -26,15 +26,22 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# QVPIC test / sensitive data
 scripts/test_facts.txt
+scripts/private_facts.txt
+scripts/public_facts.txt
 
 # Build artifacts
 dist/
 *.egg-info/
 build/
-__pycache__/
-.pytest_cache/
-*.pyc
 
 # Temporary files
 *.tmp
+
+# QVPIC runtime / generated files
+outputs/
+snapshots/
+chat_history.json
+identity_structure.json
