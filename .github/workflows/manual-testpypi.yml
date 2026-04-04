@@ -1,0 +1,42 @@
+name: Manual Publish to TestPyPI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e .[dev]
+          pip install build
+
+      - name: Bump dev version
+        run: |
+          DATE=$(date +%Y%m%d)
+          sed -i "s/version = \"10.2.0\"/version = \"10.2.1.dev${DATE}\"/" pyproject.toml
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to TestPyPI (using API token)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+        env:
+          TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
