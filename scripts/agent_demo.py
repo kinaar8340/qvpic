@@ -111,23 +111,21 @@ lattice_dir.mkdir(parents=True, exist_ok=True)
 
 def load_identity_structure():
     global user_facts
-    try:
-        if identity_structure_path.exists():
-            with open(identity_structure_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            user_facts = data.get("facts", {})
-            print(f"✅ Loaded {len(user_facts)} identity facts from disk")
-        else:
-            populate_user_facts_from_files()
-    except Exception as e:
-        print(f"⚠️ identity_structure.json was corrupted — regenerating")
+    if identity_structure_path.exists():
+        with open(identity_structure_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Support both old and new structures
+        user_facts = data.get("facts", data) if isinstance(data.get("facts"), dict) else data
+        print(f"✅ Loaded {len(user_facts)} identity facts from disk")
+    else:
         populate_user_facts_from_files()
-    return json.dumps({"facts": user_facts, **user_facts}, indent=2)
+    return json.dumps({"facts": user_facts}, indent=2)
 
 def save_identity_structure():
     data = {"facts": user_facts, "templates": IDENTITY_TEMPLATES}
     with open(identity_structure_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    print("✅ Identity structure saved to disk")
 
 def populate_user_facts_from_files():
     global user_facts
@@ -260,40 +258,109 @@ def get_relevant_facts(query: str) -> str:
     return "CORE HELIX IDENTITY FACTS:\n" + "\n".join([f"• {k}: {v}" for k, v in user_facts.items()])
 
 def chat_fn(message: str, history: list):
-    if VERBOSE: print(f"[Gradio] chat_fn called with: {message}")
+    if VERBOSE:
+        print(f"[Gradio] chat_fn called with: {message}")
+
     if not message.strip():
-        return "", history, get_helix_stats(), json.dumps({"facts": user_facts, **user_facts}, indent=2)
+        return "", history, get_helix_stats(), json.dumps({"facts": user_facts}, indent=2)
 
     history = history or []
 
+    # === 1. Handle CLI commands (/show, /set, /save, etc.) ===
     if message.strip().startswith("/"):
         cli_msg, updated_json, status = run_pic_cli(message[1:])
-        history.extend([{"role": "user", "content": message}, {"role": "assistant", "content": cli_msg}])
+        history.extend([
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": cli_msg}
+        ])
         return "", history, status, updated_json
 
-    if any(phrase in message.lower() for phrase in ["my name is", "i live in", "my wife is", "my x handle", "my email", "i have cats"]):
+    # === 2. Auto-bake volunteered personal facts ===
+    lower_msg = message.lower()
+    if any(phrase in lower_msg for phrase in [
+        "my name is", "i am ", "call me", "i live in", "my wife is",
+        "my husband is", "my email", "my x handle", "my twitter",
+        "my pet", "my cat", "my dog", "i have cats", "i have a pet"
+    ]):
         bake_new_fact(message)
         save_identity_structure()
+        if VERBOSE:
+            print(f"[Bud] Auto-baked new fact from: {message}")
 
+    # === 3. Geometric recall (ShellCube + Helix) ===
     recall_reply = bud_respond(message, history)
 
-    use_llm = LLM_AVAILABLE and (LLM_STRONG or "braiding" in recall_reply.lower())
+    # === 4. Decide if we should use LLM ===
+    is_identity_query = any(word in lower_msg for word in [
+        "name", "email", "handle", "x handle", "twitter", "pet", "cat", "dog",
+        "live", "location", "who am i", "what is my", "tell me about my"
+    ])
+
+    use_llm = LLM_AVAILABLE and (
+        is_identity_query or
+        "braiding" in recall_reply.lower() or
+        "strong match" in recall_reply.lower() or
+        "helix confirmed" in recall_reply.lower()
+    )
+
     if use_llm:
-        if VERBOSE: print("[LLM] Using concise Qwen response...")
-        system_prompt = f"""You are {agent_name}, a friendly and concise assistant.
-You know the user well but do NOT list every fact unless directly asked.
-Answer in 1-2 natural sentences. Be warm but brief."""
-        prompt = system_prompt + "\n\n" + "\n".join([f"{'User' if m['role']=='user' else agent_name}: {m['content']}" for m in history[-8:]]) + f"\nUser: {message}\n{agent_name}:"
-        out = llm(prompt, max_tokens=180, temperature=0.72, top_p=0.90, repeat_penalty=1.12)
-        reply = re.sub(r'^(Assistant|Bud|Aaron):?\s*', '', out["choices"][0]["text"].strip())
+        if VERBOSE:
+            print("[LLM] Using enhanced Qwen response with full facts...")
+
+        facts_str = json.dumps(user_facts, indent=2) if user_facts else "No stored facts yet."
+
+        system_prompt = f"""You are {agent_name}, a warm, helpful, and concise personal assistant.
+You have perfect memory of the user's identity.
+
+CURRENT USER FACTS (these are absolute truth — use them directly):
+{facts_str}
+
+CRITICAL RULES:
+- If the user asks about name, email, X handle, pets, location or any other stored fact → answer DIRECTLY using the facts above.
+- NEVER say "I don't have that information", "not listed here", "check your contacts", or anything similar when the fact exists.
+- Never mention JSON, helix, ShellCube, cosine, braiding, radial differential, or any technical terms.
+- Keep responses friendly, natural, and brief (1-2 sentences)."""
+
+        # Recent conversation for context
+        history_text = "\n".join([
+            f"{'User' if m['role']=='user' else agent_name}: {m['content']}"
+            for m in history[-6:]
+        ])
+
+        full_prompt = f"{system_prompt}\n\nRecent conversation:\n{history_text}\nUser: {message}\n{agent_name}:"
+
+        try:
+            out = llm(full_prompt, max_tokens=220, temperature=0.65, top_p=0.92, repeat_penalty=1.15)
+            raw_reply = out["choices"][0]["text"].strip()
+
+            # Clean any possible leaked prefixes or debug text
+            reply = re.sub(r'^(Assistant|Bud|Aaron|You):?\s*', '', raw_reply, flags=re.IGNORECASE)
+            reply = re.sub(r'\(ShellCube.*?\)|\(helix.*?\)|cosine=\d+\.\d+|braiding_phase=.*?', '', reply, flags=re.IGNORECASE)
+            reply = reply.strip()
+
+        except Exception as e:
+            if VERBOSE:
+                print(f"[LLM Error] {e}")
+            reply = recall_reply
     else:
         reply = recall_reply
 
-    history.extend([{"role": "user", "content": message}, {"role": "assistant", "content": reply}])
+    # === 5. Final safety fallback ===
+    if not reply or reply.startswith("No strong helix matches"):
+        reply = "Got it — I don't have a strong memory match for that yet. Can you tell me more?"
+
+    # === 6. Update history and save ===
+    history.extend([
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": reply}
+    ])
     save_chat_history(history)
 
-    if VERBOSE: print(f"[Bud → UI] Final reply: {reply[:120]}...")
-    return "", history, get_helix_stats(), json.dumps({"facts": user_facts, **user_facts}, indent=2)
+    if VERBOSE:
+        print(f"[Bud → UI] Final reply: {reply[:150]}...")
+
+    # Return to Gradio
+    return "", history, get_helix_stats(), json.dumps({"facts": user_facts}, indent=2)
 
 def save_chat_history(hist):
     with open(history_file, "w", encoding="utf-8") as f:

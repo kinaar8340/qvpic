@@ -83,26 +83,49 @@ The patent abstract and full specification are included in the repository as `do
 
 4. Run the agent:
    ```bash
+    # First run creates initial checkpoints.
+    python scripts/agent_demo.py
+    ```
+   ```bash
+    # Use --no-reset to save sessions.
     python scripts/agent_demo.py --no-reset
     ```
 
 
-5. Experimental VQC Enhancements:
+5. Experimental:
     ```bash
-    python scripts/qvpic_test.py --vqc
+    # See docs/paper.md for details.
+    python scripts/qvpic_test.py --strong-train --no-viz --vqc
     ```
+   ```bash
+   # Runs demo with vqc enhancement.
+   python scripts/agent_demo.py --no-reset --verbose --vqc
+   ```
 
 
-6. Full diagnostics and baking:
+6. Troubleshooting:
     ```bash
+    # Runs full pipeline test.
     python scripts/qvpic_test.py --strong-train --no-viz
     ```
-
-
-7. Other diagnostics:
     ```bash
+    # Runs all diagnostic scripts in tests/test_*.py.
     pytest -q --cov
     ```
+   ```bash
+   # Run demo with verbose output.
+   python scripts/agent_demo.py --no-reset --verbose
+   ```
+      
+
+7. Full agent reset, fresh start:
+   ```bash
+   # Removes old checkpoint + chat history
+   rm -f checkpoints/pic_conduit_final.pt
+   rm -f chat_history.json
+   rm -rf snapshots/braided_lattice/*
+   echo "✅ Agent's identity has been cleared."
+   ```
 
 ## Benchmarks (RubikCone + ShellCube path)
 
