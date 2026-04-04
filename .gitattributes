@@ -1,6 +1,12 @@
-*.webp filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
-*.jpg filter=lfs diff=lfs merge=lfs -text
-*.jpeg filter=lfs diff=lfs merge=lfs -text
-*.gif filter=lfs diff=lfs merge=lfs -text
-*.pt filter=lfs diff=lfs merge=lfs -text
+# Binary model checkpoints and weights - never diff or merge as text
+*.pt          binary
+*.pth         binary
+*.bin         binary
+*.gguf        binary
+*.safetensors binary
+
+# Entire checkpoints directory (future-proof)
+checkpoints/** binary
+
+# Large model files
+models/**     binary
