@@ -27,3 +27,14 @@ htmlcov/
 .DS_Store
 Thumbs.db
 scripts/test_facts.txt
+
+# Build artifacts
+dist/
+*.egg-info/
+build/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Temporary files
+*.tmp

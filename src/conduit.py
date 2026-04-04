@@ -940,8 +940,8 @@ class TwistedHelicalConduit(nn.Module):
                 ax.scatter(p[:, 0], p[:, 1], p[:, 2], c=cmap(depth_norm), s=32, alpha=0.95, label=f'Pol {pol}')
             title = "Braided Lattice — Clifford Torus Skin + Toroidal 3-6-9 Knots (v10.0 with ShellCube)"
             ax.set_title(title, color='white')
-            ax.set_xlabel('X');
-            ax.set_ylabel('Y');
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
             ax.set_zlabel('Z')
             ax.legend()
             os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)

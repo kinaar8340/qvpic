@@ -3,15 +3,13 @@
 # Quaternion math + helical/Clifford geometry solve the AI persistent memory problem.
 # safe_cosine(dim=-1 + .unsqueeze(0)) pattern enforced everywhere (DRY + SRP)
 
-import torch
-import torch.nn.functional as F
+import torch  # noqa: E402
+import torch  # noqa: E402.nn.functional as F
 import os
 import sys
-import math
 import argparse
 import json
-import numpy as np
-from tqdm import tqdm
+import numpy as np  # noqa: E402
 from sentence_transformers import SentenceTransformer
 from pathlib import Path
 from datetime import datetime
