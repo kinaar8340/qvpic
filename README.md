@@ -46,47 +46,59 @@ The patent abstract and full specification are included in the repository as `do
 
 ## Quick Start: Quaternion Vortex Persistent Identity Conduit
 
-1. Install from PyPI with:
-    ```bash
-    pip install qvpic
-    ```
-    Or you can clone the repository:
-    ```bash
-    git clone https://github.com/kinaar8340/qvpic.git
-    ```
-   
-2. Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-   
-3. Edit identity files:
+1. Usage Options:
 
-    ```bash
-    `scripts/agent_public.md`   
+   i. Install from PyPI with:
+   ```bash
+   pip install qvpic
+   ```
 
-    `scripts/agent_private.md` 
+   ii. Clone the Repository:
+   ```bash
+   git clone https://github.com/kinaar8340/qvpic.git
+   ```
 
-    `scripts/user_public.md`
+   iii. Nightly Development Build updated every day at 2:00 AM UTC:
+   ```bash
+   pip install -i https://test.pypi.org/simple/ qvpic
+   ```
 
-    `scripts/user_private.md`
-    ```
+
+2. Install Dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+
+3. Edit Identity Files in ~/qvpic/scripts/:
+    
+   --  agent_public.md 
+
+   --  agent_private.md
+
+   --  user_public.md
+
+   --  user_private.md
+
 
 4. Run the agent:
-    ```bash
+   ```bash
     python scripts/agent_demo.py --no-reset
     ```
+
 
 5. Experimental VQC OAM mode:
     ```bash
     python scripts/qvpic_test.py --vqc
     ```
 
+
 6. Full diagnostics and baking:
     ```bash
     python scripts/qvpic_test.py --strong-train --no-viz
     ```
-   
+
+
 7. Other diagnostics:
     ```bash
     pytest -q --cov
@@ -142,7 +154,7 @@ qvpic/
 ## License
 MIT
 
-## Aknowledgements
+## Acknowledgements
 
 **Contact:** 
 - kinaar0@protonmail.com
