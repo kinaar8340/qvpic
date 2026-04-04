@@ -2,12 +2,13 @@ name: Nightly Dev Build + TestPyPI
 
 on:
   schedule:
-    - cron: '0 2 * * *'      # Every day at 2:00 AM UTC
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
   nightly:
     runs-on: ubuntu-latest
+    environment: testpypi          # ← This was missing
     permissions:
       contents: write
       id-token: write
@@ -27,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -e .[dev]
-          pip install build          # ← this was missing
+          pip install build
 
       - name: Run full test suite
         run: |
