@@ -27,7 +27,18 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# QVPIC test / sensitive data
+# QVPIC runtime / generated files
+checkpoints/
+models/
+snapshots/
+outputs/
+chat_history.json
+identity_structure.json
+
+# Backups
+scripts/*.backup.*
+
+# Test / sensitive data
 scripts/test_facts.txt
 scripts/private_facts.txt
 scripts/public_facts.txt
@@ -36,12 +47,4 @@ scripts/public_facts.txt
 dist/
 *.egg-info/
 build/
-
-# Temporary files
 *.tmp
-
-# QVPIC runtime / generated files
-outputs/
-snapshots/
-chat_history.json
-identity_structure.json
