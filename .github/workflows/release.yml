@@ -60,7 +60,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: PIC v${{ github.ref_name }} — RubikCone + ShellCube
+          name: QVPIC v${{ github.ref_name }} — RubikCone + ShellCube
           draft: false
           prerelease: false
           generate_release_notes: true
