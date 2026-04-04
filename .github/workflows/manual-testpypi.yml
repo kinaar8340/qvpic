@@ -1,4 +1,4 @@
-name: Manual Bootstrap to TestPyPI
+name: Manual Bootstrap to TestPyPI (API Token)
 
 on:
   workflow_dispatch:
