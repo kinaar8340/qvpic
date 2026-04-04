@@ -65,6 +65,11 @@ The patent abstract and full specification are included in the repository as `do
     ```bash
     python scripts/qvpic_test.py --strong-train --no-viz
     ```
+   
+7. Other diagnostics:
+    ```bash
+    pytest -q --cov
+    ```
 
 ## Benchmarks (RubikCone + ShellCube path)
 

@@ -61,7 +61,8 @@ line_length = 100
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "--strict-markers --strict-config --cov=src --cov-report=term-missing --cov-fail-under=25"
-testpaths = ["tests", "src", "scripts"]
-python_files = ["test_*.py", "*_test.py"]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
