@@ -48,3 +48,15 @@ dist/
 *.egg-info/
 build/
 *.tmp
+# QVPIC runtime / generated files (never commit these)
+identity/
+logs/
+scripts/agent_private.md
+scripts/agent_public.md
+temp.md
+checkpoints/
+snapshots/
+*.pt
+__pycache__/
+.DS_Store
+*.gguf

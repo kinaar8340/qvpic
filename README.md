@@ -152,7 +152,7 @@ All cosine operations use the enforced pattern `safe_cosine(dim=-1 + .unsqueeze(
 
 ```
 qvpic/
-├── models/
+├── models/                         # "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
 ├── src/
 │   ├── conduit.py                  # Core TwistedHelicalConduit + RubikConeConduit
 │   ├── vqc_enhanced_conduit.py     # OAM-modulated VQC subclass

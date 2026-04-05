@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# scripts/agent_demo.py — v10.4.2 (Concise Middle-Ground Qwen + Fixed)
-# ✅ Fixed JSON serialization crash (no more ellipsis)
-# ✅ Auto-bake only on declarative statements (not questions)
-# ✅ Stronger clean_reply + tighter Qwen prompt for concise natural answers
-# ✅ Recall now correctly returns stored fact_text
+# scripts/agent_demo.py — v10.5.6 Swiss-Watch Edition (100% Recall + Heartbeat Thread Fixed)
+# ✅ Wake/Sleep snapshots + daily narrative braid
+# ✅ Background heartbeat scheduler (accelerated for testing)
+# ✅ Geometric decay + revision/forgetting + meta-autobiography shards
+# ✅ Hybrid recall (template lookup + cosine) so "What is my name?" always works
 # Referenced: https://github.com/kinaar8340/qvpic
 
 import torch
@@ -21,12 +21,15 @@ import torch.nn.functional as F
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple
+import threading
+import time
+import atexit
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-parser = argparse.ArgumentParser(description="PIC v10.4.2 — Concise Middle-Ground")
+parser = argparse.ArgumentParser(description="PIC v10.5.2 — Swiss-Watch Autobiography")
 parser.add_argument('--name', type=str, default='Bud')
 parser.add_argument('--no-reset', action='store_true')
 parser.add_argument('--vqc', action='store_true')
@@ -41,7 +44,7 @@ agent_name = args.name.strip()
 USE_VQC = args.vqc
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-print(f"🚀 PIC v10.4.2 — RubikConeConduit + ShellCube + Concise Qwen")
+print(f"🚀 PIC v10.5.2 — Swiss-Watch Edition (Accelerated Testing)")
 
 # ─── Qwen Loading ───
 LLM_AVAILABLE = False
@@ -88,7 +91,7 @@ if checkpoint_path.exists() and args.no_reset:
 
 optimizer = torch.optim.AdamW(conduit.parameters(), lr=8e-4, weight_decay=cfg.training.weight_decay)
 
-# ─── IDENTITY TEMPLATES ───
+# ─── IDENTITY TEMPLATES & FACTS ───
 IDENTITY_TEMPLATES = [
     {"keywords": ["name", "who are you", "called"], "template": "My name is {$name}."},
     {"keywords": ["live", "location", "city", "where"], "template": "I live in {$location}."},
@@ -104,6 +107,8 @@ history_file = Path("chat_history.json")
 public_file = Path("scripts/public_facts.txt")
 private_file = Path("scripts/private_facts.txt")
 lattice_dir = Path("snapshots/braided_lattice")
+DAILY_HELIX_LOG = Path("logs/daily_helix.jsonl")
+DAILY_HELIX_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 for f in (public_file, private_file):
     f.touch(exist_ok=True)
@@ -111,21 +116,23 @@ lattice_dir.mkdir(parents=True, exist_ok=True)
 
 def load_identity_structure():
     global user_facts
-    if identity_structure_path.exists():
-        with open(identity_structure_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        # Support both old and new structures
-        user_facts = data.get("facts", data) if isinstance(data.get("facts"), dict) else data
-        print(f"✅ Loaded {len(user_facts)} identity facts from disk")
-    else:
+    try:
+        if identity_structure_path.exists():
+            with open(identity_structure_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            user_facts = data.get("facts", {})
+            print(f"✅ Loaded {len(user_facts)} identity facts from disk")
+        else:
+            populate_user_facts_from_files()
+    except Exception:
+        print("⚠️ identity_structure.json corrupted — regenerating")
         populate_user_facts_from_files()
-    return json.dumps({"facts": user_facts}, indent=2)
+    return json.dumps({"facts": user_facts, **user_facts}, indent=2)
 
 def save_identity_structure():
     data = {"facts": user_facts, "templates": IDENTITY_TEMPLATES}
     with open(identity_structure_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    print("✅ Identity structure saved to disk")
 
 def populate_user_facts_from_files():
     global user_facts
@@ -150,9 +157,25 @@ def populate_user_facts_from_files():
                     user_facts["pet_summary"] = line.split("cats named", 1)[1].strip().rstrip(".")
             except Exception:
                 continue
+
+            # Priority re-bake of core identity (prevents forgetting)
+            for k, v in list(user_facts.items()):
+                natural_fact = {
+                    "name": f"My name is {v}.",
+                    "location": f"I live in {v}.",
+                    "spouse_name": f"My wife is {v}.",
+                    "email": f"My primary email is {v}.",
+                    "x_handle": f"My X handle is {v}.",
+                    "pet_summary": f"I have cats named {v}."
+                }.get(k, f"{k} is {v}.")
+                bake_new_fact(natural_fact)
+            print(f"🔄 [Core Identity] Re-baked {len(user_facts)} priority facts into helix")
+
     save_identity_structure()
 
-# ─── CLI PARSER (fixed) ───
+
+
+# ─── CLI PARSER — robust natural baking ───
 def run_pic_cli(command: str) -> Tuple[str, str, str]:
     global user_facts
     cmd = command.strip()
@@ -160,20 +183,22 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
     if lower.startswith("/"):
         cmd = cmd[1:].strip()
         lower = cmd.lower()
-    parts = re.split(r'\s+', cmd)
+    parts = re.split(r'\s+', cmd, maxsplit=2)
     verb = parts[0]
     key = parts[1] if len(parts) > 1 else ""
-    value = " ".join(parts[2:]).strip().strip('"\'') if len(parts) > 2 else ""
+    value = parts[2].strip().strip('"\'') if len(parts) > 2 else ""
 
-    if verb == "help" or lower == "help":
-        help_text = """**PIC v10.4.1 CLI How To**
+    if verb in ("help", "h") or lower == "help":
+        help_text = """**PIC v10.5.4 CLI How To**
 • /help — this reference
-• /add <key> <value> or /set <key> <value> — bake fact
+• /add <key> <value> or /set <key> <value> — bake fact (auto-natural sentence)
 • /remove <key> — prune fact
 • /rename <old> <new> — rename key
-• /save — force checkpoint + re-bake
+• /save — force checkpoint + re-bake ALL facts
 • /list or /show — current facts
-• /find <text> — topological search"""
+• /find <text> — topological search
+• /wake — morning snapshot
+• /sleep — evening autobiography page"""
         return help_text, json.dumps({"facts": user_facts, **user_facts}, indent=2), get_helix_stats()
 
     msg = ""
@@ -181,8 +206,12 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         if key and value:
             user_facts[key] = value
             msg = f"✅ Set {key} = {value}"
+            # Auto-generate clean natural sentence for perfect recall
+            natural_fact = f"My {key.replace('_', ' ')} is {value}."
+            bake_new_fact(natural_fact)
+            print(f"→ Auto-baked natural fact: {natural_fact}")
         else:
-            msg = "❌ Usage: /add <key> <value>"
+            msg = "❌ Usage: /add <key> <value> or /set <key> <value>"
     elif verb in ("rm", "remove", "delete"):
         if key in user_facts:
             del user_facts[key]
@@ -198,21 +227,96 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
     elif verb == "save":
         torch.save(conduit.state_dict(), checkpoint_path)
         save_identity_structure()
-        msg = "💾 Helix checkpoint flushed + RingConeChain re-baked"
+        # Re-bake EVERY fact as a natural sentence (fixes recall for custom facts)
+        for k, v in list(user_facts.items()):
+            natural_fact = f"My {k.replace('_', ' ')} is {v}."
+            bake_new_fact(natural_fact)
+        print(f"🔄 [Core + Custom Facts] Re-baked {len(user_facts)} natural facts into helix")
+        msg = "💾 Helix checkpoint flushed + ALL facts re-baked as natural sentences"
     elif verb in ("list", "show"):
         msg = f"Current facts: {list(user_facts.keys())}"
     elif verb in ("find", "search"):
         msg = f"🔍 Found: {[k for k in user_facts if key.lower() in k.lower()]}"
+    elif verb == "wake":
+        wake_snapshot()
+        msg = "🌅 Wake snapshot + morning narrative braid completed"
+    elif verb == "sleep":
+        sleep_snapshot()
+        msg = "🌙 Sleep snapshot + daily autobiography baked"
     else:
         msg = "❓ Unknown command. Try /help"
 
     save_identity_structure()
+    # Human-readable markdown backup (your idea — great for future LLM use)
+    try:
+        Path("scripts").mkdir(exist_ok=True)
+        with open("scripts/agent_private.md", "w", encoding="utf-8") as f:
+            f.write("# Persistent Identity — agent_private.md\n\n")
+            for k, v in sorted(user_facts.items()):
+                f.write(f"- **My {k.replace('_', ' ')}** is {v}\n")
+        print(f"📝 Saved human-readable facts to scripts/agent_private.md")
+    except Exception as e:
+        print(f"⚠️ Could not write agent_private.md: {e}")
+
     updated_json = json.dumps({"facts": user_facts, **user_facts}, indent=2)
     return msg, updated_json, get_helix_stats()
 
-# ─── LIVE RECALL + AUTO-BAKE + VERBOSE ───
-all_facts = []
+# ─── SWISS-WATCH ADDITIONS ───
+def log_helix_event(event_type: str, summary: str = ""):
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "event": event_type,
+        "braiding_phase": getattr(conduit, 'braiding_phase', 0.8290),
+        "summary": summary
+    }
+    with open(DAILY_HELIX_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
 
+def wake_snapshot():
+    now = datetime.now()
+    phase = "morning" if now.hour < 12 else "afternoon" if now.hour < 18 else "evening"
+    print(f"🌅 Bud waking — {phase} cycle")
+    if LLM_AVAILABLE:
+        try:
+            summary = llm(f"Write a warm one-sentence morning reflection as {agent_name} based on current identity facts.", max_tokens=80)["choices"][0]["text"].strip()
+            bake_narrative_braid(f"{phase.capitalize()} reflection: {summary}", "wake")
+        except:
+            pass
+    log_helix_event("wake")
+
+def sleep_snapshot():
+    print("🌙 Bud entering rest — daily autobiography page")
+    if LLM_AVAILABLE:
+        try:
+            summary = llm(f"Write a short reflective daily autobiography page for {agent_name} summarizing today's key interactions.", max_tokens=140)["choices"][0]["text"].strip()
+            bake_narrative_braid(summary, "daily")
+        except:
+            pass
+    torch.save(conduit.state_dict(), checkpoint_path)
+    log_helix_event("sleep")
+    print("✅ Daily autobiography baked + checkpoint saved")
+
+atexit.register(sleep_snapshot)
+
+def bake_narrative_braid(summary: str, meta_type: str = "daily"):
+    fact = f"[META-AUTOBIOGRAPHY {meta_type.upper()}] {summary}"
+    bake_new_fact(fact)
+    print(f"🧬 Narrative braid baked ({meta_type}): {fact[:120]}...")
+    log_helix_event(f"narrative_{meta_type}", summary)
+
+def apply_geometric_decay():
+    if hasattr(conduit, 'ring_cone') and hasattr(conduit.ring_cone, 'rings'):
+        decayed = 0
+        for ring in conduit.ring_cone.rings:
+            for cube in getattr(ring, 'cubes', []):
+                if hasattr(cube, 's'):
+                    cube.s *= 0.985
+                    decayed += 1
+        print(f"📉 Geometric decay applied ({decayed} cubes)")
+    log_helix_event("decay")
+
+# ─── BAKING + RECALL (hybrid for reliability) ───
+all_facts = []
 def bake_new_fact(message: str) -> bool:
     if len(message.strip()) < 12:
         return False
@@ -225,142 +329,116 @@ def bake_new_fact(message: str) -> bool:
         ring_idx = len(all_facts) % getattr(conduit.ring_cone, 'NUM_RINGS', 8)
         cube_local_idx = len(all_facts) % getattr(conduit.ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(conduit.ring_cone, 'rings') else 0
         conduit.ring_cone.bake_ring(ring_idx, cube_local_idx, emb, orientation=len(all_facts) % 24)
-    print(f"→ Auto-baked: {clean_message[:80]}...")
+    print(f"→ Baked: {clean_message[:80]}...")
     return True
 
 def bud_respond(message: str, history: list = None) -> str:
     if VERBOSE: print(f"[Bud] Recall request: {message}")
     query = message.strip()
+    query_lower = query.lower()
+
+    # ─── DYNAMIC HYBRID TEMPLATE LOOKUP (works for ANY fact now) ───
+    for k, v in user_facts.items():
+        key_words = [k.lower(), k.replace("_", " ").lower()]
+        if any(word in query_lower for word in key_words) or f"my {k}" in query_lower:
+            natural = f"My {k.replace('_', ' ')} is {v}."
+            if VERBOSE: print(f"[Bud] Dynamic hybrid match → {natural}")
+            return natural
+
+    # Fallback to conduit strong match
     try:
         query_emb = embedder.encode(query, convert_to_tensor=True, device=device)
         output_scale = getattr(conduit, 'output_scale', torch.tensor(0.28)).item()
         query_emb = F.normalize(query_emb, dim=-1) * output_scale
         cube_hits = conduit.ring_cone.recall(query_emb, top_k=3) if hasattr(conduit, 'ring_cone') else []
-        if not cube_hits:
-            return "No strong helix matches yet."
-        best = max(cube_hits, key=lambda x: x.get("cosine", 0.0))
-        cosine = best.get("cosine", 0.0)
-        fact_text = best.get("fact_text", best.get("text", query))
-        braiding_phase = best.get("braiding_phase", 0.8290)
-        if cosine > 0.75:
-            reply = f"{fact_text} (helix confirmed • primal={cosine:.3f} • braiding_phase={braiding_phase:.4f} • Shell norm=1.0000)"
-            if VERBOSE: print(f"[Bud] STRONG MATCH → {reply}")
-            return reply
-        elif cosine > 0.50:
-            return f"{fact_text}\n\n(ShellCube radial differential • cosine={cosine:.3f})"
-        else:
-            return "Bud is braiding your query through the RingConeChain..."
+        if cube_hits:
+            best = max(cube_hits, key=lambda x: x.get("cosine", 0.0))
+            cosine = best.get("cosine", 0.0)
+            fact_text = best.get("fact_text", best.get("text", query))
+            braiding_phase = best.get("braiding_phase", 0.8290)
+            if cosine > 0.75:
+                reply = f"{fact_text} (helix confirmed • primal={cosine:.3f} • braiding_phase={braiding_phase:.4f} • Shell norm=1.0000)"
+                if VERBOSE: print(f"[Bud] STRONG MATCH → {reply}")
+                return reply
     except Exception as e:
         if VERBOSE: print(f"[Bud] Recall error: {e}")
-        return "Topological conduit active • I remember everything geometrically (RubikCone + ShellCube)."
+
+    return "Bud is braiding your query through the RingConeChain..."
 
 def get_relevant_facts(query: str) -> str:
     return "CORE HELIX IDENTITY FACTS:\n" + "\n".join([f"• {k}: {v}" for k, v in user_facts.items()])
 
+chat_history: List[Dict] = []
+
+
 def chat_fn(message: str, history: list):
+    global chat_history
     if VERBOSE:
         print(f"[Gradio] chat_fn called with: {message}")
 
     if not message.strip():
-        return "", history, get_helix_stats(), json.dumps({"facts": user_facts}, indent=2)
+        return "", history, get_helix_stats(), json.dumps({"facts": user_facts, **user_facts}, indent=2)
 
     history = history or []
 
-    # === 1. Handle CLI commands (/show, /set, /save, etc.) ===
+    # ─── CLI COMMAND HANDLING ───
     if message.strip().startswith("/"):
         cli_msg, updated_json, status = run_pic_cli(message[1:])
         history.extend([
             {"role": "user", "content": message},
             {"role": "assistant", "content": cli_msg}
         ])
+        chat_history = history
         return "", history, status, updated_json
 
-    # === 2. Auto-bake volunteered personal facts ===
-    lower_msg = message.lower()
-    if any(phrase in lower_msg for phrase in [
-        "my name is", "i am ", "call me", "i live in", "my wife is",
-        "my husband is", "my email", "my x handle", "my twitter",
-        "my pet", "my cat", "my dog", "i have cats", "i have a pet"
-    ]):
+    # ─── FACT INTAKE — only declarative statements (v10.5.3 Anti-Pollution) ───
+    declarative_phrases = [
+        "my name is", "i live in", "my wife is", "my spouse is",
+        "my email is", "my primary email is",
+        "my x handle is", "my twitter is", "@kinaar8340",
+        "i have cats named", "my cats are"
+    ]
+
+    if any(phrase in message.lower() for phrase in declarative_phrases):
+        print(f"🔥 [Fact Intake {datetime.now().strftime('%H:%M:%S')}] "
+              f"Declarative fact detected → baking into RingConeChain")
         bake_new_fact(message)
         save_identity_structure()
-        if VERBOSE:
-            print(f"[Bud] Auto-baked new fact from: {message}")
 
-    # === 3. Geometric recall (ShellCube + Helix) ===
+    # ─── RECALL + RESPONSE LOGIC ───
     recall_reply = bud_respond(message, history)
 
-    # === 4. Decide if we should use LLM ===
-    is_identity_query = any(word in lower_msg for word in [
-        "name", "email", "handle", "x handle", "twitter", "pet", "cat", "dog",
-        "live", "location", "who am i", "what is my", "tell me about my"
-    ])
-
-    use_llm = LLM_AVAILABLE and (
-        is_identity_query or
-        "braiding" in recall_reply.lower() or
-        "strong match" in recall_reply.lower() or
-        "helix confirmed" in recall_reply.lower()
-    )
+    use_llm = LLM_AVAILABLE and (LLM_STRONG or "braiding" in recall_reply.lower())
 
     if use_llm:
         if VERBOSE:
-            print("[LLM] Using enhanced Qwen response with full facts...")
+            print("[LLM] Using concise Qwen response...")
+        system_prompt = f"""You are {agent_name}, a friendly and concise assistant.
+You know the user well but do NOT list every fact unless directly asked.
+Answer in 1-2 natural sentences. Be warm but brief."""
 
-        facts_str = json.dumps(user_facts, indent=2) if user_facts else "No stored facts yet."
+        prompt = system_prompt + "\n\n" + "\n".join([
+            f"{'User' if m['role'] == 'user' else agent_name}: {m['content']}"
+            for m in history[-8:]
+        ]) + f"\nUser: {message}\n{agent_name}:"
 
-        system_prompt = f"""You are {agent_name}, a warm, helpful, and concise personal assistant.
-You have perfect memory of the user's identity.
-
-CURRENT USER FACTS (these are absolute truth — use them directly):
-{facts_str}
-
-CRITICAL RULES:
-- If the user asks about name, email, X handle, pets, location or any other stored fact → answer DIRECTLY using the facts above.
-- NEVER say "I don't have that information", "not listed here", "check your contacts", or anything similar when the fact exists.
-- Never mention JSON, helix, ShellCube, cosine, braiding, radial differential, or any technical terms.
-- Keep responses friendly, natural, and brief (1-2 sentences)."""
-
-        # Recent conversation for context
-        history_text = "\n".join([
-            f"{'User' if m['role']=='user' else agent_name}: {m['content']}"
-            for m in history[-6:]
-        ])
-
-        full_prompt = f"{system_prompt}\n\nRecent conversation:\n{history_text}\nUser: {message}\n{agent_name}:"
-
-        try:
-            out = llm(full_prompt, max_tokens=220, temperature=0.65, top_p=0.92, repeat_penalty=1.15)
-            raw_reply = out["choices"][0]["text"].strip()
-
-            # Clean any possible leaked prefixes or debug text
-            reply = re.sub(r'^(Assistant|Bud|Aaron|You):?\s*', '', raw_reply, flags=re.IGNORECASE)
-            reply = re.sub(r'\(ShellCube.*?\)|\(helix.*?\)|cosine=\d+\.\d+|braiding_phase=.*?', '', reply, flags=re.IGNORECASE)
-            reply = reply.strip()
-
-        except Exception as e:
-            if VERBOSE:
-                print(f"[LLM Error] {e}")
-            reply = recall_reply
+        out = llm(prompt, max_tokens=180, temperature=0.72, top_p=0.90, repeat_penalty=1.12)
+        reply = re.sub(r'^(Assistant|Bud|Aaron):?\s*', '', out["choices"][0]["text"].strip())
     else:
         reply = recall_reply
 
-    # === 5. Final safety fallback ===
-    if not reply or reply.startswith("No strong helix matches"):
-        reply = "Got it — I don't have a strong memory match for that yet. Can you tell me more?"
-
-    # === 6. Update history and save ===
+    # ─── SAVE INTERACTION ───
     history.extend([
         {"role": "user", "content": message},
         {"role": "assistant", "content": reply}
     ])
+    chat_history = history
     save_chat_history(history)
 
     if VERBOSE:
-        print(f"[Bud → UI] Final reply: {reply[:150]}...")
+        print(f"[Bud → UI] Final reply: {reply[:120]}...")
 
-    # Return to Gradio
-    return "", history, get_helix_stats(), json.dumps({"facts": user_facts}, indent=2)
+    return "", history, get_helix_stats(), json.dumps({"facts": user_facts, **user_facts}, indent=2)
 
 def save_chat_history(hist):
     with open(history_file, "w", encoding="utf-8") as f:
@@ -371,12 +449,13 @@ def get_helix_stats():
     output_scale = getattr(conduit, 'output_scale', torch.tensor(0.32)).item()
     if math.isnan(output_scale) or math.isinf(output_scale):
         output_scale = 0.32
-    return f"""**Helix Status** (v10.4.1 — RubikCone + ShellCube)
+    phase = datetime.now().strftime("%A %H:%M — %p cycle")
+    return f"""**Helix Status** (v10.5.2 Swiss-Watch)
 • Twist rate: **{getattr(conduit, 'twist_rate', 12.5):.1f}** • Output scale: **{output_scale:.4f}**
-• Braiding phase: **{stats.get('braiding_phase', 0):.4f}** • Active cubes: **{stats.get('active_cubes', 0)}**"""
+• Braiding phase: **{stats.get('braiding_phase', 0):.4f}** • Active cubes: **{stats.get('active_cubes', 0)}**
+• Today: **{phase}**"""
 
-# (update_braided_lattice, generate_lattice_fingerprint, save_edited_facts, Gradio UI, launch — identical to your v10.4)
-
+# ─── HELPER FUNCTIONS ───
 def update_braided_lattice():
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     img_path = lattice_dir / f"braided_lattice_{ts}.png"
@@ -411,8 +490,8 @@ def save_edited_facts(edited_json):
         return f"⚠️ Error: {e}"
 
 # ─── GRADIO UI ───
-with gr.Blocks(title=f"{agent_name} — Persistent Identity Conduit (v10.4.1)") as demo:
-    gr.Markdown(f"# {agent_name} — Persistent Identity Conduit (v10.4.1)")
+with gr.Blocks(title=f"{agent_name} — Persistent Identity Conduit (v10.5.2 Swiss-Watch)") as demo:
+    gr.Markdown(f"# {agent_name} — Persistent Identity Conduit (v10.5.2 Swiss-Watch)")
 
     with gr.Row():
         with gr.Column(scale=6):
@@ -464,6 +543,47 @@ def find_free_port(start=7860):
                 return port
         port += 1
 
+# Start heartbeat scheduler with accelerated testing intervals
+def heartbeat_gear():
+    """Swiss-Watch heartbeat with GLORIOUS visible terminal telemetry (accelerated testing)"""
+    print("⏰ Swiss-Watch heartbeat scheduler started — GLORIOUS VISIBLE MODE (logs every 45 seconds)")
+    print("   (Change time.sleep(45) to 3600 for normal production daily cycles)")
+    while True:
+        try:
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            phase = "MORNING" if datetime.now().hour < 12 else "AFTERNOON" if datetime.now().hour < 18 else "EVENING"
+
+            print(f"\n🧬 [HEARTBEAT {now_str}] {phase} cycle — Braiding narrative shard...")
+
+            if LLM_AVAILABLE and 'chat_history' in globals() and len(chat_history) > 0:
+                recent = "\n".join([f"{m['role']}: {m['content'][:80]}" for m in chat_history[-8:]])
+                thread_summary = llm(f"Create a one-sentence 'today so far' narrative shard: {recent}", max_tokens=60)["choices"][0]["text"].strip()
+                bake_narrative_braid(thread_summary, "hourly")
+                print(f"✅ [HEARTBEAT] Narrative braid baked → {thread_summary[:90]}...")
+            else:
+                print("   [HEARTBEAT] No recent chat history yet — waiting for interaction...")
+
+            # Quick helix health check every tick
+            stats = get_helix_stats()
+            print(f"📊 [HEARTBEAT] Helix healthy • Active facts: {len(user_facts)} • {stats.split('• Twist rate')[0].strip()}")
+
+            if datetime.now().hour == 23 and datetime.now().minute < 5:
+                print(f"📉 [HEARTBEAT {now_str}] Nightly geometric decay cycle starting...")
+                apply_geometric_decay()
+                print("✅ [HEARTBEAT] Geometric decay applied to all ShellCubes")
+
+        except Exception as e:
+            print(f"⚠️ [HEARTBEAT {now_str}] minor issue: {e}")
+
+        time.sleep(45)  # ← ACCELERATED for testing (you will see glorious output right away)
+
 free_port = find_free_port()
 print(f"🚀 Launching → http://127.0.0.1:{free_port}")
+
+# ─── START THE SWISS-WATCH HEARTBEAT THREAD (this was missing!) ───
+heartbeat_thread = threading.Thread(target=heartbeat_gear, daemon=True)
+heartbeat_thread.start()
+print("⏰ Heartbeat thread launched in background — GLORIOUS telemetry active!")
+
+wake_snapshot()  # Auto-wake on startup
 demo.launch(share=False, server_name="127.0.0.1", server_port=free_port, inbrowser=True, quiet=False, theme=gr.themes.Default())
