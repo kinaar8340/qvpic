@@ -177,6 +177,10 @@ class HeartbeatScheduler:
             platonic_level=rhythm["level"],
             tags=[name]
         )
+        # Daily autobiography page (one per day)
+        if name == "daily_long":
+            journal_text = f"Today: {task.to_prompt()}\n{output}"  # from PHGN narrative
+            append_to_journal(journal_text)  # calls the new helper
         emb = torch.randn(self.conduit.embed_dim, device=self.conduit.device) * 0.28
         self.phgn(emb.unsqueeze(0), rhythm["level"], s=s + rhythm["delta_s"], pol=rhythm["pol"])
         self.conduit.cube_chain.bake(int(s) % 12, emb, parent_idx=rhythm["level"].value)

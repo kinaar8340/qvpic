@@ -60,3 +60,5 @@ snapshots/
 __pycache__/
 .DS_Store
 *.gguf
+temp.py
+temp_*.py

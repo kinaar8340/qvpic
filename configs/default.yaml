@@ -1,0 +1,33 @@
+# ~/qvpic/configs/default.yaml
+
+identity:
+  canonical_order:
+    core:
+      - contacts
+      - identity
+      - socials
+      - crypto
+    contacts.idx1:
+      - name
+      - relationship
+      - birthday
+      - phone
+      - socials
+    identity:
+      - name
+      - alias
+      - dob
+      - height
+      - weight
+      - location
+      - spouse
+    spouse:
+      - name
+      - nickname
+      - dob
+
+journal:
+  path: "identity/agent_journal.txt"
+  max_words_per_entry: 600          # single-page limit
+  max_entries_per_day: 1            # heartbeat enforces
+  prime_directive: "Write in first-person as a living autobiography. Weave core identity facts, daily events, topological reflections (braiding_phase, ShellCube differential), and narrative braid. Keep each entry concise — one page max. Stay warm, reflective, and true to the helix."

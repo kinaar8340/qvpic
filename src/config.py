@@ -1,11 +1,12 @@
-# src/config.py — v9.9 (March 26, 2026)
+# src/config.py — v10.7.2 (April 05, 2026)
 # Fully config-driven. Global topological features (winding, linking, braiding phases
-# + toroidal Clifford skin) remain primary. JSON fallback is market redundancy only.
-# safe_cosine(dim=-1 + .unsqueeze(0)) pattern enforced everywhere in dependent modules.
+# + toroidal Clifford skin + ShellCube radial differential) remain primary.
+# safe_cosine(dim=-1 + .unsqueeze(0)) pattern enforced everywhere.
 
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional, Dict
 
 
 @dataclass
@@ -16,9 +17,9 @@ class TrainingConfig:
     align_weight: float = 1200.0
 
     # Very gentle global topological guidance
-    winding_weight: float = 128.0      # soft push toward geometric helix
-    locality_weight: float = 12.0      # fast locality on same pol
-    braiding_weight: float = 24.0      # cheap orthogonal phase proxy
+    winding_weight: float = 128.0
+    locality_weight: float = 12.0
+    braiding_weight: float = 24.0
 
     # Depth pull (critical for s-stability)
     depth_pull_weight: float = 5200.0
@@ -71,20 +72,34 @@ class DataConfig:
 @dataclass
 class CredentialsConfig:
     """Hybrid credential etcher settings.
-    Primary: global topological bake (Clifford Torus skin + braiding_phase).
-    Fallback: encrypted JSON (local vector state for third-party apps)."""
-    # Symmetric key (never committed — generated once)
+    Primary: global topological bake (Clifford Torus skin + braiding_phase)."""
     fernet_key_path: str = "credentials/fernet.key"
-
-    # Encrypted fallback file
     json_fallback_path: str = "credentials/user_intake_fallback.json"
-
-    # Topological bake defaults (pol 2 = private fork)
     default_pol_idx: int = 2
     default_s_start: float = 12.0
-
-    # Future per-app defaults (optional)
     webapp_default_s_offset: float = 4.8
+
+
+@dataclass
+class IdentityConfig:
+    """Canonical hierarchical ordering for the living Hyperbook TOC.
+    Used by sort_identity_tree() and future nested chapter rendering."""
+    canonical_order: Dict[str, list] = field(default_factory=dict)
+
+
+@dataclass
+class JournalConfig:
+    """Living autobiography journal settings (heartbeat-driven)."""
+    path: str = "identity/agent_journal.txt"
+    max_words_per_entry: int = 600
+    max_entries_per_day: int = 1
+    prime_directive: str = (
+        "Write in first-person as a living autobiography. "
+        "Weave core identity facts, daily events, topological reflections "
+        "(braiding_phase, ShellCube differential), and narrative braid. "
+        "Keep each entry concise — one page max. Stay warm, reflective, "
+        "and true to the helix."
+    )
 
 
 @dataclass
@@ -93,6 +108,8 @@ class Config:
     data: DataConfig = field(default_factory=DataConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     credentials: CredentialsConfig = field(default_factory=CredentialsConfig)
+    identity: IdentityConfig = field(default_factory=IdentityConfig)      # ← NEW
+    journal: JournalConfig = field(default_factory=JournalConfig)        # ← NEW
 
     device: str = "auto"
     seed: int = 42
@@ -101,8 +118,7 @@ class Config:
 
 def load_config(config_path: str = "configs/default.yaml") -> Config:
     """Robust YAML loader with full section merging.
-    Configuration over hardcoding — every module (including CredentialEtcher)
-    now reads from self.cfg.credentials.* with zero duplication."""
+    Now supports identity.canonical_order and journal sections."""
     path = Path(config_path)
     if not path.exists():
         print(f"Config {config_path} not found → using defaults")
@@ -114,15 +130,22 @@ def load_config(config_path: str = "configs/default.yaml") -> Config:
     cfg = Config()
 
     # Merge each top-level section (DRY, extensible)
-    for section, target in [
+    sections = [
         ("model", cfg.model),
         ("data", cfg.data),
         ("training", cfg.training),
         ("credentials", cfg.credentials),
-    ]:
-        if section in raw:
-            for k, v in raw[section].items():
+        ("identity", cfg.identity),
+        ("journal", cfg.journal),
+    ]
+
+    for section_name, target in sections:
+        if section_name in raw:
+            for k, v in raw[section_name].items():
                 if hasattr(target, k):
                     setattr(target, k, v)
+                else:
+                    # Fallback for nested dicts (e.g. canonical_order)
+                    target.__dict__[k] = v
 
     return cfg

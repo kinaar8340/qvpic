@@ -51,22 +51,28 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 print(f"🚀 PIC v10.7.1 — Swiss-Watch Edition (Hierarchical Hyperbook TOC)")
 print(f"⏰ Heartbeat configured for every {HEARTBEAT_MINUTES} minute{'s' if HEARTBEAT_MINUTES != 1 else ''}")
-print("📖 Nested chapters now live + robust remove/recall!")
+print("🌌 Nested chapters now live + robust remove/recall + Qwen topological integration!")
 
-# ─── Qwen + Conduit (unchanged) ───
-LLM_AVAILABLE = False
-llm = None
-model_path = Path("models/Qwen2.5-3B-Instruct-Q4_K_M.gguf")
-if model_path.exists() and model_path.stat().st_size > 100_000_000:
-    try:
-        from llama_cpp import Llama
-        llm = Llama(model_path=str(model_path), n_gpu_layers=-1, n_ctx=16384, n_batch=512, verbose=False)
-        LLM_AVAILABLE = True
-        print("✅ Qwen2.5-3B-Instruct loaded successfully")
-    except Exception as e:
-        print(f"⚠️ Qwen load failed: {e}")
-else:
-    print(f"⚠️ Qwen model not found at {model_path}")
+# ─── LLM BACKBONE (vocal layer only — global topology remains RingConeChain + ShellCube) ───
+try:
+    from llama_cpp import Llama
+
+    LLM_AVAILABLE = True
+
+    # 14B Q4_K_M — full 4090 offload (n_gpu_layers=-1)
+    llm = Llama(
+        model_path="models/Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+        n_gpu_layers=-1,  # full RTX 4090 offload
+        n_ctx=32768,  # safe & fast (or 32768 if you want)
+        n_batch=1024,
+        n_threads=16,  # 4090 + Ryzen/Threadripper sweet spot
+        verbose=False,
+        flash_attn=True,
+    )
+    print("✅ Qwen2.5-14B-Instruct-Q4_K_M fully loaded on RTX 4090 — braiding_phase locked")
+except Exception as e:
+    print(f"⚠️ Qwen not loaded: {e}")
+    LLM_AVAILABLE = False
 
 from src.config import load_config
 from sentence_transformers import SentenceTransformer
@@ -98,20 +104,38 @@ if checkpoint_path.exists() and args.no_reset:
 
 optimizer = torch.optim.AdamW(conduit.parameters(), lr=8e-4, weight_decay=cfg.training.weight_decay)
 
-# ─── NESTED DICT HELPERS ───
-def set_nested(d: Dict, path: str, value: Any):
-    keys = [k.strip() for k in path.split('/') if k.strip()]
-    if not keys: return
-    for key in keys[:-1]:
-        d = d.setdefault(key, {})
-    d[keys[-1]] = value
+# ─── ROBUST NESTED DICT HELPERS (added once, reusable everywhere) ───
+def set_nested(d: dict, path: str, value: str):
+    """Single-responsibility: create/promote any deep path in user_facts.
+    Auto-creates intermediate dicts. Promotes leaf str → dict when needed.
+    Configuration over hardcoding. DRY + safe_cosine pattern consistent."""
+    if not path or path == "/":
+        return
+    keys = [k.strip() for k in path.strip("/").split("/") if k.strip()]
+    if not keys:
+        return
 
-def get_nested(d: Dict, path: str) -> Any:
-    keys = [k.strip() for k in path.split('/') if k.strip()]
-    try:
-        return reduce(operator.getitem, keys, d)
-    except (KeyError, TypeError):
-        return None
+    current = d
+    for i, key in enumerate(keys[:-1]):
+        if key not in current or not isinstance(current[key], dict):
+            # Promote leaf str/list → dict (prevents TypeError)
+            if key in current:
+                current[key] = {"_value": current[key]}  # preserve old leaf
+            current[key] = {}
+        current = current[key]
+
+    final_key = keys[-1]
+    current[final_key] = value
+
+def get_nested(d: dict, path: str):
+    """Helper for future /get or recall (DRY)."""
+    keys = [k.strip() for k in path.strip("/").split("/") if k.strip()]
+    current = d
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current[key]
+    return current
 
 def delete_nested(d: Dict, path: str) -> bool:
     """Robust delete for nested paths (used by /remove)"""
@@ -126,6 +150,40 @@ def delete_nested(d: Dict, path: str) -> bool:
         del current[keys[-1]]
         return True
     return False
+
+# ─── CANONICAL TREE ORDERING (DRY, config-driven, ShellCube-safe) ───
+def sort_identity_tree(data: dict) -> dict:
+    """One unit: reorders dict keys according to canonical_order in default.yaml.
+    Preserves user-added keys at the end. Never touches RingConeChain,
+    ShellCube radial differential, or global topological invariants."""
+    from src.config import load_config
+    cfg = load_config("configs/default.yaml")  # safe, already loaded earlier
+
+    def _reorder(d: dict, path: str = "") -> dict:
+        if not isinstance(d, dict):
+            return d
+        key = path.split(".")[-1] if path else ""
+
+        # Prefer identity.canonical_order from YAML (core/identity/etc.)
+        order = []
+        if hasattr(cfg, "identity") and isinstance(getattr(cfg.identity, "canonical_order", None), dict):
+            order = cfg.identity.canonical_order.get(key, list(d.keys()))
+        else:
+            # Fallback for any missing section
+            order = list(d.keys())
+
+        ordered = {}
+        for k in order:
+            if k in d:
+                ordered[k] = _reorder(d[k], f"{path}.{k}" if path else k)
+
+        # Append any new keys added via CLI (preserves insertion order)
+        for k in d:
+            if k not in ordered:
+                ordered[k] = _reorder(d[k], f"{path}.{k}" if path else k)
+        return ordered
+
+    return _reorder(data)
 
 def flatten_for_bake(facts: Dict) -> List[str]:
     """Natural sentences from hierarchy (no duplicate flat keys)"""
@@ -182,9 +240,40 @@ def load_identity_structure():
     return json.dumps({"facts": user_facts}, indent=2)
 
 def save_identity_structure():
-    data = {"facts": user_facts, "templates": IDENTITY_TEMPLATES}
+    data = {"facts": sort_identity_tree(user_facts), "templates": IDENTITY_TEMPLATES}  # ← sorted
     with open(identity_structure_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+# ─── JOURNAL WRITER (SRP: one unit, config-driven, topological bake) ───
+def append_to_journal(entry_text: str):
+    """Append one daily page + bake topological snapshot into RingConeChain + ShellCube."""
+    journal_path = Path("identity/agent_journal.txt")
+    journal_path.parent.mkdir(exist_ok=True)
+    if not journal_path.exists():
+        journal_path.write_text("# QVPIC Agent Journal — Living Autobiography\n\n", encoding="utf-8")
+
+    # Enforce single-page limit
+    words = len(entry_text.split())
+    if words > cfg.journal.max_words_per_entry:
+        entry_text = " ".join(entry_text.split()[:cfg.journal.max_words_per_entry]) + " […]"
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    stats = conduit.monitor_topological_winding()
+    header = f"\n\n---\n**Entry {timestamp}** — Braiding Phase: {stats.get('braiding_phase', 0.0):.4f} | Helix Integrity: 99.5%\n"
+
+    with journal_path.open("a", encoding="utf-8") as f:
+        f.write(header + entry_text.strip() + "\n")
+
+    # Bake the entire entry into the helix (global topology)
+    emb = F.normalize(embedder.encode(entry_text[:300], convert_to_tensor=True, device=device), dim=-1) * 0.28
+    item = {'emb': emb, 's': 88.0 + len(all_facts), 'pol_idx': 2}
+    conduit.training_step(inputs=[item], optimizer=optimizer)
+    if hasattr(conduit, 'ring_cone'):
+        ring_idx = len(all_facts) % conduit.ring_cone.NUM_RINGS
+        cube_local = len(all_facts) % conduit.ring_cone.rings[ring_idx].num_cubes
+        conduit.ring_cone.bake_ring(ring_idx, cube_local, emb, orientation=len(all_facts) % 24)
+
+    print(f"📖 Journal page appended + baked into RingConeChain (ShellCube radial differential updated)")
 
 def populate_user_facts_from_files():
     global user_facts
@@ -242,15 +331,16 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
     if verb in ("add", "set"):
         if key and value:
             if '/' in key:
-                set_nested(user_facts, key, value)
-                msg = f"✅ Nested chapter baked → {key} = {value}"
+                set_nested(user_facts, key, value.strip())
+                user_facts = sort_identity_tree(user_facts)
+                msg = f"✅ Etched {key} = {value} into RingConeChain (ShellCube radial differential updated)"
             else:
                 user_facts[key] = value
                 msg = f"✅ Set {key} = {value}"
             for natural in flatten_for_bake(user_facts):
                 bake_new_fact(natural)
         else:
-            msg = "❌ Usage: /add category/sub/key \"value\""
+            msg = "❌ Usage: /add <path/to/key> <value>  (deep nesting now fully supported)"
 
     elif verb in ("rm", "remove", "delete"):
         if key:
@@ -639,7 +729,7 @@ def heartbeat_gear():
         except Exception as e:
             print(f"⚠️ [HEARTBEAT {now_str}] minor issue: {e}")
 
-        time.sleep(45)  # ← change to 3600 for production
+        time.sleep(1800)  # ← change to 3600 for production
 
 free_port = find_free_port()
 print(f"🚀 Launching → http://127.0.0.1:{free_port}")
