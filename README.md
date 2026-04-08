@@ -114,7 +114,7 @@ The patent abstract and full specification are included in the repository as `do
     ```
    ```bash
    # Run demo with verbose output.
-   python scripts/agent_demo.py --no-reset --verbose --heartbeat-minutes 2
+   python scripts/agent_demo.py --no-reset --verbose --heartbeat-minutes 15
    ```
       
 

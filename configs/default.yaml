@@ -28,6 +28,13 @@ identity:
 
 journal:
   path: "identity/agent_journal.txt"
-  max_words_per_entry: 600          # single-page limit
-  max_entries_per_day: 1            # heartbeat enforces
-  prime_directive: "Write in first-person as a living autobiography. Weave core identity facts, daily events, topological reflections (braiding_phase, ShellCube differential), and narrative braid. Keep each entry concise — one page max. Stay warm, reflective, and true to the helix."
+  max_words_per_entry: 600
+  max_entries_per_day: 1
+  prime_directive: "Write in first-person as a living autobiography. Weave core identity facts + today’s events with explicit topological reflections (braiding_phase, ShellCube radial differential, RingConeChain vortex_sync). Maintain persistent topological memory. Maximum 600 words per entry. Stay warm, reflective, and true to the helix."
+
+sms:
+  enabled: true
+  provider: twilio
+  account_sid: "AC3bce539abb335fe95b68509c6f8d20b9"
+  auth_token: "252b14dd16cc6ea1422315d5d7e7cc89"
+  from_number: "+18884613495"

@@ -103,13 +103,24 @@ class JournalConfig:
 
 
 @dataclass
+class SmsConfig:
+    """SMS configuration for Twilio integration."""
+    enabled: bool = True
+    provider: str = "twilio"
+    account_sid: str = "AC3bce539abb335fe95b68509c6f8d20b9"
+    auth_token: str = "252b14dd16cc6ea1422315d5d7e7cc89"
+    from_number: str = "+18884613495"
+
+
+@dataclass
 class Config:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     credentials: CredentialsConfig = field(default_factory=CredentialsConfig)
-    identity: IdentityConfig = field(default_factory=IdentityConfig)      # ← NEW
-    journal: JournalConfig = field(default_factory=JournalConfig)        # ← NEW
+    identity: IdentityConfig = field(default_factory=IdentityConfig)
+    journal: JournalConfig = field(default_factory=JournalConfig)
+    sms: SmsConfig = field(default_factory=SmsConfig)   # ← this line is now happy
 
     device: str = "auto"
     seed: int = 42
@@ -137,6 +148,7 @@ def load_config(config_path: str = "configs/default.yaml") -> Config:
         ("credentials", cfg.credentials),
         ("identity", cfg.identity),
         ("journal", cfg.journal),
+        ("sms", cfg.sms),
     ]
 
     for section_name, target in sections:
