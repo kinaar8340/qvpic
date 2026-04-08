@@ -84,11 +84,11 @@ The patent abstract and full specification are included in the repository as `do
 4. Run the agent:
    ```bash
     # First run creates initial checkpoints.
-    python scripts/agent_demo.py
+    python scripts/main.py
     ```
    ```bash
     # Use --no-reset to save sessions.
-    python scripts/agent_demo.py --no-reset
+    python scripts/main.py --no-reset
     ```
 
 
@@ -99,7 +99,7 @@ The patent abstract and full specification are included in the repository as `do
     ```
    ```bash
    # Runs demo with vqc enhancement.
-   python scripts/agent_demo.py --no-reset --verbose --vqc
+   python scripts/main.py --no-reset --verbose --vqc
    ```
 
 
@@ -114,7 +114,7 @@ The patent abstract and full specification are included in the repository as `do
     ```
    ```bash
    # Run demo with verbose output.
-   python scripts/agent_demo.py --no-reset --verbose --heartbeat-minutes 15
+   python scripts/main.py --no-reset --verbose --heartbeat-minutes 15
    ```
       
 
@@ -160,7 +160,7 @@ qvpic/
 │   ├── encoder.py
 │   └── decoder.py
 ├── scripts/
-│   ├── agent_demo.py               # User Interface via Gradio
+│   ├── main.py               # User Interface via Gradio
 │   ├── qvpic_test.py               # Full Benchmark & Diagnostics
 │   └── heartbeat.py                # Task Scheduler
 ├── identity/

@@ -30,8 +30,9 @@ custom_theme = gr.themes.Base(
     body_background_fill_dark="#1c1c20"
 )
 
+
 def render_hyperbook_3d(path: str = "core/identity"):
-    """RingConeChain visualization"""
+    """Enhanced RingConeChain + high-quality 3D Braided Lattice with custom views, colors, and labels"""
     cleanup_snapshots()
     clean_path = (path or "root").strip("/")
 
@@ -41,6 +42,7 @@ def render_hyperbook_3d(path: str = "core/identity"):
         fig.add_annotation(text="RingConeChain not initialized", showarrow=False)
         return fig, None, None, None
 
+    # RingConeChain 2D plot (unchanged - already looks great)
     path_hash = abs(hash(clean_path)) % getattr(ring_cone, 'TOTAL_CUBES', 216)
     ring_idx = path_hash % getattr(ring_cone, 'NUM_RINGS', 8)
     cube_local = path_hash % getattr(ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(ring_cone, 'rings') else 0
@@ -83,9 +85,28 @@ def render_hyperbook_3d(path: str = "core/identity"):
         margin=dict(l=45, r=45, t=80, b=45)
     )
 
-    current_view = "snapshots/lattice_current.png"
-    side_view = "snapshots/lattice_side.png"
-    top_view = "snapshots/lattice_top.png"
+    # === IMPROVED BRAIDED LATTICE 3D VIEWS ===
+    try:
+        # Current View — angled perspective (best overall view)
+        current_view = conduit.render_braided_lattice_style(
+            save_path="snapshots/lattice_current.png",
+            elev=25, azim=-45, title="Current View — Helical Braiding"
+        )
+
+        # Side / Front View — straight side-on
+        side_view = conduit.render_braided_lattice_style(
+            save_path="snapshots/lattice_side.png",
+            elev=0, azim=0, title="Side / Front View"
+        )
+
+        # Top View — looking straight down
+        top_view = conduit.render_braided_lattice_style(
+            save_path="snapshots/lattice_top.png",
+            elev=90, azim=0, title="Top View — Toroidal Projection"
+        )
+    except Exception as e:
+        print(f"⚠️ Lattice render failed: {e}")
+        current_view = side_view = top_view = None
 
     return fig_ring, current_view, side_view, top_view
 
