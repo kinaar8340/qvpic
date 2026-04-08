@@ -1,4 +1,5 @@
 # ~/qvpic/configs/default.yaml
+# QVPIC v10.8.4 — Configuration (secrets moved to environment variables)
 
 identity:
   canonical_order:
@@ -32,9 +33,11 @@ journal:
   max_entries_per_day: 1
   prime_directive: "Write in first-person as a living autobiography. Weave core identity facts + today’s events with explicit topological reflections (braiding_phase, ShellCube radial differential, RingConeChain vortex_sync). Maintain persistent topological memory. Maximum 600 words per entry. Stay warm, reflective, and true to the helix."
 
+# SMS Configuration — now loaded from environment variables (never commit real secrets)
 sms:
   enabled: true
   provider: twilio
-  account_sid: "REDACTED_TWILIO_SID"
-  auth_token: "REDACTED_TWILIO_AUTH_TOKEN"
+  # These values will be overridden by environment variables (TWILIO_*) in src/config.py
+  account_sid: "REDACTED_TWILIO_SID"      # ← placeholder only
+  auth_token: "REDACTED_TWILIO_AUTH_TOKEN" # ← placeholder only
   from_number: "+18884613495"

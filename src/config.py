@@ -1,12 +1,17 @@
-# src/config.py — v10.7.2 (April 05, 2026)
-# Fully config-driven. Global topological features (winding, linking, braiding phases
-# + toroidal Clifford skin + ShellCube radial differential) remain primary.
-# safe_cosine(dim=-1 + .unsqueeze(0)) pattern enforced everywhere.
+# src/config.py — v10.8.4 (April 07, 2026)
+# Fully config-driven with strong emphasis on security.
+# Twilio credentials are loaded from environment variables first (never commit real secrets).
+# Global topological features (winding, linking, braiding phases + ShellCube differential) remain primary.
 
 import yaml
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict
+
+# Load .env file early if it exists (for development)
+from dotenv import load_dotenv
+load_dotenv()
 
 
 @dataclass
@@ -71,8 +76,7 @@ class DataConfig:
 
 @dataclass
 class CredentialsConfig:
-    """Hybrid credential etcher settings.
-    Primary: global topological bake (Clifford Torus skin + braiding_phase)."""
+    """Hybrid credential etcher settings."""
     fernet_key_path: str = "credentials/fernet.key"
     json_fallback_path: str = "credentials/user_intake_fallback.json"
     default_pol_idx: int = 2
@@ -82,8 +86,7 @@ class CredentialsConfig:
 
 @dataclass
 class IdentityConfig:
-    """Canonical hierarchical ordering for the living Hyperbook TOC.
-    Used by sort_identity_tree() and future nested chapter rendering."""
+    """Canonical hierarchical ordering for the living Hyperbook TOC."""
     canonical_order: Dict[str, list] = field(default_factory=dict)
 
 
@@ -104,12 +107,29 @@ class JournalConfig:
 
 @dataclass
 class SmsConfig:
-    """SMS configuration for Twilio integration."""
+    """SMS configuration for Twilio integration.
+    Credentials are loaded from environment variables first (secure default).
+    Falls back to yaml values only if env vars are not set."""
     enabled: bool = True
     provider: str = "twilio"
-    account_sid: str = "REDACTED_TWILIO_SID"
-    auth_token: str = "REDACTED_TWILIO_AUTH_TOKEN"
+
+    # These will be populated from environment variables
+    account_sid: str = ""
+    auth_token: str = ""
     from_number: str = "+18884613495"
+
+    # Modern API Key style (recommended for better security)
+    api_key_sid: str = ""
+    api_key_secret: str = ""
+
+    def __post_init__(self):
+        # Priority: Environment variables → yaml values
+        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID") or self.account_sid
+        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN") or self.auth_token
+        self.from_number = os.getenv("TWILIO_FROM_NUMBER") or self.from_number
+
+        self.api_key_sid = os.getenv("TWILIO_API_KEY_SID") or self.api_key_sid
+        self.api_key_secret = os.getenv("TWILIO_API_KEY_SECRET") or self.api_key_secret
 
 
 @dataclass
@@ -120,7 +140,7 @@ class Config:
     credentials: CredentialsConfig = field(default_factory=CredentialsConfig)
     identity: IdentityConfig = field(default_factory=IdentityConfig)
     journal: JournalConfig = field(default_factory=JournalConfig)
-    sms: SmsConfig = field(default_factory=SmsConfig)   # ← this line is now happy
+    sms: SmsConfig = field(default_factory=SmsConfig)
 
     device: str = "auto"
     seed: int = 42
@@ -129,7 +149,7 @@ class Config:
 
 def load_config(config_path: str = "configs/default.yaml") -> Config:
     """Robust YAML loader with full section merging.
-    Now supports identity.canonical_order and journal sections."""
+    Environment variables take priority for sensitive fields."""
     path = Path(config_path)
     if not path.exists():
         print(f"Config {config_path} not found → using defaults")
