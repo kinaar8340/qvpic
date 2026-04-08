@@ -7,58 +7,70 @@ __pycache__/
 .venv/
 venv/
 ENV/
+env/
 
-# Coverage reports
+# QVPIC Core - Never commit real secrets or large generated files
+configs/default.yaml          # Contains Twilio + other credentials
+*.env
+.env.*
+secrets/
+credentials/
+
+# Runtime / Generated files (large or sensitive)
+checkpoints/
+snapshots/
+outputs/
+logs/
+identity/
+models/
+*.pt
+*.gguf
+chat_history.json
+identity_structure.json
+
+# Identity / Fact files (user-controlled, often contain PII)
+scripts/*_facts.txt
+scripts/agent_private.md
+scripts/agent_public.md
+scripts/private_facts.txt
+scripts/public_facts.txt
+
+# Temporary / backup files
+*.backup.*
+*.tmp
+temp.md
+temp.py
+temp_*.py
+*.swp
+*.swo
+
+# Coverage and test artifacts
 .coverage
 coverage.xml
 htmlcov/
 .coverage.*
-
-# pytest
 .pytest_cache/
 
-# IDE / editor files
+# IDE / Editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# QVPIC runtime / generated files
-checkpoints/
-models/
-snapshots/
-outputs/
-chat_history.json
-identity_structure.json
-
-# Backups
-scripts/*.backup.*
-
-# Test / sensitive data
-scripts/test_facts.txt
-scripts/private_facts.txt
-scripts/public_facts.txt
-
-# Build artifacts
+# Build / Packaging artifacts
 dist/
-*.egg-info/
 build/
-*.tmp
-# QVPIC runtime / generated files (never commit these)
-identity/
-logs/
-scripts/agent_private.md
-scripts/agent_public.md
-temp.md
-checkpoints/
-snapshots/
-*.pt
-__pycache__/
-.DS_Store
-*.gguf
-temp.py
-temp_*.py
+*.egg-info/
+*.whl
+
+# QVPIC-specific large or generated directories
+braided_lattice/
+lattice_*.png
+*.mp4
+
+# Jupyter / notebooks (if you ever add any)
+.ipynb_checkpoints/
