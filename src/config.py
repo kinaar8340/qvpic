@@ -107,8 +107,8 @@ class SmsConfig:
     """SMS configuration for Twilio integration."""
     enabled: bool = True
     provider: str = "twilio"
-    account_sid: str = "AC3bce539abb335fe95b68509c6f8d20b9"
-    auth_token: str = "252b14dd16cc6ea1422315d5d7e7cc89"
+    account_sid: str = "REDACTED_TWILIO_SID"
+    auth_token: str = "REDACTED_TWILIO_AUTH_TOKEN"
     from_number: str = "+18884613495"
 
 

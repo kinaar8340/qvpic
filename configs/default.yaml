@@ -35,6 +35,6 @@ journal:
 sms:
   enabled: true
   provider: twilio
-  account_sid: "AC3bce539abb335fe95b68509c6f8d20b9"
-  auth_token: "252b14dd16cc6ea1422315d5d7e7cc89"
+  account_sid: "REDACTED_TWILIO_SID"
+  auth_token: "REDACTED_TWILIO_AUTH_TOKEN"
   from_number: "+18884613495"
