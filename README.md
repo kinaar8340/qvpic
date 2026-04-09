@@ -98,7 +98,6 @@ The patent abstract and full specification are included in the repository as `do
     ```
     --vqc                   # experimental
     --verbose               # expanded terminal readout
-    --nov-viz               # blocks plot rendering
     --heartbeat-minutes 5   # sets automatic checkpoint (default=60)
     ```
 

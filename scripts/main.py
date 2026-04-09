@@ -40,13 +40,22 @@ def find_free_port(start=7860):
                 return port
         port += 1
 
+
 def heartbeat_gear():
-    print("? Swiss-Watch heartbeat scheduler started (TV-optimized)")
+    """Swiss-Watch heartbeat — now prints visibly every interval"""
+    print(f"? Swiss-Watch heartbeat scheduler started (TV-optimized, interval = {HEARTBEAT_MINUTES} minutes)")
+
     global last_message_time
+
     while True:
         try:
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            if (time.time() - last_message_time) < 1800:
+
+            # Always print a clear heartbeat line first
+            print(f"\n[HEARTBEAT {now_str}] Running (interval: {HEARTBEAT_MINUTES} min)")
+
+            # Your original logic (recent chat check + narrative bake)
+            if (time.time() - last_message_time) < 1800:  # 30 minutes
                 if LLM_AVAILABLE and len(chat_history) > 0:
                     recent = "\n".join([f"{m['role']}: {m['content'][:120]}" for m in chat_history[-6:]])
                     thread_summary = llm(
@@ -60,8 +69,10 @@ def heartbeat_gear():
                     print(f"   [HEARTBEAT {now_str}] No recent chat ? skipping")
             else:
                 print(f"   [HEARTBEAT {now_str}] Idle ? skipping narrative bake")
+
         except Exception as e:
             print(f"?? [HEARTBEAT {now_str}] minor issue: {e}")
+
         time.sleep(HEARTBEAT_MINUTES * 60)
 
 free_port = find_free_port()

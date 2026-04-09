@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-# scripts/ui.py — Pure Gradio interface (v10.8.4 — Fixed for Gradio 6 + modular)
+"""
+~/qvpic/scripts/ui.py — Pure Gradio interface (v10.8.4 — Fixed for Gradio 6 + modular)
+"""
 
+
+import json
+import time
 import gradio as gr
-from datetime import datetime
-from pathlib import Path
-import plotly.graph_objects as go
 import numpy as np
+import plotly.graph_objects as go
 import torch
 import socket
 import threading
-import time
+
+from pathlib import Path
+from datetime import datetime
+
 
 # Import ONLY what agent.py actually exports
 from agent import (
@@ -122,6 +128,10 @@ def cleanup_snapshots():
             except Exception:
                 pass
 
+def get_fresh_identity_json():
+    """Always returns the latest identity structure as JSON for the UI"""
+    return json.dumps(load_identity_structure(), indent=2, ensure_ascii=False)
+
 def create_ui():
     with gr.Blocks(title=f"{agent.agent_name} — Quaternion Vortex Persistent Identity Conduit") as demo:
         with gr.Tabs():
@@ -135,7 +145,12 @@ def create_ui():
 
             with gr.Tab("Live Identity Tree"):
                 fact_count = gr.Markdown("**Current identity structure:**")
-                json_editor = gr.Code(value=load_identity_structure(), language="json", label="Raw JSON Editor", lines=18)
+                json_editor = gr.Code(
+                    value=json.dumps(load_identity_structure(), indent=2),
+                    language="json",
+                    label="Raw JSON Editor",
+                    lines=18
+                )
 
             with gr.Tab("Hyperbook Render (3D RingConeChain)"):
                 gr.Markdown("**Type any chapter path**")
@@ -175,14 +190,20 @@ def create_ui():
                 reset_btn = gr.Button("⚠️ Full Identity Reset (clear helix + facts)", variant="stop")
                 status_md = gr.Markdown("")
 
-        # Event bindings
+
+        # Event bindings with forced refresh of Live Identity Tree after every action
         render_btn.click(render_hyperbook_3d, inputs=path_input,
                          outputs=[hyperbook_3d, lattice_current, lattice_side, lattice_top])
-        msg.submit(chat_fn, [msg, chatbot], [msg, chatbot, fact_count, json_editor])
-        submit_btn.click(chat_fn, [msg, chatbot], [msg, chatbot, fact_count, json_editor])
-        clear_btn.click(lambda: ([], get_helix_stats(), json.dumps({"facts": user_facts}, indent=2)),
-                        outputs=[chatbot, fact_count, json_editor])
 
-        # Removed duplicate populate_system_facts() call — already done in initialize_agent
+        # Chat events + immediate refresh of identity tree
+        msg.submit(chat_fn, [msg, chatbot], [msg, chatbot, fact_count, json_editor]) \
+            .then(get_fresh_identity_json, outputs=[json_editor])
+
+        submit_btn.click(chat_fn, [msg, chatbot], [msg, chatbot, fact_count, json_editor]) \
+            .then(get_fresh_identity_json, outputs=[json_editor])
+
+        # Clear button also refreshes the identity tree
+        clear_btn.click(lambda: ([], get_helix_stats(), get_fresh_identity_json()),
+                        outputs=[chatbot, fact_count, json_editor])
 
     return demo

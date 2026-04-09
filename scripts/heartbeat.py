@@ -9,21 +9,25 @@
 import os
 import sys
 import time
-import math
 import torch
+import argparse
+import cv2
+import math
+import threading
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
+
 from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
-import argparse
-import cv2
 from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
+from datetime import datetime
+from pathlib import Path
+
 
 # Project root setup
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -184,6 +188,28 @@ class HeartbeatScheduler:
         emb = torch.randn(self.conduit.embed_dim, device=self.conduit.device) * 0.28
         self.phgn(emb.unsqueeze(0), rhythm["level"], s=s + rhythm["delta_s"], pol=rhythm["pol"])
         self.conduit.cube_chain.bake(int(s) % 12, emb, parent_idx=rhythm["level"].value)
+
+    def heartbeat_loop(agent, interval_minutes: int = 5):
+        """Swiss-Watch heartbeat — now prints visibly every interval"""
+        print(f"✅ Swiss-Watch heartbeat scheduler started (interval = {interval_minutes} minutes)")
+
+        while True:
+            try:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"\n[HEARTBEAT {now}] Running (interval: {interval_minutes} min)")
+
+                # Light status check
+                if hasattr(agent, 'check_for_recent_chat') and agent.check_for_recent_chat():
+                    print(f"[HEARTBEAT {now}] Recent chat detected — running full cycle")
+                else:
+                    print(f"[HEARTBEAT {now}] No recent chat — light heartbeat only")
+
+                # Optional: you can call any other periodic tasks here later
+                time.sleep(interval_minutes * 60)
+
+            except Exception as e:
+                print(f"[HEARTBEAT ERROR] {e}")
+                time.sleep(60)  # safety sleep
 
 
 # ====================== TRAINING PIPELINE (heartbeat in the loop) ======================
