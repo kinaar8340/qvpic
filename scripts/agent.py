@@ -191,6 +191,26 @@ def flatten_for_bake(facts: Dict) -> List[str]:
     recurse(facts)
     return flat
 
+def load_facts_json():
+    """Load the new structured JSON facts (u*/a* identity system)"""
+    global all_facts
+    all_facts = []
+
+    for f in (public_facts_file, private_facts_file):
+        if f.exists():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                for entry in data:
+                    if entry.get("text"):  # skip empty entries
+                        all_facts.append(entry["text"])
+            except Exception as e:
+                print(f"⚠️  Could not load {f}: {e}")
+        else:
+            print(f"⚠️  {f} not found")
+
+    print(f"✅ Loaded {len(all_facts)} facts from new JSON identity files")
+    return all_facts
+
 # ==================== LOAD / SAVE ====================
 def load_identity_structure():
     global user_facts
