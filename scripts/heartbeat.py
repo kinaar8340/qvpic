@@ -215,10 +215,6 @@ if __name__ == "__main__":
     phgn = PlatonicHelicalGeometricNetwork(conduit).to(device)
     optimizer = optim.AdamW(phgn.parameters(), lr=1.1e-3 if args.strong_train else 8e-4)
     embedder = SentenceTransformer('all-MiniLM-L6-v2', device=device)
-
-    facts_file = Path("scripts/test_facts.txt")
-    facts = [line.strip() for line in facts_file.read_text().splitlines() if line.strip()]
-
     heartbeat = HeartbeatScheduler(conduit, phgn, real_time=False)  # simulated time
 
     print(

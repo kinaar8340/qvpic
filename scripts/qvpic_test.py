@@ -60,8 +60,7 @@ if torch.cuda.is_available():
 optimizer = torch.optim.AdamW(conduit.parameters(), lr=1.2e-3 if args.strong_train else 8e-4,
                               weight_decay=cfg.training.weight_decay)
 embedder = SentenceTransformer('all-MiniLM-L6-v2', device=device_str)
-facts_file = Path("scripts/test_facts.txt")
-facts_file.touch(exist_ok=True)
+
 
 # ─── bake_facts() v10.2 — topology-first, safe_cosine enforced everywhere ───
 def bake_facts():

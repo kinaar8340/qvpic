@@ -93,7 +93,7 @@ class IdentityConfig:
 @dataclass
 class JournalConfig:
     """Living autobiography journal settings (heartbeat-driven)."""
-    path: str = "identity/agent_journal.txt"
+    path: str = "identity/agent/ajournal.md"
     max_words_per_entry: int = 600
     max_entries_per_day: int = 1
     prime_directive: str = (

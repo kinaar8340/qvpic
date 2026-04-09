@@ -46,96 +46,86 @@ The patent abstract and full specification are included in the repository as `do
 
 ## Quick Start: Quaternion Vortex Persistent Identity Conduit
 
-1. Usage Options:
-
-   i. Install from PyPI with:
-   ```bash
-   pip install qvpic
-   ```
-
-   ii. Clone the Repository:
-   ```bash
-   git clone https://github.com/kinaar8340/qvpic.git
-   ```
-
-   iii. Nightly Development Build updated every day at 2:00 AM UTC:
-   ```bash
-   pip install -i https://test.pypi.org/simple/ qvpic
-   ```
+1. Install & Setup:
+    ```bash
+    # clone the Repo
+    sudo apt update
+    sudo apt install git -y
+    mkdir -p ~/Projects
+    cd ~/Projects
+    git clone https://github.com/kinaar8340/qvpic.git
+    ```
+    ```bash
+    # Setup a Virtual Environment
+    sudo apt update
+    cd ~/Projects/qvpic
+    python3 -m venv venv
+    cd ~/Projects/qvpic
+    source venv/bin/activate
+    ```
 
 
 2. Install Dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+    ```bash
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    ```
 
 
-3. Edit Identity Files in ~/qvpic/scripts/:
-    
-   --  agent_public.md 
-
-   --  agent_private.md
-
-   --  user_public.md
-
-   --  user_private.md
+3. Set up your identity, do this before your first run.
+    Save & Exit: Ctrl+O → Enter → Ctrl+X
+    ```bash
+    nano identity/user/upublic.md      # Public data about you
+    nano identity/user/uprivate.md     # Private / sensitive data
+    nano identity/user/ujournal.md     # Your personal journal (optional)
+    ```
+    Then compile, uploads to Your Agent and done.
+    ```bash
+    python scripts/setup_identity.py
+    ```
 
 
 4. Run the agent:
-   ```bash
-    # First run creates initial checkpoints.
+    ```bash
+    # first run creates initial checkpoints
     python scripts/main.py
     ```
-   ```bash
-    # Use --no-reset to save sessions.
+    ```bash
+    # all future runs Persistent Sessions
     python scripts/main.py --no-reset
     ```
-
-
-5. Experimental:
-    ```bash
-    # See docs/paper.md for details.
-    python scripts/qvpic_test.py --strong-train --no-viz --vqc
+    Additional Options:
     ```
-   ```bash
-   # Runs demo with vqc enhancement.
-   python scripts/main.py --no-reset --verbose --vqc
-   ```
+    --vqc                   # experimental
+    --verbose               # expanded terminal readout
+    --nov-viz               # blocks plot rendering
+    --heartbeat-minutes 5   # sets automatic checkpoint (default=60)
+    ```
 
-
-6. Troubleshooting:
     ```bash
-    # Runs full pipeline test.
-    python scripts/qvpic_test.py --strong-train --no-viz
+    # experimental vqc
+    python scripts/main.py --no-reset --vqc --verbose --no-viz --heartbeat-minutes 5
+    ```
+
+
+5. Troubleshooting:
+    ```bash
+    # runs full pipeline test.
+    python scripts/qvpic_test.py --strong-train 
     ```
     ```bash
-    # Runs all diagnostic scripts in tests/test_*.py.
+    # runs all diagnostic scripts in tests/test_*.py.
     pytest -q --cov
     ```
-   ```bash
-   # Run demo with verbose output.
-   python scripts/main.py --no-reset --verbose --heartbeat-minutes 15
-   ```
       
 
-7. Full agent reset, fresh start:
-   ```bash
-   # Removes old checkpoint + chat history
-   rm -f checkpoints/pic_conduit_final.pt
-   rm -f chat_history.json
-   rm -rf snapshots/braided_lattice/*
-   echo "✅ Agent's identity has been cleared."
-   ```
-
-## Benchmarks (RubikCone + ShellCube path)
-
-| Metric                        | Value          | Notes |
-|-------------------------------|----------------|-------|
-| Average pure recall cosine    | 1.0000         | Immediate read-back after bake |
-| Drift protection factor       | 5.68×          | vs. noisy vector baseline |
-| Shell differential norm       | 1.0000         | Closed-system topological lock |
-| Braiding phase (quaternion)   | ~0.82 (stable) | Toroidal window |
-| Active cubes                  | 8+             | Discrete persistence layer |
+6. Full Agent Reset (if needed):
+    ```bash
+    # deletes agent's memory
+    rm -f checkpoints/pic_conduit_final.pt
+    rm -f chat_history.json
+    rm -rf snapshots/braided_lattice/*
+    ```
 
 ## Architecture Overview
 
@@ -153,25 +143,52 @@ All cosine operations use the enforced pattern `safe_cosine(dim=-1 + .unsqueeze(
 ```
 qvpic/
 ├── models/                         # "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
-├── src/
+│
+├── identity/
+│   ├── user/                       # HUMAN
+│   │   ├── upublic.md              # User edits this with "PUBLIC" data.
+│   │   ├── uprivate.md             # User edits this with "PRIVATE" data.
+│   │   └── ujournal.md             # User's journal as long-term record.         
+│   └── agent/                      # AI
+│       ├── apublic.md              # Agent can modify these (with guardrails)
+│       ├── aprivate.md             # Agent can modify these (with guardrails)
+│       └── ajournal.md             # Agent's journal as long-term memory.
+│
+├── facts/                          # JSON – structured & appendable
+│   ├── public_facts.json           # "PUBLIC" runtime facts 
+│   └── private_facts.json          # "PRIVATE" runtime facts 
+│
+├── scripts/                        
+│   ├── setup_identity.py           # One-time compiler: .md → JSON
+│   ├── main.py                     # Executable
+│   ├── agent.py                    # Agent's Guardrails
+│   ├── ui.py                       # User Interface via Gradio
+│   ├── heartbeat.py                # Task Scheduler
+│   └── qvpic_test.py               # Full Benchmark & Diagnostics
+│
+├── src/                            
 │   ├── conduit.py                  # Core TwistedHelicalConduit + RubikConeConduit
 │   ├── vqc_enhanced_conduit.py     # OAM-modulated VQC subclass
-│   ├── config.py
-│   ├── encoder.py
-│   └── decoder.py
-├── scripts/
-│   ├── main.py               # User Interface via Gradio
-│   ├── qvpic_test.py               # Full Benchmark & Diagnostics
-│   └── heartbeat.py                # Task Scheduler
-├── identity/
-│   ├── agent_public.md             # Agent's Public Identity
-│   ├── agent_private.md            # Agent's Private Identity
-│   ├── user_public.md              # User's Public Identity
-│   └── user_private.md             # User's Private Identity
-├── docs/
-│   └── United_States_Non-Provisional_Patent_Application.pdf
-├── configs/default.yaml
-└── README.md
+│   └── config.py                   
+│
+├── tests/                          # Runs all diagnostic scripts
+│   └── test_conduit.py             
+│
+├── pyproject.toml                  
+├── configs/                        
+│   └── default.yaml                
+│
+├── checkpoints/                    
+├── logs/                           
+├── outputs/                        
+├── images/                         
+├── requirements.txt                
+├── README.md                       
+└── docs/
+    ├── non_technical_QVPIC_Whitepaper.md
+    ├── QVPIC_Whitepaper.md
+    └── VQC_NonProvisional_Patent_Application.md
+
 ```
 
 ## License
@@ -182,11 +199,6 @@ MIT
 **Contact:** 
 - kinaar0@protonmail.com
 - X: @kinaar8340
-
-**Repository:**
-- https://github.com/kinaar8340/pic 
-- https://github.com/kinaar8340/qvpic
-- https://github.com/kinaar8340/vqc_sims_public
 
 
 Built as the reference software implementation of the VQC patent.

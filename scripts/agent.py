@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-# scripts/agent.py — Core Agent Logic (v10.8.4 — Performance Optimized)
-# Optimizations: batched embeddings, torch.compile, fp16 embedder, dedup baking, caching
+"""
+scripts/agent.py — Core Agent Logic (v10.8.4 — Performance Optimized)
+Optimizations: batched embeddings, torch.compile, fp16 embedder, dedup baking, caching
+"""
 
 import torch
-import json
 import re
 import math
 import hashlib
 import requests
 import os
 import sys
+import json
+import time
+import atexit
 import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Any, Optional
-import time
-import atexit
 from functools import lru_cache
 
 # Project root
@@ -36,6 +38,27 @@ args = parser.parse_args()
 from src.config import load_config
 from sentence_transformers import SentenceTransformer
 import torch.nn.functional as F
+
+
+def load_facts_json():
+    """Load the new structured JSON facts (replaces old .txt loading)"""
+    global all_facts
+    all_facts = []
+
+    for f in (public_facts_file, private_facts_file):
+        if f.exists():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                for entry in data:
+                    if entry.get("text"):  # only add non-empty
+                        all_facts.append(entry["text"])
+            except Exception as e:
+                print(f"⚠️  Could not load {f}: {e}")
+        else:
+            print(f"⚠️  {f} not found")
+
+    print(f"✅ Loaded {len(all_facts)} facts from new JSON identity files")
+    return all_facts
 
 # ==================== GLOBALS ====================
 agent_name = "Bud"
@@ -95,15 +118,15 @@ optimizer = torch.optim.AdamW(conduit.parameters(), lr=8e-4, weight_decay=cfg.tr
 # ==================== FILE PATHS & CACHING ====================
 identity_structure_path = Path("identity_structure.json")
 history_file = Path("chat_history.json")
-public_file = Path("scripts/public_facts.txt")
-private_file = Path("scripts/private_facts.txt")
+public_facts_file = Path("facts/public_facts.json")
+private_facts_file = Path("facts/private_facts.json")
 DAILY_HELIX_LOG = Path("logs/daily_helix.jsonl")
 DAILY_HELIX_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 # Simple fact dedup cache
 seen_facts = set()
 
-for f in (public_file, private_file):
+for f in (public_facts_file, private_facts_file):
     f.touch(exist_ok=True)
 
 # ==================== HELPERS (Cached where hot) ====================
@@ -178,10 +201,10 @@ def load_identity_structure():
             user_facts = data.get("facts", {})
             print(f"✅ Loaded identity structure ({len(user_facts)} sections)")
         else:
-            populate_user_facts_from_files()
+            load_facts_json()
     except Exception as e:
         print(f"⚠️ Structure load failed ({e}) — regenerating")
-        populate_user_facts_from_files()
+        load_facts_json()
     return json.dumps({"facts": user_facts}, indent=2)
 
 def populate_system_facts():
@@ -198,7 +221,7 @@ def save_identity_structure():
 
 # ==================== JOURNAL + BAKING (Optimized) ====================
 def append_to_journal(entry_text: str):
-    journal_path = Path("identity/agent_journal.txt")
+    journal_path = Path("identity/agent/ajournal.md")
     journal_path.parent.mkdir(exist_ok=True)
     if not journal_path.exists():
         journal_path.write_text("# QVPIC Agent Journal — Living Autobiography\n\n", encoding="utf-8")
@@ -232,7 +255,7 @@ def populate_user_facts_from_files():
     global user_facts
     user_facts = {}
     lines = []
-    for path in [public_file, private_file]:
+    for path in [public_facts_file, private_facts_file]:
         if path.exists():
             lines.extend([line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()])
 
