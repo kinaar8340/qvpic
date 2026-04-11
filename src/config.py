@@ -8,26 +8,25 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict
-
-# Load .env file early if it exists (for development)
 from dotenv import load_dotenv
-load_dotenv()
 
+
+load_dotenv()
 
 @dataclass
 class TrainingConfig:
     # Strong local fidelity (these must dominate)
-    recon_weight: float = 5200.0
+    recon_weight: float = 4200.0      # keep high — local embedding quality is critical
     mag_weight: float = 80.0
-    align_weight: float = 1200.0
+    align_weight: float = 1800.0      # cosine/dual-cone alignment
 
-    # Very gentle global topological guidance
-    winding_weight: float = 128.0
+    # Very gentle global topological guidance — reduced dramatically
+    winding_weight: float = 0.048  # ← was 48 → now ~1000x gentler
     locality_weight: float = 12.0
-    braiding_weight: float = 24.0
+    braiding_weight: float = 0.018  # ← was 18 → much smaller
 
-    # Depth pull (critical for s-stability)
-    depth_pull_weight: float = 5200.0
+    # Depth pull (critical for s-stability) — also heavily reduced
+    depth_pull_weight: float = 5.2  # ← was 5200 → now ~1000x gentler
 
     # Orthogonality & preservation
     ortho_weight: float = 5.0

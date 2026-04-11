@@ -18,7 +18,7 @@ The Quaternion Vortex Persistent Identity Conduit (QVPIC v10.2) is the software 
 
 QVPIC encodes data as quaternion-compressed shards embedded in a helical fiber bundle over a Clifford-torus base. Global topological invariants — winding number, quaternion linking/braiding phase, and zero-point ShellCube radial differential — serve as the single source of truth for memory. Optional OAM modulation mirrors the patent’s nested helical shielding.
 
-**New in v10.2**: A **Minimal Copresheaf Topological Neural Network (TNN)** layer performs higher-order sheaf diffusion reasoning directly on the RingConeChain combinatorial complex while keeping the underlying geometric identity lock completely frozen.
+**New in v10.2**: A **Minimal Copresheaf Topological Neural Network (TNN)** layer performs higher-order sheaf diffusion reasoning directly on the RingConeChain combinatorial complex while keeping the underlying geometric identity lock completely frozen. This act as linear maps between stalks. This is the key generalization in copresheaf message passing.
 
 On standard benchmarks, QVPIC achieves **0.98–1.000 cosine recall fidelity** with **5.68× drift protection** relative to conventional vector-store baselines.
 
@@ -110,7 +110,7 @@ The patent abstract and full specification are included in the repository as `do
 5. Troubleshooting:
     ```bash
     # runs full pipeline test.
-    python scripts/qvpic_test.py --strong-train 
+    python scripts/qvpic_test.py --no-viz --device cpu --num-threads 70 --bake-steps 100
     ```
     ```bash
     # runs all diagnostic scripts in tests/test_*.py.

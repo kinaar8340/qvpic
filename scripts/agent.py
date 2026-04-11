@@ -24,7 +24,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-parser = argparse.ArgumentParser(description="PIC v10.8.4 — TV-Optimized + Performance")
+parser = argparse.ArgumentParser(description="QVPIC")
 parser.add_argument('--name', type=str, default='Bud')
 parser.add_argument('--no-reset', action='store_true')
 parser.add_argument('--vqc', action='store_true')
@@ -84,9 +84,9 @@ conduit.device = device
 if torch.__version__ >= "2.0" and device == "cuda":
     try:
         conduit = torch.compile(conduit, mode="default")  # "reduce-overhead" can be aggressive with mixed precision
-        print("🚀 conduit compiled with torch.compile (default mode)")
+        print("🚀  conduit compiled with torch.compile (default mode)")
     except Exception as e:
-        print(f"⚠️ compile skipped: {e}")
+        print(f"⚠️  compile skipped: {e}")
 
 checkpoint_dir = Path("checkpoints")
 checkpoint_dir.mkdir(exist_ok=True)
@@ -188,7 +188,7 @@ def load_facts_json():
         else:
             print(f"⚠️  {f} not found")
 
-    print(f"✅ Loaded {len(all_facts)} facts from new JSON identity files")
+    print(f"✓  Loaded {len(all_facts)} facts from /identity/ files")
     return all_facts
 
 def append_fact(text: str, fact_type: str = "journal", source: str = "agent"):
@@ -203,7 +203,7 @@ def append_fact(text: str, fact_type: str = "journal", source: str = "agent"):
     # Safety guardrail: only allow agent-owned facts
     allowed_sources = ["agent_apublic", "agent_aprivate", "agent_ajournal"]
     if source not in allowed_sources:
-        print(f"🚫 Guardrail: Cannot modify user or unknown source '{source}'")
+        print(f"🚫  Guardrail: Cannot modify user or unknown source '{source}'")
         return False
 
     # Choose correct JSON file
@@ -238,14 +238,14 @@ def append_fact(text: str, fact_type: str = "journal", source: str = "agent"):
         with md_path.open("a", encoding="utf-8") as f:
             f.write(f"\n\n---\n**Added {timestamp}**\n{text.strip()}\n")
 
-        print(f"✅ Agent appended new {fact_type} fact: {text[:60]}...")
+        print(f"✓  Agent appended new {fact_type} fact: {text[:60]}...")
 
         # Reload facts immediately
         load_facts_json()
         return True
 
     except Exception as e:
-        print(f"❌ Failed to append fact: {e}")
+        print(f"❌  Failed to append fact: {e}")
         return False
 
 # ==================== LOAD / SAVE ====================
@@ -302,7 +302,7 @@ def load_identity_structure():
             json.dumps(identity_structure, indent=2, ensure_ascii=False),
             encoding="utf-8"
         )
-        print(f"✅ Loaded identity structure ({section_count} sections) — saved to disk")
+        print(f"✓  Loaded identity structure ({section_count} sections) — saved to disk")
     except Exception as e:
         print(f"⚠️  Could not save identity_structure.json: {e}")
 
@@ -349,7 +349,7 @@ def append_to_journal(entry_text: str):
         cube_local = len(all_facts) % getattr(conduit.ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(conduit.ring_cone, 'rings') else 0
         conduit.ring_cone.bake_ring(ring_idx, cube_local, emb, orientation=len(all_facts) % 24)
 
-    print("📖 Journal baked efficiently")
+    print("📖  Journal baked efficiently")
 
 
 def populate_user_facts_from_files():
@@ -399,7 +399,7 @@ def populate_user_facts_from_files():
                     cube_local = len(all_facts) % getattr(conduit.ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(conduit.ring_cone, 'rings') else 0
                     conduit.ring_cone.bake_ring(ring_idx, cube_local, emb.squeeze(0), orientation=len(all_facts) % 24)
 
-    print(f"✅ [Core Identity] Batched re-bake complete ({len(facts_to_bake)} facts)")
+    print(f"✓  [Core Identity] Batched re-bake complete ({len(facts_to_bake)} facts)")
     save_identity_structure()
 
 def run_pic_cli(command: str) -> Tuple[str, str, str]:
@@ -433,10 +433,10 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         if key and value:
             if '/' in key:
                 set_nested(target, key, value.strip())
-                msg = f"✅ Etched {key} = {value} into RingConeChain"
+                msg = f"✓  Etched {key} = {value} into RingConeChain"
             else:
                 target[key] = value
-                msg = f"✅ Set {key} = {value}"
+                msg = f"✓  Set {key} = {value}"
             for natural in flatten_for_bake(target):
                 bake_new_fact(natural)
         else:
@@ -445,7 +445,7 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
     elif verb in ("rm", "remove", "delete"):
         if key:
             if delete_nested(target, key):
-                msg = f"✅ Removed {key}"
+                msg = f"✓  Removed {key}"
             else:
                 msg = f"❓ Path/Key '{key}' not found"
         else:
@@ -497,15 +497,15 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         save_identity_structure()
         for natural in flatten_for_bake(target):
             bake_new_fact(natural)
-        msg = "✅ Helix checkpoint + hierarchical re-bake complete"
+        msg = "✓  Helix checkpoint + hierarchical re-bake complete"
 
     elif verb == "wake":
         wake_snapshot()
-        msg = "✅ Wake snapshot + morning narrative braid completed"
+        msg = "✓  Wake snapshot + morning narrative braid completed"
 
     elif verb == "sleep":
         sleep_snapshot()
-        msg = "✅ Sleep snapshot + daily autobiography baked"
+        msg = "✓  Sleep snapshot + daily autobiography baked"
 
     elif verb == "sms":
         msg = "❓ SMS command not yet migrated to new structure"
@@ -534,7 +534,7 @@ def bake_new_fact(message: str) -> bool:
         cube_local = len(all_facts) % getattr(conduit.ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(conduit.ring_cone, 'rings') else 0
         conduit.ring_cone.bake_ring(ring_idx, cube_local, emb, orientation=len(all_facts) % 24)
 
-    print(f"✅ Baked: {clean_message[:80]}...")
+    print(f"✓  Baked: {clean_message[:80]}...")
     return True
 
 
@@ -664,14 +664,14 @@ def get_helix_stats():
         stability = min(100.0, 100 * (braiding_phase * 1.2))
         health_emoji = "🟢" if stability > 95 else "🟡" if stability > 80 else "🔴"
         phase_str = datetime.now().strftime("%A %H:%M — %p cycle")
-        return f"""**🌀 HELIX HEALTH EXPLORER** (v10.8.3 TV-Optimized)
+        return f"""**HELIX HEALTH EXPLORER**)
 {health_emoji} **Helix Integrity**: **{stability:.1f}%**
-📚 Topological Chapters: **{priority_facts}** | 📖 Total Pages Baked: **{total_baked}**
-🔄 Current Chapter Order: RingConeChain
-🌌 Braiding Phase: **{braiding_phase:.4f}**
-📅 Today: **{phase_str}**"""
+📚  Topological Chapters: **{priority_facts}** | 📖  Total Pages Baked: **{total_baked}**
+🔄  Current Chapter Order: RingConeChain
+🌌  Braiding Phase: **{braiding_phase:.4f}**
+📅  Today: **{phase_str}**"""
     except Exception:
-        return "**🌀 HELIX HEALTH** — Monitoring active (v10.8.3)"
+        return "**HELIX HEALTH** — Monitoring active)"
 
 
 def log_helix_event(event_type: str, summary: str = ""):
@@ -688,12 +688,12 @@ def log_helix_event(event_type: str, summary: str = ""):
 def wake_snapshot():
     now = datetime.now()
     phase = "morning" if now.hour < 12 else "afternoon" if now.hour < 18 else "evening"
-    print(f"🌅 Bud waking — {phase} cycle")
+    print(f"🌅  Bud waking — {phase} cycle")
     log_helix_event("wake")
 
 
 def sleep_snapshot():
-    print("🌙 Bud entering rest — daily autobiography page")
+    print("🌙  Bud entering rest — daily autobiography page")
     log_helix_event("sleep")
     # Guarded daily autobiography entry — only writes to agent's own journal
     append_fact(
@@ -711,7 +711,7 @@ atexit.register(sleep_snapshot)
 def bake_narrative_braid(summary: str, meta_type: str = "daily"):
     fact = f"[META-AUTOBIOGRAPHY {meta_type.upper()}] {summary}"
     bake_new_fact(fact)
-    print(f"✅ Narrative braid baked ({meta_type})")
+    print(f"✓  Narrative braid baked ({meta_type})")
     log_helix_event(f"narrative_{meta_type}", summary)
 
 
@@ -740,20 +740,20 @@ def initialize_agent(args):
         from llama_cpp import Llama
         llm = Llama(model_path="models/Qwen2.5-14B-Instruct-Q4_K_M.gguf", n_gpu_layers=99, n_ctx=32768, n_batch=1024, n_threads=16, verbose=False, flash_attn=True)
         LLM_AVAILABLE = True
-        print("✅ Qwen loaded")
+        print("✓  Qwen loaded")
     except Exception as e:
-        print(f"⚠️ LLM: {e}")
+        print(f"⚠️  LLM: {e}")
         LLM_AVAILABLE = False
 
     if checkpoint_path.exists() and args.no_reset:
-        print("✅ Loading checkpoint...")
+        print("✓  Loading checkpoint...")
         state = torch.load(checkpoint_path, weights_only=True, map_location=device)
         conduit.load_state_dict(state, strict=False)
 
-    print(f"✅ Agent initialized (name={agent_name}, Performance Mode)")
+    print(f"✓  Agent initialized (name={agent_name}, Performance Mode)")
 
     if PROFILER:
-        print("🔍 Profiler active — check console/tensorboard after run")
+        print("🔍  Profiler active — check console/tensorboard after run")
 
 # ==================== EXPOSE FOR UI & MAIN ====================
 # Make key objects available at module level for ui.py
@@ -768,4 +768,4 @@ if __name__ == "__main__":
     initialize_agent(args)
     if PROFILER:
         PROFILER.__exit__(None, None, None)
-        print("📊 Profiler summary available")
+        print("✓  Profiler summary available")

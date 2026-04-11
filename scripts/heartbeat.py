@@ -291,4 +291,3 @@ if __name__ == "__main__":
         'conduit_state': conduit.state_dict(),
     }, "checkpoints/platonic_power_video_heartbeat_final.pt")
     print("Files saved: outputs/pic_heartbeat_video.mp4 + braided lattice + checkpoint")
-

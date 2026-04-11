@@ -1,11 +1,10 @@
-# src/conduit.py — UNIVERSAL v10.2 (March 30, 2026)
-# PIC v10.2 is now production-ready with RubikConeConduit +
-# ShellCube radial differential + 216-cube RingConeChain as the default path.
-# Full merge: original TwistedHelicalConduit + CubeChain +
-# ShellCube (inscribed r=1 + circumscribed R=√3) +
-# RingConeChain (double-cone 24→3 rings, 216 cubes) +
-# RubikEncoder/Decoder with radial differential already wired.
-# Zero-point differential shell gives persistent topological memory.
+# src/conduit.py — Copresheaf TNN section (v10.5 — Production-ready)
+"""
+Global topological features (winding + braiding_phase + ShellCube differential) drive persistence
+Minimal Copresheaf Topological Neural Network + Diffusion Stack
+ICLR-style cooperative sheaf transport maps + polarity-aware message passing
+Fully compatible with RingConeChain + RubikConeConduit
+"""
 
 import os
 import torch
@@ -209,7 +208,7 @@ class RingConeChain(nn.Module):
         self.tnn_stack.prepare(self.edge_index, self.ring_polarities)
         self.tnn_stack = self.tnn_stack.to(self.device)  # ensure full move
         self.tnn_stack.prepare(self.edge_index, self.ring_polarities)
-        print("✅ RingConeChain: CopresheafDiffusionStack (3 layers) wired + prepared")
+        print("→  RingConeChain: CopresheafDiffusionStack (3 layers) wired + prepared")
 
 
     def _build_cone_edges(self):
@@ -283,14 +282,14 @@ class RingConeChain(nn.Module):
         original_x = original_x.to(device_for_check)
         cos_sim = safe_cosine(x, original_x)
         drift_norm = torch.norm(x - original_x, p=2, dim=-1).mean()
-        print(f"Post-copresheaf cosine: {cos_sim.mean().item():.4f} | "
-              f"Drift norm: {drift_norm:.2e} | Layers: {self.tnn_stack.num_layers}")
+        print(f"→  Post-copresheaf cosine: {cos_sim.mean().item():.4f} | "
+              f"→  Drift norm: {drift_norm:.2e} | Layers: {self.tnn_stack.num_layers}")
 
         # Drift check now uses exact same device
         cos_sim = safe_cosine(x, original_x)
         drift_norm = torch.norm(x - original_x, p=2, dim=-1).mean()
-        print(f"Post-copresheaf cosine: {cos_sim.mean().item():.4f} | "
-              f"Drift norm: {drift_norm:.2e} | Layers: {self.tnn_stack.num_layers}")
+        print(f"→  Post-copresheaf cosine: {cos_sim.mean().item():.4f} | "
+              f"→  Drift norm: {drift_norm:.2e} | Layers: {self.tnn_stack.num_layers}")
 
         # Vortex-polarized readout
         origin_agg = x.mean(dim=0)
@@ -660,6 +659,7 @@ class TwistedHelicalConduit(nn.Module):
         device = self.helix_projector.weight.device
         geo_3d = geo_3d.to(device)
         residual = self.helix_projector(geo_3d.unsqueeze(0)).squeeze(0) * self.residual_scale
+
         # FINAL robust device alignment for quat_spine (stale self.device → module weight device)
         device = next(self.quat_spine.parameters()).device
         quat_residual = self.quat_spine(torch.zeros(self.quat_logical_dim, device=device) * self.quat_scale.to(device))
@@ -953,11 +953,11 @@ class TwistedHelicalConduit(nn.Module):
             os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)
             plt.savefig(save_path, dpi=200, bbox_inches='tight', facecolor=fig.get_facecolor())
             plt.close(fig)
-            print(f"→ Braided lattice saved: {save_path} (global topological geometry + ShellCube)")
+            print(f"→  Braided lattice saved: {save_path} (global topological geometry + ShellCube)")
             return str(save_path)
 
         except Exception as e:
-            print(f"⚠️ Braided lattice render failed: {e}")
+            print(f"→  Braided lattice render failed: {e}")
             fig, ax = plt.subplots(figsize=(8, 6))
             ax.text(0.5, 0.5, "Lattice render temporarily unavailable\n(Clifford toroidal geometry stabilized)",
                     ha='center', va='center', fontsize=14, color='white')
@@ -981,7 +981,7 @@ class RubikConeConduit(TwistedHelicalConduit):
         self.ring_cone = RingConeChain(embed_dim=self.embed_dim)
         self.encoder = RubikEncoder(embed_dim=self.embed_dim)
         self.decoder = RubikDecoder(embed_dim=self.embed_dim)
-        print("✅ RubikConeConduit v10.0 ready — ShellCube radial differential + double-cone wired")
+        print("→  RubikConeConduit v10.0 ready — ShellCube radial differential + double-cone wired")
 
     def forward(self, face_grids: torch.Tensor, orientations: torch.Tensor,
                 vortex_digits: Optional[torch.Tensor] = None, s_query: Optional[torch.Tensor] = None):
@@ -1028,7 +1028,7 @@ class VQCEnhancedHelicalConduit(TwistedHelicalConduit):
         for p in self.helix_projector.parameters():
             p.requires_grad = False
 
-        print("✅ VQC-Enhanced ready (full quaternion topology + OAM flux + Clifford skin)")
+        print("→  VQC-Enhanced ready (full quaternion topology + OAM flux + Clifford skin)")
 
     def position(self, s: float, pol_idx: int = 0) -> torch.Tensor:
         base_emb = super().position(s, pol_idx)
@@ -1038,99 +1038,42 @@ class VQCEnhancedHelicalConduit(TwistedHelicalConduit):
         vqc_emb = base_emb + oam_mod
         return F.normalize(vqc_emb * self.vqc_scale, dim=-1) * self.output_scale
 
-class CopresheafDiffusionStack(nn.Module):
-    """Multi-layer copresheaf TNN stack with optional classic sheaf ablation mode.
-    Production-ready for RingConeChain + RubikConeConduit."""
+class MinimalCopresheafTNN(nn.Module):
+    """Optimized Minimal Copresheaf Topological Neural Network with cooperative sheaf support."""
 
     def __init__(self,
                  in_channels: int,
                  hidden_channels: Optional[int] = None,
                  out_channels: Optional[int] = None,
-                 num_layers: int = 3,
                  num_polarities: int = 9,
                  dropout: float = 0.05,
-                 sheaf_mode: bool = False,
-                 device=None):
+                 use_cooperative_sheaf: bool = True,
+                 device: Optional[torch.device] = None):
         super().__init__()
-        self.num_layers = num_layers
-        self.sheaf_mode = sheaf_mode
+
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         hidden_channels = hidden_channels or in_channels
-        out_channels = out_channels or in_channels
-
-        self.layers = nn.ModuleList([
-            MinimalCopresheafTNN(
-                in_channels if i == 0 else hidden_channels,
-                hidden_channels=hidden_channels,
-                out_channels=out_channels,
-                num_polarities=num_polarities,
-                dropout=dropout,
-                device=self.device
-            ) for i in range(num_layers)
-        ])
-
-        # Residual projection only if input/output dims differ
-        self.res_proj = nn.Linear(in_channels, out_channels) if in_channels != out_channels else None
-
-        self.to(self.device)
-
-    def prepare(self, edge_index: torch.Tensor, ring_polarities: torch.Tensor):
-        """One-time static topology prep for the entire stack."""
-        for layer in self.layers:
-            layer.prepare(edge_index, ring_polarities)
-
-    def forward(self, x: torch.Tensor,
-                edge_index: Optional[torch.Tensor] = None,
-                ring_polarities: Optional[torch.Tensor] = None) -> torch.Tensor:
-        """Multi-layer copresheaf diffusion (production path)."""
-        residual = x.clone()
-
-        for layer in self.layers:
-            if self.sheaf_mode:
-                # Classic symmetric sheaf fallback (no polarity)
-                row, col = edge_index if edge_index is not None else (layer.row, layer.col)
-                messages = layer.restriction(x[col])
-                out = torch.zeros_like(x)
-                out.index_add_(0, row, messages)
-                deg = torch.zeros(x.size(0), device=x.device)
-                deg.index_add_(0, row, torch.ones(messages.size(0), device=x.device))
-                out = out / deg.clamp(min=1).unsqueeze(-1)
-                x = out + x
-            else:
-                # Full polarity-aware copresheaf
-                x = layer(x, edge_index, ring_polarities)
-
-        # Final residual connection (device-safe)
-        if self.res_proj is not None:
-            residual = self.res_proj(residual.to(x.device))
-        if x.size(-1) == residual.size(-1):
-            x = x + residual.to(x.device)
-
-        return x
-
-class MinimalCopresheafTNN(nn.Module):
-    """Optimized Minimal Copresheaf Topological Neural Network (TNN) for QVPIC v10.2.
-    Device-agnostic: no early .to() in __init__ — parent .to(cpu) now works cleanly."""
-
-    def __init__(self,
-                 in_channels: int,
-                 hidden_channels: Optional[int] = None,
-                 out_channels: Optional[int] = None,
-                 num_polarities: int = 9,
-                 dropout: float = 0.1,
-                 device=None):
-        super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        hidden_channels = hidden_channels or in_channels
-        out_channels = out_channels or in_channels
+        out_channels = out_channels or hidden_channels
 
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.out_channels = out_channels
+        self.num_polarities = num_polarities
+        self.use_cooperative_sheaf = use_cooperative_sheaf
 
         self.restriction = nn.Linear(in_channels, hidden_channels, bias=False)
-        self.polarity_scale = nn.Parameter(torch.ones(num_polarities, hidden_channels))
 
+        # Cooperative sheaf transport maps (polarity-specific)
+        if self.use_cooperative_sheaf:
+            d = hidden_channels
+            np = num_polarities
+            self.send_maps = nn.Parameter(torch.eye(d).unsqueeze(0).repeat(np, 1, 1))
+            self.receive_maps = nn.Parameter(torch.eye(d).unsqueeze(0).repeat(np, 1, 1))
+            self.delta_send = nn.Parameter(torch.zeros(np, d, d) * 0.01)
+            self.delta_receive = nn.Parameter(torch.zeros(np, d, d) * 0.01)
+
+        self.norm = nn.LayerNorm(hidden_channels)
+        self.res_scale = nn.Parameter(torch.tensor(0.92))
         self.update = nn.Sequential(
             nn.Linear(hidden_channels, hidden_channels),
             nn.LayerNorm(hidden_channels),
@@ -1145,14 +1088,20 @@ class MinimalCopresheafTNN(nn.Module):
         self.register_buffer('ring_polarities', None)
 
         self.reset_parameters()
+        self.to(self.device)
 
     def reset_parameters(self):
         nn.init.xavier_uniform_(self.restriction.weight)
-        nn.init.xavier_uniform_(self.polarity_scale)
+        if self.use_cooperative_sheaf:
+            nn.init.xavier_uniform_(self.send_maps)
+            nn.init.xavier_uniform_(self.receive_maps)
 
     def prepare(self, edge_index: torch.Tensor, ring_polarities: torch.Tensor):
+        """One-time static topology prep for RingConeChain."""
         device = self.restriction.weight.device
-        row, col = edge_index[0].contiguous().to(device), edge_index[1].contiguous().to(device)
+        row = edge_index[0].contiguous().to(device)
+        col = edge_index[1].contiguous().to(device)
+
         num_nodes = ring_polarities.size(0)
         deg = torch.zeros(num_nodes, device=device, dtype=torch.float32)
         deg.index_add_(0, row, torch.ones(row.numel(), device=device, dtype=torch.float32))
@@ -1161,7 +1110,7 @@ class MinimalCopresheafTNN(nn.Module):
         self.row = row
         self.col = col
         self.deg_norm = deg.unsqueeze(-1)
-        self.ring_polarities = (ring_polarities % 9).contiguous().to(device)  # ← polarity safety
+        self.ring_polarities = (ring_polarities % self.num_polarities).contiguous().to(device)
 
     def forward(self, x: torch.Tensor,
                 edge_index: Optional[torch.Tensor] = None,
@@ -1171,39 +1120,199 @@ class MinimalCopresheafTNN(nn.Module):
 
         if self.row is None:
             if edge_index is None or ring_polarities is None:
-                raise RuntimeError("Call .prepare(edge_index, ring_polarities) first, or pass them on first forward.")
-            self.prepare(edge_index.to(weight_device), ring_polarities.to(weight_device))
+                raise RuntimeError("MinimalCopresheafTNN: call .prepare() first!")
+            self.prepare(edge_index, ring_polarities)
 
-        messages = self.restriction(x[self.col])
+        if self.use_cooperative_sheaf:
+            src = self.row
+            tgt = self.col
 
-        target_pols = self.ring_polarities[self.row] % self.polarity_scale.shape[0]  # ← shape safety
-        messages = messages * self.polarity_scale[target_pols]
+            # Source → SEND map (polarity-aware)
+            send_pols = self.ring_polarities[src]
+            send_rho = self.send_maps[send_pols] + self.delta_send[send_pols]
+            messages = torch.bmm(x[src].unsqueeze(1), send_rho).squeeze(1)
 
-        out = torch.zeros(x.size(0), self.hidden_channels,
-                          device=weight_device, dtype=x.dtype)
-        out.index_add_(0, self.row, messages)
+            messages = self.restriction(messages)
+
+            # Target → RECEIVE map (polarity-aware)
+            receive_pols = self.ring_polarities[tgt]
+            receive_rho = self.receive_maps[receive_pols] + self.delta_receive[receive_pols]
+            messages = torch.bmm(messages.unsqueeze(1), receive_rho).squeeze(1)
+        else:
+            messages = self.restriction(x[self.col])
+
+        # Mean aggregation
+        out = torch.zeros(x.size(0), self.hidden_channels, device=weight_device, dtype=x.dtype)
+        out.index_add_(0, tgt, messages)
         out = out * self.deg_norm
 
         out = self.update(out)
         if x.size(-1) == self.out_channels:
-            out = out + x
+            out = self.res_scale * out + x
+        out = self.norm(out)
 
         return out
+
+
+class CopresheafDiffusionStack(nn.Module):
+    """Multi-layer copresheaf TNN stack (used by RingConeChain)."""
+
+    def __init__(self,
+                 in_channels: int,
+                 hidden_channels: Optional[int] = None,
+                 out_channels: Optional[int] = None,
+                 num_layers: int = 3,
+                 num_polarities: int = 9,
+                 dropout: float = 0.05,
+                 sheaf_mode: bool = False,
+                 use_cooperative_sheaf: bool = True,
+                 device: Optional[torch.device] = None):
+        super().__init__()
+
+        self.num_layers = num_layers
+        self.sheaf_mode = sheaf_mode
+        self.use_cooperative_sheaf = use_cooperative_sheaf
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        hidden_channels = hidden_channels or in_channels
+        out_channels = out_channels or in_channels
+
+        self.layers = nn.ModuleList([
+            MinimalCopresheafTNN(
+                in_channels if i == 0 else hidden_channels,
+                hidden_channels=hidden_channels,
+                out_channels=out_channels,
+                num_polarities=num_polarities,
+                dropout=dropout,
+                use_cooperative_sheaf=self.use_cooperative_sheaf,
+                device=self.device
+            ) for i in range(num_layers)
+        ])
+
+        self.res_proj = nn.Linear(in_channels, out_channels) if in_channels != out_channels else None
+        self.to(self.device)
+
+    def prepare(self, edge_index: torch.Tensor, ring_polarities: torch.Tensor):
+        for layer in self.layers:
+            layer.prepare(edge_index, ring_polarities)
+
+    def forward(self, x: torch.Tensor,
+                edge_index: Optional[torch.Tensor] = None,
+                ring_polarities: Optional[torch.Tensor] = None) -> torch.Tensor:
+        residual = x.clone().to(self.device)
+
+        for layer in self.layers:
+            if self.sheaf_mode:
+                # Classic symmetric sheaf fallback
+                row, col = edge_index if edge_index is not None else (layer.row, layer.col)
+                messages = layer.restriction(x[col]) if hasattr(layer, 'restriction') else x[col]
+                out = torch.zeros_like(x)
+                out.index_add_(0, row, messages)
+                deg = torch.zeros(x.size(0), device=x.device)
+                deg.index_add_(0, row, torch.ones(messages.size(0), device=x.device))
+                out = out / deg.clamp(min=1).unsqueeze(-1)
+                x = out + x
+            else:
+                x = layer(x, edge_index, ring_polarities)
+
+        if self.res_proj is not None:
+            residual = self.res_proj(residual)
+        if x.size(-1) == residual.size(-1):
+            x = x + residual
+
+        return x
+
+
+class CopresheafDiffusionStack(nn.Module):
+    """Multi-layer copresheaf TNN stack (default in RingConeChain).
+    Supports classic symmetric sheaf ablation via sheaf_mode=True."""
+
+    def __init__(self,
+                 in_channels: int,
+                 hidden_channels: Optional[int] = None,
+                 out_channels: Optional[int] = None,
+                 num_layers: int = 3,
+                 num_polarities: int = 9,
+                 dropout: float = 0.05,
+                 sheaf_mode: bool = False,           # classic symmetric sheaf ablation
+                 use_cooperative_sheaf: bool = True,
+                 device: Optional[torch.device] = None):
+        super().__init__()
+
+        self.num_layers = num_layers
+        self.sheaf_mode = sheaf_mode
+        self.use_cooperative_sheaf = use_cooperative_sheaf
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        hidden_channels = hidden_channels or in_channels
+        out_channels = out_channels or in_channels
+
+        # Build layers
+        self.layers = nn.ModuleList([
+            MinimalCopresheafTNN(
+                in_channels if i == 0 else hidden_channels,
+                hidden_channels=hidden_channels,
+                out_channels=out_channels,
+                num_polarities=num_polarities,
+                dropout=dropout,
+                use_cooperative_sheaf=self.use_cooperative_sheaf,
+                device=self.device
+            ) for i in range(num_layers)
+        ])
+
+        # Residual projection only when dimensions change
+        self.res_proj = nn.Linear(in_channels, out_channels) if in_channels != out_channels else None
+
+        self.to(self.device)
+
+    def prepare(self, edge_index: torch.Tensor, ring_polarities: torch.Tensor):
+        """One-time topology preparation for the entire stack."""
+        for layer in self.layers:
+            layer.prepare(edge_index, ring_polarities)
+
+    def forward(self, x: torch.Tensor,
+                edge_index: Optional[torch.Tensor] = None,
+                ring_polarities: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """Multi-layer diffusion with optional residual."""
+        residual = x.clone().to(self.device)
+
+        for layer in self.layers:
+            if self.sheaf_mode:
+                # Classic symmetric sheaf (no polarity, simple mean aggregation)
+                row, col = edge_index if edge_index is not None else (layer.row, layer.col)
+                messages = layer.restriction(x[col]) if hasattr(layer, 'restriction') else x[col]
+                out = torch.zeros_like(x)
+                out.index_add_(0, row, messages)          # note: row = source
+                deg = torch.zeros(x.size(0), device=x.device)
+                deg.index_add_(0, row, torch.ones(messages.size(0), device=x.device))
+                out = out / deg.clamp(min=1).unsqueeze(-1)
+                x = out + x
+            else:
+                # Full cooperative copresheaf path
+                x = layer(x, edge_index, ring_polarities)
+
+        # Final residual (dimension-safe)
+        if self.res_proj is not None:
+            residual = self.res_proj(residual)
+        if x.size(-1) == residual.size(-1):
+            x = x + residual
+
+        return x
 
 if __name__ == "__main__":
     # Demo the full merged system with ShellCube + double-cone + Rubik's wiring
     conduit = RubikConeConduit(toroidal_modulo9=True, vortex_math_369=True, clifford_projection=True)
-    print("✅ PIC v10.0 with ShellCube (r=1 + R=√3 differential) + RingConeChain + RubikEncoder/Decoder loaded")
+    print("→  QVPIC Standalone...")
 
     # Quick demo forward pass (dummy Rubik data)
     dummy_grids = torch.randn(1, 216, 6, 3, 3)
     dummy_orient = torch.randint(0, 24, (1, 216))
     recon, stats = conduit(dummy_grids, dummy_orient)
-    print("→ Rubik forward pass successful")
-    print("Shell differential norm:", stats["shell_differential_norm"])
-    print("Global vortex sync:", stats["vortex_sync_global"])
-    print("→ Zero-point differential closed system active (persistent topological memory)")
+    print("→  Rubik forward pass successful")
+    print("→  Shell differential norm:", stats["shell_differential_norm"])
+    print("→  Global vortex sync:", stats["vortex_sync_global"])
+    print("→  Zero-point differential closed system active)")
 
     stats = conduit.monitor_topological_winding()
     print(stats)
-    print("→ Global topological invariants (winding + braiding_phase + flat Clifford skin + ShellCube) are now live")
+    print("→  Global topological invariants (winding + braiding_phase + flat Clifford skin + ShellCube) are now live")
