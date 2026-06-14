@@ -418,10 +418,25 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         cmd = cmd[1:].strip()
         lower = cmd.lower()
 
-    parts = re.split(r'\s+', cmd, maxsplit=2)
-    verb = parts[0]
-    key = parts[1] if len(parts) > 1 else ""
-    value = parts[2].strip().strip('"\'') if len(parts) > 2 else ""
+    # Improved parsing to reliably support self-improvement commands
+    # with long/free-text arguments (e.g. /self-apply long-stem or /self-propose "long goal text")
+    # while preserving support for /add key "value with spaces"
+    parts = re.split(r'\s+', cmd, maxsplit=1)
+    verb = parts[0] if parts else ""
+    rest = parts[1].strip() if len(parts) > 1 else ""
+
+    if verb in ("add", "set"):
+        subparts = re.split(r'\s+', rest, maxsplit=1)
+        key = subparts[0] if subparts else ""
+        value = subparts[1].strip().strip('"\'') if len(subparts) > 1 else ""
+    elif verb in ("rm", "remove", "delete", "chapter", "self-apply", "apply", "self-propose", "propose", "self-cycle", "self-proposals", "proposals"):
+        # For these, treat the entire rest as the argument (key or value)
+        key = rest.split()[0] if rest else ""
+        value = rest.strip().strip('"\'')
+    else:
+        parts2 = re.split(r'\s+', rest, maxsplit=1)
+        key = parts2[0] if parts2 else ""
+        value = parts2[1].strip().strip('"\'') if len(parts2) > 1 else ""
 
     if verb in ("help", "h") or lower == "help":
         help_text = """**PIC v10.8.3 CLI — Hierarchical Hyperbook TOC**
