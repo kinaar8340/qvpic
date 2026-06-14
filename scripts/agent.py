@@ -434,8 +434,9 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 **Self-Improvement (QVPIC-powered, anti-drift)**
 /self-eval — current fidelity, drift metrics + topological signature
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
-/self-cycle [goal] — full propose → benchmark → (conservative) record + bake cycle
-/self-apply <proposal-stem> — attempt real guarded low-risk patch apply for a saved proposal (only low-risk + allowed areas)
+/self-cycle [goal] — full propose → benchmark → record (+ real low-risk apply if flag)
+/self-apply <proposal-stem> — attempt real guarded low-risk patch apply
+/self-proposals [all|pending|accepted|rejected] — list proposals (uses si.list_proposals)
 /self-history — show recent accepted/rejected improvement records"""
         return help_text, json.dumps(identity_structure, indent=2), get_helix_stats()
 
@@ -582,6 +583,18 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                         msg = f"Apply result for {pfile.name}:\n{json.dumps(app, indent=2, default=str)[:1500]}"
                     except Exception as e:
                         msg = f"Apply failed: {e}"
+
+    elif verb in ("self-proposals", "proposals", "list-proposals"):
+        if si is None:
+            msg = "❌ self_improver not available"
+        else:
+            which = value.strip() or "all"
+            props = si.list_proposals(which)
+            if not props:
+                msg = f"No proposals found for status '{which}'"
+            else:
+                lines = [f"**{p.get('_status', '?').upper()}** {p.get('_file', '?')} : {p.get('goal', p.get('text',''))[:80]}" for p in props[:10]]
+                msg = f"**Proposals ({which}, showing {len(lines)})**\n" + "\n".join(lines)
 
     else:
         msg = "❓ Unknown command. Try /help"

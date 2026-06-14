@@ -185,6 +185,31 @@ def load_past_improvements(limit: int = 8) -> List[Dict]:
     return items[:limit]
 
 
+def list_proposals(status: str = "all") -> List[Dict]:
+    """Convenience lister for proposals (all / pending / accepted / rejected).
+    Used by CLI and future UI."""
+    dirs = {
+        "all": [PROPOSALS_DIR, ACCEPTED_DIR, REJECTED_DIR],
+        "pending": [PROPOSALS_DIR],
+        "accepted": [ACCEPTED_DIR],
+        "rejected": [REJECTED_DIR],
+    }.get(status.lower(), [PROPOSALS_DIR, ACCEPTED_DIR, REJECTED_DIR])
+
+    items = []
+    for d in dirs:
+        if not d.exists():
+            continue
+        for f in sorted(d.glob("*.json"), reverse=True):
+            try:
+                data = json.loads(f.read_text())
+                data["_file"] = str(f)
+                data["_status"] = d.name if d.name != "proposals" else "pending"
+                items.append(data)
+            except Exception:
+                pass
+    return items
+
+
 def _save_proposal(proposal: Dict) -> Path:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = re.sub(r'[^a-z0-9]+', '-', proposal.get("goal", "idea")[:40]).strip('-')
@@ -407,9 +432,9 @@ def apply_low_risk_proposal(proposal: Dict, report: Dict, dry_run: bool = False,
     pre_wind = pre_topo.get("winding_error", 0) or 0
     post_wind = post_topo.get("winding_error", 0) or 0
 
-    if pre_fid and post_fid and (post_fid < pre_fid - 0.001):
+    if pre_fid and post_fid and (post_fid < pre_fid - DEGRADATION_FIDELITY_DROP):
         degraded = True
-    if post_wind > pre_wind + 0.01:
+    if post_wind > pre_wind + DEGRADATION_WINDING_INCREASE:
         degraded = True
 
     if degraded and not force:
