@@ -112,7 +112,7 @@ def run_benchmark_lite(timeout_sec: int = 180, lightweight: bool = False) -> Dic
         sys.executable, "-u", str(Path(__file__).parent / "qvpic_test.py"),
         "--no-viz",
         "--device", "cpu" if not torch.cuda.is_available() else "cuda",
-        "--bake-steps", bake_steps,
+        "--bake-steps", bake_steps,   # Reduced from 120 to avoid long timeouts during self-eval
     ]
 
     start = time.time()
