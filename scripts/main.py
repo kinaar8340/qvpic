@@ -28,6 +28,7 @@ parser.add_argument('--vqc', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--llm-strong', action='store_true')
 parser.add_argument('--heartbeat-minutes', type=int, default=60)
+parser.add_argument('--profile', action='store_true', help="Enable torch profiler for debugging")
 args = parser.parse_args()
 
 initialize_agent(args)   # passes args into agent module

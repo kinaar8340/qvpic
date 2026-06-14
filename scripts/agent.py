@@ -802,7 +802,7 @@ def initialize_agent(args):
 
     # Performance profiler setup (moved here from top-level to avoid import-time side effects)
     PROFILER = None
-    if args.profile and torch.cuda.is_available():
+    if getattr(args, 'profile', False) and torch.cuda.is_available():
         PROFILER = torch.profiler.profile(
             activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
             record_shapes=True, profile_memory=True, with_stack=True
