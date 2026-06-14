@@ -18,6 +18,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Any, Optional
 from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, Future
+import threading
+
+# Background executor for long-running self-improvement tasks (non-blocking /self-eval)
+background_executor = ThreadPoolExecutor(max_workers=2)
+self_eval_future: Future | None = None
+self_eval_result = None
+self_eval_lock = threading.Lock()
 
 # Project root
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -449,7 +457,8 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /save, /wake, /sleep, /list
 
 **Self-Improvement (QVPIC-powered, anti-drift)**
-/self-eval — fast benchmark (40 steps, 240s timeout) + fidelity/drift + topo + exit status (robust bytes/str + timeout handling for /self-eval)
+/self-eval — start benchmark in background (fast 40 steps)
+/self-eval-status — check background result or "still running"
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
 /self-cycle [goal] — full propose → benchmark → record (+ real low-risk apply if flag)
 /self-apply <proposal-stem> — attempt real guarded low-risk patch apply
@@ -542,17 +551,48 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         msg = "❓ SMS command not yet migrated to new structure"
 
     elif verb in ("self-eval", "selfeval", "eval-self"):
-        # Lightweight self-benchmark + topological health + source snapshot for the LLM self
+        global self_eval_future, self_eval_result
+
         if si is None:
             msg = "❌ self_improver not available"
         else:
-            metrics = si.run_benchmark_lite(timeout_sec=240)  # increased for extra safety with shorter bake steps
-            topo = si.get_topological_signature()
-            health = si.get_helix_health()
-            exit_code = metrics.get("exit_code", 0)
-            status = "✅ success" if exit_code == 0 else f"⚠️ timeout/error (exit={exit_code})"
-            bench_summary = f"Lite bench (fidelity/drift): {json.dumps(metrics, indent=2)[:800]}"
-            msg = f"**SELF-EVAL** {status}\n\nHelix: {health}\n\nTopo: {json.dumps(topo, indent=2)}\n\n{bench_summary}"
+            with self_eval_lock:
+                if self_eval_future and not self_eval_future.done():
+                    msg = "⏳ A benchmark is already running in the background. Use `/self-eval-status` to check progress."
+                else:
+                    # Start benchmark in background
+                    self_eval_future = background_executor.submit(
+                        si.run_benchmark_lite, timeout_sec=240
+                    )
+                    msg = (
+                        "🚀 **Self-evaluation started in background.**\n\n"
+                        "This may take 1–4 minutes. Use `/self-eval-status` to check results when ready."
+                    )
+
+    elif verb in ("self-eval-status", "eval-status"):
+        global self_eval_future, self_eval_result
+
+        with self_eval_lock:
+            if self_eval_future is None:
+                msg = "No background self-evaluation is running."
+            elif self_eval_future.done():
+                try:
+                    result = self_eval_future.result()
+                    self_eval_result = result
+                    exit_code = result.get("exit_code", -1)
+                    status = "✅ Success" if exit_code == 0 else f"⚠️ Finished with exit code {exit_code}"
+
+                    msg = (
+                        f"**SELF-EVAL STATUS**: {status}\n\n"
+                        f"Duration: {result.get('duration_s', 0)}s\n\n"
+                        f"Metrics:\n{json.dumps(result, indent=2, default=str)[:1200]}"
+                    )
+                except Exception as e:
+                    msg = f"Error retrieving background result: {e}"
+                finally:
+                    self_eval_future = None  # Clear it after reading
+            else:
+                msg = "⏳ Benchmark is still running in the background..."
 
     elif verb in ("self-propose", "propose"):
         if si is None or not LLM_AVAILABLE:
