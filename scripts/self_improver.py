@@ -110,7 +110,7 @@ def run_benchmark_lite(timeout_sec: int = 180) -> Dict[str, Any]:
     cmd = [
         sys.executable, "-u", str(Path(__file__).parent / "qvpic_test.py"),
         "--no-viz", "--device", "cpu" if not torch.cuda.is_available() else "cuda",
-        "--bake-steps", "120",  # short for self-eval cycles
+        "--bake-steps", "60",  # short for self-eval cycles (faster for /self-eval)
     ]
     start = time.time()
     try:
@@ -124,7 +124,10 @@ def run_benchmark_lite(timeout_sec: int = 180) -> Dict[str, Any]:
         )
         out = proc.stdout + "\n" + proc.stderr
     except subprocess.TimeoutExpired as te:
-        out = (te.stdout or "") + (te.stderr or "") + "\nTIMEOUT"
+        # Handle both bytes and str safely (subprocess.TimeoutExpired can return bytes even with text=True on timeout)
+        stdout = te.stdout.decode() if isinstance(te.stdout, bytes) else (te.stdout or "")
+        stderr = te.stderr.decode() if isinstance(te.stderr, bytes) else (te.stderr or "")
+        out = stdout + stderr + "\nTIMEOUT"
         proc = None
 
     # Parse key numbers (best-effort regex on test output)
