@@ -552,8 +552,6 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         msg = "❓ SMS command not yet migrated to new structure"
 
     elif verb in ("self-eval", "selfeval", "eval-self"):
-        global self_eval_future, self_eval_result
-
         if si is None:
             msg = "❌ self_improver not available"
         else:
@@ -573,8 +571,6 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                     )
 
     elif verb in ("self-eval-status", "eval-status"):
-        global self_eval_future, self_eval_result
-
         with self_eval_lock:
             # Case 1: Task is still running
             if self_eval_future and not self_eval_future.done():
