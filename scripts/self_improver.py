@@ -104,31 +104,34 @@ def get_helix_health() -> str:
 def run_benchmark_lite(timeout_sec: int = 180) -> Dict[str, Any]:
     """
     Run a fast non-visual subset of qvpic_test to obtain current fidelity/drift numbers.
-    Now also captures live topological signature for delta analysis (key for self-improvement decisions).
-    Returns parsed metrics + raw snippet + current_topo. Does NOT mutate the live conduit checkpoint.
+    Returns parsed metrics + raw snippet.
     """
     cmd = [
         sys.executable, "-u", str(Path(__file__).parent / "qvpic_test.py"),
-        "--no-viz", "--device", "cpu" if not torch.cuda.is_available() else "cuda",
-        "--bake-steps", "60",  # short for self-eval cycles (faster for /self-eval)
+        "--no-viz",
+        "--device", "cpu" if not torch.cuda.is_available() else "cuda",
+        "--bake-steps", "60",   # Reduced from 120 to avoid long timeouts during self-eval
     ]
+
     start = time.time()
     try:
         proc = subprocess.run(
             cmd,
             cwd=project_root,
             capture_output=True,
-            text=True,
+            text=True,                    # Ensure output is str, not bytes
             timeout=timeout_sec,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
         out = proc.stdout + "\n" + proc.stderr
+        exit_code = proc.returncode
+
     except subprocess.TimeoutExpired as te:
-        # Handle both bytes and str safely (subprocess.TimeoutExpired can return bytes even with text=True on timeout)
-        stdout = te.stdout.decode() if isinstance(te.stdout, bytes) else (te.stdout or "")
-        stderr = te.stderr.decode() if isinstance(te.stderr, bytes) else (te.stderr or "")
+        # Robust handling for both bytes and str
+        stdout = te.stdout.decode(errors="ignore") if isinstance(te.stdout, bytes) else (te.stdout or "")
+        stderr = te.stderr.decode(errors="ignore") if isinstance(te.stderr, bytes) else (te.stderr or "")
         out = stdout + stderr + "\nTIMEOUT"
-        proc = None
+        exit_code = -1
 
     # Parse key numbers (best-effort regex on test output)
     fidelity = None
@@ -142,19 +145,15 @@ def run_benchmark_lite(timeout_sec: int = 180) -> Dict[str, Any]:
             m = re.search(r"([0-9]\.[0-9]{1,2})x|drift.*([0-9]\.[0-9]+)", line, re.I)
             if m:
                 drift = float(m.group(1) or m.group(2))
+
     metrics = {
         "fidelity": fidelity,
         "drift_protection_x": drift,
-        "exit_code": proc.returncode if proc else -1,
+        "exit_code": exit_code,
         "duration_s": round(time.time() - start, 1),
         "raw_head": out[:2000],
     }
-    # Capture current topological invariants for delta reporting (core to self-improvement safety)
-    current_topo = get_topological_signature()
-    return {
-        **metrics,
-        "topo": current_topo,
-    }
+    return metrics
 
 
 def get_self_source_summary(max_chars_per_file: int = 1200) -> str:

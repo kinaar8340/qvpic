@@ -544,7 +544,7 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         if si is None:
             msg = "❌ self_improver not available"
         else:
-            metrics = si.run_benchmark_lite(timeout_sec=180)  # increased for reliability after timeout handling fix
+            metrics = si.run_benchmark_lite(timeout_sec=240)  # increased for extra safety with shorter bake steps
             topo = si.get_topological_signature()
             health = si.get_helix_health()
             msg = f"**SELF-EVAL**\n\nHelix: {health}\n\nTopo: {json.dumps(topo, indent=2)}\n\nLite bench (fidelity/drift): {json.dumps(metrics, indent=2)[:800]}"
