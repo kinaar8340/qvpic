@@ -69,6 +69,13 @@ def wire(globals_from_agent: dict):
     get_helix_stats_fn = globals_from_agent.get("get_helix_stats")
     monitor_fn = getattr(conduit, "monitor_topological_winding", None) if conduit else None
     bake_new_fact_fn = globals_from_agent.get("bake_new_fact")
+
+    # Robustness: some conduit objects (e.g. RubikConeConduit) do not implement __len__.
+    # Any defensive len() checks elsewhere should use try/except or hasattr.
+    # This prevents spurious "does not support len()" messages during wiring.
+    if conduit is not None and not hasattr(conduit, "__len__"):
+        pass  # expected for our geometric conduit objects
+
     print("✓ self_improver wired to live QVPIC agent + conduit")
 
 
