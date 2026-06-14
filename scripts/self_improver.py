@@ -264,19 +264,28 @@ ADDITIONAL CONTEXT: {context}
 OWN SOURCE (key excerpts — reason over architecture before editing):
 {source}
 
-Output ONLY valid JSON with keys:
-goal, rationale, files_to_change (list of relative paths), unified_diff (or "N/A" if high-level only), expected_impact, risk_level, test_plan, confidence (0-1).
-Do not wrap in ```json. Be truthful and conservative.
+Output ONLY the raw valid JSON object (start with { and end with }). 
+No explanations, no markdown code fences (```json or ```), no text before or after the JSON.
+Be truthful and conservative.
 """
     try:
         out = llm(prompt, max_tokens=1400, temperature=0.65, top_p=0.9, repeat_penalty=1.08)
         raw = out["choices"][0]["text"].strip()
-        # Extract JSON blob
+        # Robust JSON extraction: strip markdown fences, then extract the JSON object
+        raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.IGNORECASE | re.MULTILINE)
+        raw = re.sub(r'\s*```$', '', raw, flags=re.IGNORECASE | re.MULTILINE)
+        raw = raw.strip()
+        # Try to find the outermost JSON object
         m = re.search(r'\{[\s\S]*\}', raw)
-        if m:
-            proposal = json.loads(m.group(0))
-        else:
-            proposal = {"goal": goal, "raw_output": raw[:2000]}
+        json_str = m.group(0) if m else raw
+        try:
+            proposal = json.loads(json_str)
+        except Exception:
+            # Fallback: try the whole cleaned raw, or minimal structure
+            try:
+                proposal = json.loads(raw)
+            except Exception:
+                proposal = {"goal": goal, "raw_output": raw[:2000]}
         proposal["goal"] = goal
         path = _save_proposal(proposal)
         proposal["_proposal_file"] = str(path)
