@@ -10,6 +10,7 @@ import torch
 import socket
 import threading
 import time
+import json
 
 # Import ONLY what agent.py actually exports
 from agent import (
@@ -135,7 +136,12 @@ def create_ui():
 
             with gr.Tab("Live Identity Tree"):
                 fact_count = gr.Markdown("**Current identity structure:**")
-                json_editor = gr.Code(value=load_identity_structure(), language="json", label="Raw JSON Editor", lines=18)
+                json_editor = gr.Code(
+                    value=json.dumps(load_identity_structure(), indent=2, ensure_ascii=False),
+                    language="json",
+                    label="Raw JSON Editor",
+                    lines=18
+                )
 
             with gr.Tab("Hyperbook Render (3D RingConeChain)"):
                 gr.Markdown("**Type any chapter path**")
