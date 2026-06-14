@@ -38,11 +38,25 @@ After running the agent:
 See `docs/self_improvement.md` for full details.
 
 ## Testing & Merge
-- Self-contained on `feat/self-improving`.
+- Self-contained on `feat/self-improving` (rebased and merged into `main`).
 - No core geometry changes.
-- Branch tip: 7622d68 (pushed).
+- Includes UI crash fix, wiring robustness, list_proposals CLI, and the two targeted reliability fixes below.
+- Added comprehensive unit tests (see below).
 
-**Branch:** `feat/self-improving`
-**Base:** `main`
+## Recent Reliability Fixes
+- **Command parsing** (`parse_cli_command` helper + used in `run_pic_cli`): Now reliably handles `/self-apply <long-stem-with-dates-underscores>` and long/multi-word goals for `/self-propose`, `/self-cycle` etc. Full rest-of-line captured as argument while preserving legacy `/add key "value with spaces"`.
+- **JSON extraction** in `self_improver.propose_improvement`: 
+  - LLM prompt now explicitly says "Output ONLY the raw valid JSON object... No explanations, no markdown code fences".
+  - Extraction strips ```json / ``` fences, uses resilient regex + layered try/except fallbacks around json.loads.
+- These make the self-improvement commands (`/self-apply`, `/self-propose` etc.) production-usable.
+
+## Tests Added
+- `tests/test_self_improver.py`: 
+  - `test_parse_cli_command`: covers long stems, multi-word goals, legacy /add with quoted values, /self-proposals, etc.
+  - `test_extract_proposal_json`: tests fence stripping, direct JSON, fallback on bad output, and that goal is forced.
+- Run with `pytest tests/test_self_improver.py -q`.
+
+**Branch:** `feat/self-improving` (rebased onto main)
+**Merged into:** `main` (merge commit cf5b5f3)
 
 This enables the AI to not only remember its growth but safely enact low-risk growth while maintaining perfect topological continuity.

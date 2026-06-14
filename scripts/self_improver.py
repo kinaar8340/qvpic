@@ -227,6 +227,33 @@ def _save_proposal(proposal: Dict) -> Path:
     return p
 
 
+def extract_proposal_json(raw: str, goal: str) -> Dict[str, Any]:
+    """Robust extraction of proposal JSON from LLM raw output.
+    Handles markdown fences, uses regex + multiple fallbacks.
+    Always ensures 'goal' is set to the requested value.
+    """
+    raw = raw.strip()
+    # Strip possible ```json ... ``` or ``` ... ```
+    raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.IGNORECASE | re.MULTILINE)
+    raw = re.sub(r'\s*```$', '', raw, flags=re.IGNORECASE | re.MULTILINE)
+    raw = raw.strip()
+
+    # Try outermost JSON object
+    m = re.search(r'\{[\s\S]*\}', raw)
+    json_str = m.group(0) if m else raw
+
+    try:
+        proposal = json.loads(json_str)
+    except Exception:
+        try:
+            proposal = json.loads(raw)
+        except Exception:
+            proposal = {"goal": goal, "raw_output": raw[:2000]}
+
+    proposal["goal"] = goal
+    return proposal
+
+
 def propose_improvement(goal: str, context: str = "") -> Dict[str, Any]:
     """
     Use the grounded LLM to generate a concrete, safe self-improvement proposal.
@@ -271,22 +298,7 @@ Be truthful and conservative.
     try:
         out = llm(prompt, max_tokens=1400, temperature=0.65, top_p=0.9, repeat_penalty=1.08)
         raw = out["choices"][0]["text"].strip()
-        # Robust JSON extraction: strip markdown fences, then extract the JSON object
-        raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.IGNORECASE | re.MULTILINE)
-        raw = re.sub(r'\s*```$', '', raw, flags=re.IGNORECASE | re.MULTILINE)
-        raw = raw.strip()
-        # Try to find the outermost JSON object
-        m = re.search(r'\{[\s\S]*\}', raw)
-        json_str = m.group(0) if m else raw
-        try:
-            proposal = json.loads(json_str)
-        except Exception:
-            # Fallback: try the whole cleaned raw, or minimal structure
-            try:
-                proposal = json.loads(raw)
-            except Exception:
-                proposal = {"goal": goal, "raw_output": raw[:2000]}
-        proposal["goal"] = goal
+        proposal = extract_proposal_json(raw, goal)
         path = _save_proposal(proposal)
         proposal["_proposal_file"] = str(path)
         # Bake a compact record into the conduit (via guarded append)

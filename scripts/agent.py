@@ -408,19 +408,19 @@ def populate_user_facts_from_files():
     print(f"✓  [Core Identity] Batched re-bake complete ({len(facts_to_bake)} facts)")
     save_identity_structure()
 
-def run_pic_cli(command: str) -> Tuple[str, str, str]:
-    """Updated CLI handler for the new u*/a* identity system"""
-    global identity_structure
 
+def parse_cli_command(command: str) -> Tuple[str, str, str]:
+    """Improved CLI command parser.
+    Supports legacy /add key "value with spaces" and self-improvement
+    commands with long/free-text args (e.g. long proposal stems, multi-word goals).
+    Returns (verb, key, value) with value containing full text for single-arg commands.
+    """
     cmd = command.strip()
     lower = cmd.lower()
     if lower.startswith("/"):
         cmd = cmd[1:].strip()
         lower = cmd.lower()
 
-    # Improved parsing to reliably support self-improvement commands
-    # with long/free-text arguments (e.g. /self-apply long-stem or /self-propose "long goal text")
-    # while preserving support for /add key "value with spaces"
     parts = re.split(r'\s+', cmd, maxsplit=1)
     verb = parts[0] if parts else ""
     rest = parts[1].strip() if len(parts) > 1 else ""
@@ -430,13 +430,22 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         key = subparts[0] if subparts else ""
         value = subparts[1].strip().strip('"\'') if len(subparts) > 1 else ""
     elif verb in ("rm", "remove", "delete", "chapter", "self-apply", "apply", "self-propose", "propose", "self-cycle", "self-proposals", "proposals"):
-        # For these, treat the entire rest as the argument (key or value)
         key = rest.split()[0] if rest else ""
-        value = rest.strip().strip('"\'')
+        value = rest.strip().strip('"\'') if rest else ""
     else:
         parts2 = re.split(r'\s+', rest, maxsplit=1)
         key = parts2[0] if parts2 else ""
         value = parts2[1].strip().strip('"\'') if len(parts2) > 1 else ""
+    return verb, key, value
+
+
+def run_pic_cli(command: str) -> Tuple[str, str, str]:
+    """Updated CLI handler for the new u*/a* identity system"""
+    global identity_structure
+
+    verb, key, value = parse_cli_command(command)
+    # Recompute lower for help check (verb is without leading /)
+    lower = verb.lower()
 
     if verb in ("help", "h") or lower == "help":
         help_text = """**PIC v10.8.3 CLI — Hierarchical Hyperbook TOC**
