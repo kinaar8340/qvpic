@@ -21,10 +21,10 @@ from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, Future
 import threading
 
-# Background executor for long-running self-improvement tasks (non-blocking /self-eval)
+# Background self-evaluation state
 background_executor = ThreadPoolExecutor(max_workers=2)
 self_eval_future: Future | None = None
-self_eval_result = None
+self_eval_result: dict | None = None          # Persisted result until user sees it
 self_eval_lock = threading.Lock()
 
 # Project root
@@ -458,8 +458,8 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /save, /wake, /sleep, /list
 
 **Self-Improvement (QVPIC-powered, anti-drift)**
-/self-eval — start ultra-fast benchmark (20 steps, 300s timeout) in background; result auto-shown on next message
-/self-eval-status — check status or retrieve clean key metrics (fidelity, drift, duration, exit)
+/self-eval — start ultra-fast background benchmark (20 steps, 300s). Result auto-shown on next message (persisted until viewed).
+/self-eval-status — check running status, or retrieve previous result (clean key metrics only; clears after display).
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
 /self-cycle [goal] — full propose → benchmark → record (+ real low-risk apply if flag)
 /self-apply <proposal-stem> — attempt real guarded low-risk patch apply
@@ -552,30 +552,41 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         msg = "❓ SMS command not yet migrated to new structure"
 
     elif verb in ("self-eval", "selfeval", "eval-self"):
+        global self_eval_future, self_eval_result
+
         if si is None:
             msg = "❌ self_improver not available"
         else:
             with self_eval_lock:
                 if self_eval_future and not self_eval_future.done():
-                    msg = "⏳ A benchmark is already running in the background. Use `/self-eval-status` to check progress."
+                    msg = "⏳ A benchmark is already running in the background. Use `/self-eval-status` to check."
                 else:
-                    # Start benchmark in background (lightweight for speed, longer timeout)
+                    # Clear any previous result
+                    self_eval_result = None
                     self_eval_future = background_executor.submit(
                         si.run_benchmark_lite, timeout_sec=300, lightweight=True
                     )
                     msg = (
                         "🚀 **Self-evaluation started in background (ultra-light 20-step mode).**\n\n"
-                        "Expect 30s–3 min. Result will auto-appear on your next message. Use `/self-eval-status` to poll."
+                        "Expect 30s–3 min. Result will auto-appear on your next message.\n"
+                        "Use `/self-eval-status` to check manually."
                     )
 
     elif verb in ("self-eval-status", "eval-status"):
+        global self_eval_future, self_eval_result
+
         with self_eval_lock:
-            if self_eval_future is None:
-                msg = "No background self-evaluation is running."
-            elif self_eval_future.done():
+            # Case 1: Task is still running
+            if self_eval_future and not self_eval_future.done():
+                msg = "⏳ Benchmark is still running in the background..."
+
+            # Case 2: Task has finished (or errored)
+            elif self_eval_future and self_eval_future.done():
                 try:
                     result = self_eval_future.result()
                     self_eval_result = result
+                    self_eval_future = None
+
                     exit_code = result.get("exit_code", -1)
                     status = "✅ Success" if exit_code == 0 else f"⚠️ Finished (exit={exit_code})"
 
@@ -588,15 +599,33 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 
                     msg = (
                         f"**SELF-EVAL STATUS**: {status}\n"
-                        f"Duration: {duration}s | Fidelity: {fid_str} | Drift protection: {drift_str}\n"
-                        f"(Use /self-eval-status again or send a message for details if needed)"
+                        f"Duration: {duration}s | Fidelity: {fid_str} | Drift protection: {drift_str}"
                     )
                 except Exception as e:
+                    self_eval_future = None
                     msg = f"Error retrieving background result: {e}"
-                finally:
-                    self_eval_future = None  # Clear it after reading
+
+            # Case 3: No active task, but we have a stored result
+            elif self_eval_result is not None:
+                result = self_eval_result
+                exit_code = result.get("exit_code", -1)
+                status = "✅ Success" if exit_code == 0 else f"⚠️ Finished (exit={exit_code})"
+
+                fidelity = result.get("fidelity")
+                drift = result.get("drift_protection_x")
+                duration = result.get("duration_s", 0)
+
+                fid_str = f"{fidelity:.4f}" if fidelity is not None else "N/A"
+                drift_str = f"{drift:.2f}x" if drift is not None else "N/A"
+
+                msg = (
+                    f"**SELF-EVAL STATUS** (previous result): {status}\n"
+                    f"Duration: {duration}s | Fidelity: {fid_str} | Drift protection: {drift_str}"
+                )
+                self_eval_result = None  # Clear after showing
+
             else:
-                msg = "⏳ Benchmark is still running in the background..."
+                msg = "No background self-evaluation is running."
 
     elif verb in ("self-propose", "propose"):
         if si is None or not LLM_AVAILABLE:
@@ -716,25 +745,23 @@ def chat_fn(message: str, history: list):
     # Auto-notification for completed background self-eval
     eval_note = ""
     with self_eval_lock:
-        if self_eval_future and self_eval_future.done():
-            try:
-                result = self_eval_future.result()
-                self_eval_result = result
-                exit_code = result.get("exit_code", -1)
-                status = "✅ Success" if exit_code == 0 else f"⚠️ Finished (exit={exit_code})"
-                fidelity = result.get("fidelity")
-                drift = result.get("drift_protection_x")
-                duration = result.get("duration_s", 0)
-                fid_str = f"{fidelity:.4f}" if fidelity is not None else "N/A"
-                drift_str = f"{drift:.2f}x" if drift is not None else "N/A"
-                eval_note = (
-                    f"\n\n[Background SELF-EVAL completed: {status} | {duration}s | "
-                    f"Fidelity: {fid_str} | Drift: {drift_str}]"
-                )
-            except Exception as e:
-                eval_note = f"\n\n[Background SELF-EVAL error: {e}]"
-            finally:
-                self_eval_future = None
+        if self_eval_result is not None:
+            result = self_eval_result
+            exit_code = result.get("exit_code", -1)
+            status = "✅ Success" if exit_code == 0 else f"⚠️ Finished (exit={exit_code})"
+
+            fidelity = result.get("fidelity")
+            drift = result.get("drift_protection_x")
+            duration = result.get("duration_s", 0)
+
+            fid_str = f"{fidelity:.4f}" if fidelity is not None else "N/A"
+            drift_str = f"{drift:.2f}x" if drift is not None else "N/A"
+
+            eval_note = (
+                f"\n\n[Background SELF-EVAL completed: {status} | {duration}s | "
+                f"Fidelity: {fid_str} | Drift: {drift_str}]"
+            )
+            self_eval_result = None  # Clear after notifying
 
     if message.strip().startswith("/"):
         cli_msg, updated_json, status = run_pic_cli(message[1:])
