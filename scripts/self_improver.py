@@ -291,7 +291,7 @@ ADDITIONAL CONTEXT: {context}
 OWN SOURCE (key excerpts — reason over architecture before editing):
 {source}
 
-Output ONLY the raw valid JSON object (start with { and end with }). 
+Output ONLY the raw valid JSON object (start with {{ and end with }}). 
 No explanations, no markdown code fences (```json or ```), no text before or after the JSON.
 Be truthful and conservative.
 """

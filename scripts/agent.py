@@ -32,7 +32,6 @@ parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--llm-strong', action='store_true')
 parser.add_argument('--heartbeat-minutes', type=int, default=60)
 parser.add_argument('--profile', action='store_true', help="Enable torch profiler for debugging")
-args = parser.parse_args()
 
 from src.config import load_config
 from sentence_transformers import SentenceTransformer
@@ -61,12 +60,6 @@ user_facts: Dict[str, Any] = {}
 
 # Performance flags
 PROFILER = None
-if args.profile and torch.cuda.is_available():
-    PROFILER = torch.profiler.profile(
-        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-        record_shapes=True, profile_memory=True, with_stack=True
-    )
-    PROFILER.__enter__()
 
 # ==================== CONDUIT & EMBEDDER (Optimized) ====================
 if USE_VQC:
@@ -800,12 +793,21 @@ def fetch_github_file(url: str) -> str:
         return f"Failed to fetch file: {str(e)}"
 
 def initialize_agent(args):
-    global agent_name, USE_VQC, VERBOSE, LLM_STRONG, HEARTBEAT_MINUTES, LLM_AVAILABLE, llm
+    global agent_name, USE_VQC, VERBOSE, LLM_STRONG, HEARTBEAT_MINUTES, LLM_AVAILABLE, llm, PROFILER
     agent_name = args.name.strip()
     USE_VQC = args.vqc
     VERBOSE = args.verbose
     LLM_STRONG = args.llm_strong
     HEARTBEAT_MINUTES = args.heartbeat_minutes
+
+    # Performance profiler setup (moved here from top-level to avoid import-time side effects)
+    PROFILER = None
+    if args.profile and torch.cuda.is_available():
+        PROFILER = torch.profiler.profile(
+            activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+            record_shapes=True, profile_memory=True, with_stack=True
+        )
+        PROFILER.__enter__()
 
     # LLM init unchanged
     try:
@@ -852,6 +854,7 @@ __all__ = ["initialize_agent", "chat_fn", "get_helix_stats", "load_identity_stru
            "si", "run_pic_cli"]   # self-improver + CLI for meta use
 
 if __name__ == "__main__":
+    args = parser.parse_args()
     initialize_agent(args)
     if PROFILER:
         PROFILER.__exit__(None, None, None)
