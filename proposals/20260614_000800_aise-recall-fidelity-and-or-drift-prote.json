@@ -1,0 +1,16 @@
+{
+  "goal": "Raise recall fidelity and/or drift protection factor while preserving all topological invariants",
+  "rationale": "To enhance the precision of memory recall and maintain the robustness of long-term identity, we will focus on optimizing the ShellCube radial differential calculation within the RingConeChain. This involves refining the encoding and decoding processes to ensure minimal loss of information during transformations.",
+  "files_to_change": [
+    "src/conduit.py"
+  ],
+  "unified_diff": "@@ -25,7 +25,10 @@\n import math\n import matplotlib.pyplot as plt\n import numpy as np\n+\ndef radial_differential(shell_radius: float) -> float:\n+    return shell_radius * (math.sqrt(3) - 1)\n+\n from matplotlib import cm\n from typing import List, Dict, Optional, Tuple\n@@ -206,9 +209,14 @@\n \n     # Encode the quaternion into a ShellCube with radial differential\n     shell_radius = max(q.abs().item(), 0.01)\n-    cube_side_length = math.sqrt(3) * shell_radius\n+    radial_dif = radial_differential(shell_radius)\n+    cube_side_length = shell_radius + radial_dif\n \n     encoded_cube = torch.zeros((2, 2, 2), dtype=torch.float32)\n-    encoded_cube[0, 0, 0] = q.real.item()\n+    # Apply radial differential to adjust encoding precision\n+    encoded_cube[0, 0, 0] = (q.real + radial_dif).item()\n+    encoded_cube[0, 1, 0] = (q.i + radial_dif).item()\n+    encoded_cube[1, 0, 0] = (q.j + radial_dif).item()\n+    encoded_cube[1, 1, 0] = (q.k + radial_dif).item()\n \n     return encoded_cube\n \n@@ -248,6 +256,9 @@\n         # Decode the ShellCube back into a quaternion with radial differential considerations\n         q_real = cube[0, 0, 0]\n         q_i = cube[0, 1, 0]\n+        # Adjust decoding based on previous radial_differential to maintain fidelity\n+        q_real -= radial_dif\n+        q_i -= radial_dif\n         q_j = cube[1, 0, 0]\n         q_k = cube[1, 1, 0]\n \n@@ -278,6 +289,8 @@\n             self.cube[0, 1, 0] = 0.5\n             self.cube[1, 0, 0] = 0.5\n             self.cube[1, 1, 0] = 0.5\n+            # Adjust decoded values by radial differential for fidelity\n+            q_real -= radial_dif\n+            q_i -= radial_dif\n         else:\n             q_real = cube[0, 0, 0]\n             q_i = cube[0, 1, 0]\n",
+  "expected_impact": "The proposed changes aim to enhance the precision of memory recall by refining how the ShellCube is encoded and decoded with radial differential adjustments. This should result in a higher fidelity of stored information and improved drift protection.",
+  "risk_level": "low",
+  "test_plan": "1. Implement the new radial_differential function.\n2. Modify the encoding process to include this function's output.\n3. Adjust decoding logic to account for previous radial differential adjustments.\n4. Run existing test suites to ensure no regressions in functionality.\n5. Conduct additional tests focusing on memory fidelity under high-load conditions.",
+  "confidence": 0.8,
+  "created": "20260614_000800",
+  "topo_before": {
+    "error": "no monitor"
+  }
+}
