@@ -38,6 +38,12 @@ from src.config import load_config
 from sentence_transformers import SentenceTransformer
 import torch.nn.functional as F
 
+# Self-improvement layer (QVPIC-powered recursive self-evolution)
+try:
+    from scripts import self_improver as si
+except Exception:
+    si = None  # will wire later if importable
+
 
 # ==================== GLOBALS ====================
 agent_name = "Bud"
@@ -201,7 +207,7 @@ def append_fact(text: str, fact_type: str = "journal", source: str = "agent"):
         return False
 
     # Safety guardrail: only allow agent-owned facts
-    allowed_sources = ["agent_apublic", "agent_aprivate", "agent_ajournal"]
+    allowed_sources = ["agent_apublic", "agent_aprivate", "agent_ajournal", "agent_self_improve"]
     if source not in allowed_sources:
         print(f"🚫  Guardrail: Cannot modify user or unknown source '{source}'")
         return False
@@ -423,7 +429,13 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /remove category/sub/key
 /chapter category/sub/key
 /toc — beautiful indented tree
-/save, /wake, /sleep, /list"""
+/save, /wake, /sleep, /list
+
+**Self-Improvement (QVPIC-powered, anti-drift)**
+/self-eval — current fidelity, drift metrics + topological signature
+/self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
+/self-cycle [goal] — full propose → benchmark → (conservative) record + bake cycle
+/self-history — show recent accepted/rejected improvement records"""
         return help_text, json.dumps(identity_structure, indent=2), get_helix_stats()
 
     msg = ""
@@ -509,6 +521,42 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 
     elif verb == "sms":
         msg = "❓ SMS command not yet migrated to new structure"
+
+    elif verb in ("self-eval", "selfeval", "eval-self"):
+        # Lightweight self-benchmark + topological health + source snapshot for the LLM self
+        if si is None:
+            msg = "❌ self_improver not available"
+        else:
+            metrics = si.run_benchmark_lite(timeout_sec=120)
+            topo = si.get_topological_signature()
+            health = si.get_helix_health()
+            msg = f"**SELF-EVAL**\n\nHelix: {health}\n\nTopo: {json.dumps(topo, indent=2)}\n\nLite bench (fidelity/drift): {json.dumps(metrics, indent=2)[:800]}"
+
+    elif verb in ("self-propose", "propose"):
+        if si is None or not LLM_AVAILABLE:
+            msg = "❌ LLM or self_improver unavailable for proposals"
+        else:
+            goal = value or "Raise recall fidelity and/or drift protection factor while preserving all topological invariants"
+            prop = si.propose_improvement(goal)
+            if "error" in prop:
+                msg = f"Proposal error: {prop['error']}"
+            else:
+                msg = f"✓ Proposal generated & baked into conduit.\n\nGoal: {prop.get('goal')}\nRisk: {prop.get('risk_level')}\nSaved: {prop.get('_proposal_file')}\n\nRationale (truncated): {str(prop)[:600]}"
+
+    elif verb in ("self-cycle", "self-improve", "improve"):
+        if si is None:
+            msg = "❌ self_improver module not wired"
+        else:
+            goal = value or "Increase overall system capability while keeping helix invariants and recall fidelity high"
+            res = si.run_improvement_cycle(goal, auto_apply_low_risk=False)
+            msg = f"SELF-CYCLE complete. Record: {res.get('record_path', 'in-memory')}\nDecision: {res.get('report',{}).get('decision')}\nSee proposals/ and improvements/ + ajournal for topological record."
+
+    elif verb in ("self-history", "improvement-history"):
+        if si is None:
+            msg = "❌ self_improver not available"
+        else:
+            past = si.load_past_improvements(6)
+            msg = "**SELF-IMPROVEMENT HISTORY (last cycles)**\n" + json.dumps(past, indent=2, default=str)[:2200]
 
     else:
         msg = "❓ Unknown command. Try /help"
@@ -755,6 +803,20 @@ def initialize_agent(args):
     if PROFILER:
         print("🔍  Profiler active — check console/tensorboard after run")
 
+    # Wire the self-improver (uses QVPIC conduit as drift-proof self-memory)
+    if si is not None:
+        try:
+            si.wire({
+                "conduit": conduit,
+                "llm": llm,
+                "append_fact": append_fact,
+                "get_helix_stats": get_helix_stats,
+                "bake_new_fact": bake_new_fact,
+            })
+            print("✓  Self-improver (QVPIC-powered) wired — ready for autonomous evolution cycles")
+        except Exception as e:
+            print(f"⚠️  Self-improver wiring skipped: {e}")
+
 # ==================== EXPOSE FOR UI & MAIN ====================
 # Make key objects available at module level for ui.py
 # (already globals, but explicit for clarity)
@@ -762,7 +824,8 @@ def initialize_agent(args):
 __all__ = ["initialize_agent", "chat_fn", "get_helix_stats", "load_identity_structure",
            "HEARTBEAT_MINUTES", "LLM_AVAILABLE", "llm", "chat_history", "last_message_time",
            "bake_narrative_braid", "wake_snapshot", "sleep_snapshot", "append_to_journal",
-           "conduit", "user_facts", "USE_VQC"]   # ← added these
+           "conduit", "user_facts", "USE_VQC",
+           "si", "run_pic_cli"]   # self-improver + CLI for meta use
 
 if __name__ == "__main__":
     initialize_agent(args)
