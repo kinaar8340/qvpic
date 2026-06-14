@@ -435,6 +435,7 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /self-eval — current fidelity, drift metrics + topological signature
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
 /self-cycle [goal] — full propose → benchmark → (conservative) record + bake cycle
+/self-apply <proposal-stem> — attempt real guarded low-risk patch apply for a saved proposal (only low-risk + allowed areas)
 /self-history — show recent accepted/rejected improvement records"""
         return help_text, json.dumps(identity_structure, indent=2), get_helix_stats()
 
@@ -557,6 +558,30 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         else:
             past = si.load_past_improvements(6)
             msg = "**SELF-IMPROVEMENT HISTORY (last cycles)**\n" + json.dumps(past, indent=2, default=str)[:2200]
+
+    elif verb in ("self-apply", "apply"):
+        if si is None:
+            msg = "❌ self_improver not available"
+        else:
+            stem = value.strip()
+            if not stem:
+                msg = "Usage: /self-apply <proposal-stem e.g. 20240613_123456_improve-fidelity>"
+            else:
+                # Find matching proposal json
+                candidates = list(Path("proposals").glob(f"*{stem}*.json"))
+                if not candidates:
+                    msg = f"No proposal matching '{stem}' in proposals/"
+                else:
+                    pfile = candidates[0]
+                    try:
+                        prop = json.loads(pfile.read_text())
+                        prop["_proposal_file"] = str(pfile)
+                        # Re-eval lightly then apply
+                        rep = si.evaluate_proposal(prop)
+                        app = si.apply_low_risk_proposal(prop, rep)
+                        msg = f"Apply result for {pfile.name}:\n{json.dumps(app, indent=2, default=str)[:1500]}"
+                    except Exception as e:
+                        msg = f"Apply failed: {e}"
 
     else:
         msg = "❓ Unknown command. Try /help"

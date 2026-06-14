@@ -21,7 +21,7 @@ QVPIC's core value for self-improvement is **anti-drift persistence**: global in
   2. **Propose**: LLM (grounded on current helix facts + source + past lessons) emits structured proposal (goal, files, expected impact, risk, test plan, optional diff).
   3. **Evaluate**: Short benchmark run + topo capture. Compute deltas. Conservative heuristic.
   4. **Decide & Record**: Accept/reject logged + **baked into conduit journal/facts** with full topo stamp. This is the permanent "growth memory".
-  5. (Future) Very-low-risk auto-apply in isolated context + re-validate.
+  5. Real low-risk auto-apply (new in this update): strict validation, git apply + pre/post topo+benchmark gate, auto-revert on degradation, git commit + baked record on success. Trigger via `/self-apply <stem>` or `run_improvement_cycle(..., auto_apply_low_risk=True)`.
 
 ## CLI (via chat or / commands in UI)
 
