@@ -21,14 +21,15 @@ checkpoints/
 snapshots/
 outputs/
 logs/
-identity/
 models/
 *.pt
 *.gguf
 chat_history.json
 identity_structure.json
 
-# Identity / Fact files (user-controlled, often contain PII)
+# === NEW: Identity & Fact files (user-controlled, often contain PII) ===
+facts/
+identity/
 scripts/*_facts.txt
 scripts/agent_private.md
 scripts/agent_public.md
@@ -72,5 +73,5 @@ braided_lattice/
 lattice_*.png
 *.mp4
 
-# Jupyter / notebooks (if you ever add any)
+# Jupyter / notebooks
 .ipynb_checkpoints/

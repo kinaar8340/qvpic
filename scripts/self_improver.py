@@ -55,6 +55,10 @@ CORE_AREAS = {"src/conduit.py", "src/config.py", "src/vqc_enhanced_conduit.py", 
 
 cfg = load_config("configs/default.yaml")
 
+# Self-improvement safety thresholds (can be overridden in config under self_improvement)
+DEGRADATION_FIDELITY_DROP = getattr(cfg.self_improvement, 'max_fidelity_drop', 0.001) if hasattr(cfg, 'self_improvement') else 0.001
+DEGRADATION_WINDING_INCREASE = getattr(cfg.self_improvement, 'max_winding_increase', 0.01) if hasattr(cfg, 'self_improvement') else 0.01
+
 
 def wire(globals_from_agent: dict):
     """Wire live objects from agent.py after its initialization."""

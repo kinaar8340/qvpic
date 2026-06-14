@@ -1,7 +1,8 @@
-# =============================================
+# =============================================================
 # QVPIC v10.2 — Quaternion Vortex Persistent Identity Conduit
 # Requirements file — production-ready + reproducible
-# =============================================
+# - QVPIC Private Facts Encryption Setup QVPIC v10.9
+# =============================================================
 
 # ── Core Runtime (always required) ──
 torch>=2.4.0                    # PyTorch 2.4+ recommended (CUDA 12.x support)
@@ -13,12 +14,14 @@ sentence-transformers>=2.2.0    # Fact embedding in qvpic_test.py
 scikit-learn>=1.0.0             # FastICA used in patent encode/decode examples
 tqdm>=4.60.0                    # Progress bars in tests and simulations
 
-
 # ── UI / Agent Demo ──
 gradio>=4.0.0                   # Gradio interface in agent.py
 requests>=2.33.1
 python-dotenv>=1.2.2
 plotly>=6.6.0
+
+# ── Encryption ──
+keyring>=0.0.0
 
 # ── Testing ──
 pytest>=7.0.0
