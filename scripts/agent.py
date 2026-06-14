@@ -458,8 +458,8 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /save, /wake, /sleep, /list
 
 **Self-Improvement (QVPIC-powered, anti-drift)**
-/self-eval — start benchmark in background (fast 40 steps)
-/self-eval-status — check background result or "still running"
+/self-eval — start ultra-fast benchmark (20 steps, 300s timeout) in background; result auto-shown on next message
+/self-eval-status — check status or retrieve clean key metrics (fidelity, drift, duration, exit)
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
 /self-cycle [goal] — full propose → benchmark → record (+ real low-risk apply if flag)
 /self-apply <proposal-stem> — attempt real guarded low-risk patch apply
@@ -559,13 +559,13 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                 if self_eval_future and not self_eval_future.done():
                     msg = "⏳ A benchmark is already running in the background. Use `/self-eval-status` to check progress."
                 else:
-                    # Start benchmark in background
+                    # Start benchmark in background (lightweight for speed, longer timeout)
                     self_eval_future = background_executor.submit(
-                        si.run_benchmark_lite, timeout_sec=240
+                        si.run_benchmark_lite, timeout_sec=300, lightweight=True
                     )
                     msg = (
-                        "🚀 **Self-evaluation started in background.**\n\n"
-                        "This may take 1–4 minutes. Use `/self-eval-status` to check results when ready."
+                        "🚀 **Self-evaluation started in background (ultra-light 20-step mode).**\n\n"
+                        "Expect 30s–3 min. Result will auto-appear on your next message. Use `/self-eval-status` to poll."
                     )
 
     elif verb in ("self-eval-status", "eval-status"):
@@ -577,12 +577,19 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                     result = self_eval_future.result()
                     self_eval_result = result
                     exit_code = result.get("exit_code", -1)
-                    status = "✅ Success" if exit_code == 0 else f"⚠️ Finished with exit code {exit_code}"
+                    status = "✅ Success" if exit_code == 0 else f"⚠️ Finished (exit={exit_code})"
+
+                    fidelity = result.get("fidelity")
+                    drift = result.get("drift_protection_x")
+                    duration = result.get("duration_s", 0)
+
+                    fid_str = f"{fidelity:.4f}" if fidelity is not None else "N/A"
+                    drift_str = f"{drift:.2f}x" if drift is not None else "N/A"
 
                     msg = (
-                        f"**SELF-EVAL STATUS**: {status}\n\n"
-                        f"Duration: {result.get('duration_s', 0)}s\n\n"
-                        f"Metrics:\n{json.dumps(result, indent=2, default=str)[:1200]}"
+                        f"**SELF-EVAL STATUS**: {status}\n"
+                        f"Duration: {duration}s | Fidelity: {fid_str} | Drift protection: {drift_str}\n"
+                        f"(Use /self-eval-status again or send a message for details if needed)"
                     )
                 except Exception as e:
                     msg = f"Error retrieving background result: {e}"
@@ -698,12 +705,36 @@ def get_relevant_facts(query: str) -> str:
 
 
 def chat_fn(message: str, history: list):
-    global chat_history, last_message_time
+    global chat_history, last_message_time, self_eval_future, self_eval_result
+
     if not message.strip():
         return "", history, get_helix_stats(), json.dumps({"facts": user_facts}, indent=2)
 
     history = history or []
     last_message_time = time.time()
+
+    # Auto-notification for completed background self-eval
+    eval_note = ""
+    with self_eval_lock:
+        if self_eval_future and self_eval_future.done():
+            try:
+                result = self_eval_future.result()
+                self_eval_result = result
+                exit_code = result.get("exit_code", -1)
+                status = "✅ Success" if exit_code == 0 else f"⚠️ Finished (exit={exit_code})"
+                fidelity = result.get("fidelity")
+                drift = result.get("drift_protection_x")
+                duration = result.get("duration_s", 0)
+                fid_str = f"{fidelity:.4f}" if fidelity is not None else "N/A"
+                drift_str = f"{drift:.2f}x" if drift is not None else "N/A"
+                eval_note = (
+                    f"\n\n[Background SELF-EVAL completed: {status} | {duration}s | "
+                    f"Fidelity: {fid_str} | Drift: {drift_str}]"
+                )
+            except Exception as e:
+                eval_note = f"\n\n[Background SELF-EVAL error: {e}]"
+            finally:
+                self_eval_future = None
 
     if message.strip().startswith("/"):
         cli_msg, updated_json, status = run_pic_cli(message[1:])
@@ -746,6 +777,9 @@ Current helix facts:
         reply = re.sub(r'^(Assistant|Bud|Aaron|User):?\s*', '', out["choices"][0]["text"].strip())
     else:
         reply = recall_reply
+
+    if eval_note:
+        reply += eval_note
 
     history.extend([{"role": "user", "content": message}, {"role": "assistant", "content": reply}])
     chat_history = history

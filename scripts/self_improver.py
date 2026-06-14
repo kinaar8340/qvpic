@@ -101,16 +101,18 @@ def get_helix_health() -> str:
     return "Helix health unavailable (not wired)"
 
 
-def run_benchmark_lite(timeout_sec: int = 180) -> Dict[str, Any]:
+def run_benchmark_lite(timeout_sec: int = 180, lightweight: bool = False) -> Dict[str, Any]:
     """
     Run a fast non-visual subset of qvpic_test to obtain current fidelity/drift numbers.
     Returns parsed metrics + raw snippet.
+    If lightweight=True, uses even fewer bake steps (20) for ultra-fast /self-eval.
     """
+    bake_steps = "20" if lightweight else "40"
     cmd = [
         sys.executable, "-u", str(Path(__file__).parent / "qvpic_test.py"),
         "--no-viz",
         "--device", "cpu" if not torch.cuda.is_available() else "cuda",
-        "--bake-steps", "40",   # Even more aggressive (40 steps) for very fast /self-eval cycles; adjust if too noisy
+        "--bake-steps", bake_steps,
     ]
 
     start = time.time()

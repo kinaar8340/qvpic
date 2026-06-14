@@ -21,3 +21,9 @@ To keep the chat responsive, `/self-eval` now runs the benchmark in a background
 - Once checked via status, the future is cleared.
 
 This is a simple, non-blocking addition that doesn't change the core propose/eval/apply architecture. The topological invariants and guardrails remain fully enforced.
+
+**Further improvements (latest):**
+- Ultra-lightweight mode for /self-eval: only 20 bake-steps (dedicated fast path in run_benchmark_lite via `lightweight=True`).
+- Timeout increased to 300s for higher completion chance on slower hardware.
+- **Auto-notification**: After background task completes, the next *any* user message (in chat_fn) will automatically append a clean result summary to the assistant reply (and clear the pending task).
+- **Cleaner status**: /self-eval-status (and auto-notify) now shows only key metrics (status, duration, fidelity, drift protection) in readable text instead of raw JSON dump. Full details still available via the result object if needed.
