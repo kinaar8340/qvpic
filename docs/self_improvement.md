@@ -27,6 +27,8 @@ To keep the chat responsive, `/self-eval` runs the (ultra-light 20-step) benchma
 
 Key metrics shown (in both status and auto-notify): status (with exit code), duration, fidelity, drift protection. No raw JSON dumps for readability.
 
+**Benchmark speed:** The lightweight path now uses only 10 bake-steps (via `lightweight=True` in run_benchmark_lite) to ensure /self-eval completes quickly (well under the 300s timeout) and produces useful fidelity/drift numbers on the next message.
+
 This keeps the original propose/eval/apply + topological guardrails intact while making long-running self-evals practical in an interactive chat.
 
 See also `docs/PR-self-improving.md` for the full feature history.

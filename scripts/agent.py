@@ -458,7 +458,7 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /save, /wake, /sleep, /list
 
 **Self-Improvement (QVPIC-powered, anti-drift)**
-/self-eval — start ultra-fast background benchmark (20 steps, 300s). Result auto-shown on next message (persisted until viewed).
+/self-eval — start ultra-fast background benchmark (10 steps, 300s). Result auto-shown on next message (persisted until viewed).
 /self-eval-status — check running status, or retrieve previous result (clean key metrics only; clears after display).
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
 /self-cycle [goal] — full propose → benchmark → record (+ real low-risk apply if flag)
@@ -565,8 +565,8 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                         si.run_benchmark_lite, timeout_sec=300, lightweight=True
                     )
                     msg = (
-                        "🚀 **Self-evaluation started in background (ultra-light 20-step mode).**\n\n"
-                        "Expect 30s–3 min. Result will auto-appear on your next message.\n"
+                        "🚀 **Self-evaluation started in background (ultra-light 10-step mode).**\n\n"
+                        "Expect <1 min typically. Result will auto-appear on your next message.\n"
                         "Use `/self-eval-status` to check manually."
                     )
 
@@ -761,6 +761,9 @@ def chat_fn(message: str, history: list):
 
     if message.strip().startswith("/"):
         cli_msg, updated_json, status = run_pic_cli(message[1:])
+        if eval_note:
+            cli_msg += eval_note
+            eval_note = ""  # prevent double add
         history.extend([{"role": "user", "content": message}, {"role": "assistant", "content": cli_msg}])
         chat_history = history
         return "", history, status, updated_json
@@ -800,6 +803,27 @@ Current helix facts:
         reply = re.sub(r'^(Assistant|Bud|Aaron|User):?\s*', '', out["choices"][0]["text"].strip())
     else:
         reply = recall_reply
+
+    if eval_note:
+        reply += eval_note
+
+    # Re-check after processing (e.g. during LLM call) in case it just completed
+    if not eval_note:
+        with self_eval_lock:
+            if self_eval_result is not None:
+                result = self_eval_result
+                exit_code = result.get("exit_code", -1)
+                status = "✅ Success" if exit_code == 0 else f"⚠️ Finished (exit={exit_code})"
+                fidelity = result.get("fidelity")
+                drift = result.get("drift_protection_x")
+                duration = result.get("duration_s", 0)
+                fid_str = f"{fidelity:.4f}" if fidelity is not None else "N/A"
+                drift_str = f"{drift:.2f}x" if drift is not None else "N/A"
+                eval_note = (
+                    f"\n\n[Background SELF-EVAL completed: {status} | {duration}s | "
+                    f"Fidelity: {fid_str} | Drift: {drift_str}]"
+                )
+                self_eval_result = None
 
     if eval_note:
         reply += eval_note
