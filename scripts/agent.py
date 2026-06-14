@@ -449,9 +449,11 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /save, /wake, /sleep, /list
 
 **Self-Improvement (QVPIC-powered, anti-drift)**
-/self-eval — current fidelity, drift metrics + topological signature
+/self-eval — fast benchmark (40 steps, 240s timeout) + fidelity/drift + topo + exit status (robust bytes/str + timeout handling for /self-eval)
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
-/self-cycle [goal] — full propose → benchmark → (conservative) record + bake cycle
+/self-cycle [goal] — full propose → benchmark → record (+ real low-risk apply if flag)
+/self-apply <proposal-stem> — attempt real guarded low-risk patch apply
+/self-proposals [all|pending|accepted|rejected] — list proposals (uses si.list_proposals)
 /self-history — show recent accepted/rejected improvement records"""
         return help_text, json.dumps(identity_structure, indent=2), get_helix_stats()
 
@@ -547,7 +549,10 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
             metrics = si.run_benchmark_lite(timeout_sec=240)  # increased for extra safety with shorter bake steps
             topo = si.get_topological_signature()
             health = si.get_helix_health()
-            msg = f"**SELF-EVAL**\n\nHelix: {health}\n\nTopo: {json.dumps(topo, indent=2)}\n\nLite bench (fidelity/drift): {json.dumps(metrics, indent=2)[:800]}"
+            exit_code = metrics.get("exit_code", 0)
+            status = "✅ success" if exit_code == 0 else f"⚠️ timeout/error (exit={exit_code})"
+            bench_summary = f"Lite bench (fidelity/drift): {json.dumps(metrics, indent=2)[:800]}"
+            msg = f"**SELF-EVAL** {status}\n\nHelix: {health}\n\nTopo: {json.dumps(topo, indent=2)}\n\n{bench_summary}"
 
     elif verb in ("self-propose", "propose"):
         if si is None or not LLM_AVAILABLE:
