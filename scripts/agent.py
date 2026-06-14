@@ -458,7 +458,7 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /save, /wake, /sleep, /list
 
 **Self-Improvement (QVPIC-powered, anti-drift)**
-/self-eval — start ultra-fast background benchmark (10 steps, 300s). Result auto-shown on next message (persisted until viewed).
+/self-eval — start ultra-fast background benchmark (5 steps, 300s). Result auto-shown on next message (persisted until viewed).
 /self-eval-status — check running status, or retrieve previous result (clean key metrics only; clears after display).
 /self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
 /self-cycle [goal] — full propose → benchmark → record (+ real low-risk apply if flag)
@@ -565,8 +565,8 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                         si.run_benchmark_lite, timeout_sec=300, lightweight=True
                     )
                     msg = (
-                        "🚀 **Self-evaluation started in background (ultra-light 10-step mode).**\n\n"
-                        "Expect <1 min typically. Result will auto-appear on your next message.\n"
+                        "🚀 **Self-evaluation started in background (ultra-light 5-step mode).**\n\n"
+                        "Expect <30s typically. Result will auto-appear on your next message.\n"
                         "Use `/self-eval-status` to check manually."
                     )
 
@@ -763,7 +763,6 @@ def chat_fn(message: str, history: list):
         cli_msg, updated_json, status = run_pic_cli(message[1:])
         if eval_note:
             cli_msg += eval_note
-            eval_note = ""  # prevent double add
         history.extend([{"role": "user", "content": message}, {"role": "assistant", "content": cli_msg}])
         chat_history = history
         return "", history, status, updated_json
@@ -803,9 +802,6 @@ Current helix facts:
         reply = re.sub(r'^(Assistant|Bud|Aaron|User):?\s*', '', out["choices"][0]["text"].strip())
     else:
         reply = recall_reply
-
-    if eval_note:
-        reply += eval_note
 
     # Re-check after processing (e.g. during LLM call) in case it just completed
     if not eval_note:

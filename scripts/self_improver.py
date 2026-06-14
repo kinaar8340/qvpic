@@ -105,14 +105,14 @@ def run_benchmark_lite(timeout_sec: int = 180, lightweight: bool = False) -> Dic
     """
     Run a fast non-visual subset of qvpic_test to obtain current fidelity/drift numbers.
     Returns parsed metrics + raw snippet.
-    If lightweight=True, uses even fewer bake steps (10) for ultra-fast /self-eval.
+    If lightweight=True, uses even fewer bake steps (5) for ultra-fast /self-eval.
     """
-    bake_steps = "10" if lightweight else "40"
+    bake_steps = "5" if lightweight else "40"
     cmd = [
         sys.executable, "-u", str(Path(__file__).parent / "qvpic_test.py"),
         "--no-viz",
         "--device", "cpu" if not torch.cuda.is_available() else "cuda",
-        "--bake-steps", bake_steps,   # 10 for ultra-fast /self-eval (lightweight); 40 otherwise. Reduced for responsiveness.
+        "--bake-steps", bake_steps,   # 5 for ultra-fast /self-eval (lightweight); 40 otherwise. Reduced aggressively for interactive use.
     ]
 
     start = time.time()
