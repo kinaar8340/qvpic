@@ -443,6 +443,7 @@ def parse_cli_command(command: str) -> Tuple[str, str, str]:
 def run_pic_cli(command: str) -> Tuple[str, str, str]:
     """Updated CLI handler for the new u*/a* identity system"""
     global identity_structure
+    global self_eval_future, self_eval_result
 
     verb, key, value = parse_cli_command(command)
     # Recompute lower for help check (verb is without leading /)
@@ -551,8 +552,6 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
         msg = "❓ SMS command not yet migrated to new structure"
 
     elif verb in ("self-eval", "selfeval", "eval-self"):
-        global self_eval_future, self_eval_result
-
         if si is None:
             msg = "❌ self_improver not available"
         else:
@@ -570,8 +569,6 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                     )
 
     elif verb in ("self-eval-status", "eval-status"):
-        global self_eval_future, self_eval_result
-
         with self_eval_lock:
             if self_eval_future is None:
                 msg = "No background self-evaluation is running."
