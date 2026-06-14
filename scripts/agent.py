@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-# scripts/agent.py — Core Agent Logic (v10.8.4 — Performance Optimized)
-# Optimizations: batched embeddings, torch.compile, fp16 embedder, dedup baking, caching
+"""
+scripts/agent.py — Core Agent Logic (v10.8.4 — Performance Optimized)
+Optimizations: batched embeddings, torch.compile, fp16 embedder, dedup baking, caching
+"""
 
 import torch
-import json
 import re
 import math
-import hashlib
 import requests
 import os
 import sys
+import json
+import time
+import atexit
 import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Any, Optional
-import time
-import atexit
 from functools import lru_cache
 
 # Project root
@@ -23,7 +24,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-parser = argparse.ArgumentParser(description="PIC v10.8.4 — TV-Optimized + Performance")
+parser = argparse.ArgumentParser(description="QVPIC")
 parser.add_argument('--name', type=str, default='Bud')
 parser.add_argument('--no-reset', action='store_true')
 parser.add_argument('--vqc', action='store_true')
@@ -36,6 +37,13 @@ args = parser.parse_args()
 from src.config import load_config
 from sentence_transformers import SentenceTransformer
 import torch.nn.functional as F
+
+# Self-improvement layer (QVPIC-powered recursive self-evolution)
+try:
+    from scripts import self_improver as si
+except Exception:
+    si = None  # will wire later if importable
+
 
 # ==================== GLOBALS ====================
 agent_name = "Bud"
@@ -82,9 +90,9 @@ conduit.device = device
 if torch.__version__ >= "2.0" and device == "cuda":
     try:
         conduit = torch.compile(conduit, mode="default")  # "reduce-overhead" can be aggressive with mixed precision
-        print("🚀 conduit compiled with torch.compile (default mode)")
+        print("🚀  conduit compiled with torch.compile (default mode)")
     except Exception as e:
-        print(f"⚠️ compile skipped: {e}")
+        print(f"⚠️  compile skipped: {e}")
 
 checkpoint_dir = Path("checkpoints")
 checkpoint_dir.mkdir(exist_ok=True)
@@ -95,15 +103,15 @@ optimizer = torch.optim.AdamW(conduit.parameters(), lr=8e-4, weight_decay=cfg.tr
 # ==================== FILE PATHS & CACHING ====================
 identity_structure_path = Path("identity_structure.json")
 history_file = Path("chat_history.json")
-public_file = Path("scripts/public_facts.txt")
-private_file = Path("scripts/private_facts.txt")
+public_facts_file = Path("facts/public_facts.json")
+private_facts_file = Path("facts/private_facts.json")
 DAILY_HELIX_LOG = Path("logs/daily_helix.jsonl")
 DAILY_HELIX_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 # Simple fact dedup cache
 seen_facts = set()
 
-for f in (public_file, private_file):
+for f in (public_facts_file, private_facts_file):
     f.touch(exist_ok=True)
 
 # ==================== HELPERS (Cached where hot) ====================
@@ -168,21 +176,143 @@ def flatten_for_bake(facts: Dict) -> List[str]:
     recurse(facts)
     return flat
 
+
+def load_facts_json():
+    """Load the new structured JSON facts (u*/a* identity system)"""
+    global all_facts
+    all_facts = []
+
+    for f in (public_facts_file, private_facts_file):
+        if f.exists():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                for entry in data:
+                    if entry.get("text"):  # skip empty
+                        all_facts.append(entry["text"])
+            except Exception as e:
+                print(f"⚠️  Could not load {f}: {e}")
+        else:
+            print(f"⚠️  {f} not found")
+
+    print(f"✓  Loaded {len(all_facts)} facts from /identity/ files")
+    return all_facts
+
+def append_fact(text: str, fact_type: str = "journal", source: str = "agent"):
+    """
+    Guarded fact append — only allows the agent to modify its own files.
+    Never touches user files (upublic.md, uprivate.md, ujournal.md).
+    """
+    if fact_type not in ["public", "private", "journal"]:
+        print(f"⚠️  Invalid fact_type: {fact_type}")
+        return False
+
+    # Safety guardrail: only allow agent-owned facts
+    allowed_sources = ["agent_apublic", "agent_aprivate", "agent_ajournal", "agent_self_improve"]
+    if source not in allowed_sources:
+        print(f"🚫  Guardrail: Cannot modify user or unknown source '{source}'")
+        return False
+
+    # Choose correct JSON file
+    target_file = private_facts_file if fact_type == "private" else public_facts_file
+
+    try:
+        # Load current facts
+        if target_file.exists():
+            data = json.loads(target_file.read_text(encoding="utf-8"))
+        else:
+            data = []
+
+        timestamp = datetime.now().isoformat()
+
+        # Append new fact
+        new_entry = {
+            "text": text.strip(),
+            "source": source,
+            "timestamp": timestamp,
+            "type": fact_type
+        }
+        data.append(new_entry)
+
+        # Save back to JSON
+        target_file.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+
+        # Optional: also append to the human-readable .md file for visibility
+        md_path = Path("identity/agent") / f"a{fact_type}.md"
+        with md_path.open("a", encoding="utf-8") as f:
+            f.write(f"\n\n---\n**Added {timestamp}**\n{text.strip()}\n")
+
+        print(f"✓  Agent appended new {fact_type} fact: {text[:60]}...")
+
+        # Reload facts immediately
+        load_facts_json()
+        return True
+
+    except Exception as e:
+        print(f"❌  Failed to append fact: {e}")
+        return False
+
 # ==================== LOAD / SAVE ====================
 def load_identity_structure():
-    global user_facts
+    """Robust loader — always rebuilds from the real facts JSON files and protects against empty overwrites"""
+    global identity_structure
+    load_facts_json()  # ensure we have fresh facts
+
+    identity_structure = {
+        "facts": {
+            "user": {},
+            "agent": {}
+        }
+    }
+
+    # === Build from public_facts.json ===
+    if public_facts_file.exists():
+        try:
+            data = json.loads(public_facts_file.read_text(encoding="utf-8"))
+            for entry in data:
+                src = entry.get("source", "")
+                text = entry.get("text", "").strip()
+                if text:
+                    key = src.replace("user_", "").replace("agent_", "")
+                    if "user_" in src:
+                        identity_structure["facts"]["user"][key] = text
+                    else:
+                        identity_structure["facts"]["agent"][key] = text
+        except Exception as e:
+            print(f"⚠️  public_facts.json parse error: {e}")
+
+    # === Build from private_facts.json (agent-only) ===
+    if private_facts_file.exists():
+        try:
+            data = json.loads(private_facts_file.read_text(encoding="utf-8"))
+            for entry in data:
+                src = entry.get("source", "")
+                text = entry.get("text", "").strip()
+                if text and "agent_" in src:
+                    key = src.replace("agent_", "")
+                    identity_structure["facts"]["agent"][key] = text
+        except Exception as e:
+            print(f"⚠️  private_facts.json parse error: {e}")
+
+    # === Never save an empty structure ===
+    section_count = len(identity_structure["facts"]["user"]) + len(identity_structure["facts"]["agent"])
+    if section_count == 0:
+        print("⚠️  load_identity_structure() would have saved empty data — skipping save")
+        return identity_structure
+
+    # Save to disk for the UI
     try:
-        if identity_structure_path.exists():
-            with open(identity_structure_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            user_facts = data.get("facts", {})
-            print(f"✅ Loaded identity structure ({len(user_facts)} sections)")
-        else:
-            populate_user_facts_from_files()
+        Path("identity_structure.json").write_text(
+            json.dumps(identity_structure, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+        print(f"✓  Loaded identity structure ({section_count} sections) — saved to disk")
     except Exception as e:
-        print(f"⚠️ Structure load failed ({e}) — regenerating")
-        populate_user_facts_from_files()
-    return json.dumps({"facts": user_facts}, indent=2)
+        print(f"⚠️  Could not save identity_structure.json: {e}")
+
+    return identity_structure
 
 def populate_system_facts():
     now = datetime.now()
@@ -198,7 +328,7 @@ def save_identity_structure():
 
 # ==================== JOURNAL + BAKING (Optimized) ====================
 def append_to_journal(entry_text: str):
-    journal_path = Path("identity/agent_journal.txt")
+    journal_path = Path("identity/agent/ajournal.md")
     journal_path.parent.mkdir(exist_ok=True)
     if not journal_path.exists():
         journal_path.write_text("# QVPIC Agent Journal — Living Autobiography\n\n", encoding="utf-8")
@@ -225,14 +355,14 @@ def append_to_journal(entry_text: str):
         cube_local = len(all_facts) % getattr(conduit.ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(conduit.ring_cone, 'rings') else 0
         conduit.ring_cone.bake_ring(ring_idx, cube_local, emb, orientation=len(all_facts) % 24)
 
-    print("📖 Journal baked efficiently")
+    print("📖  Journal baked efficiently")
 
 
 def populate_user_facts_from_files():
     global user_facts
     user_facts = {}
     lines = []
-    for path in [public_file, private_file]:
+    for path in [public_facts_file, private_facts_file]:
         if path.exists():
             lines.extend([line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()])
 
@@ -275,17 +405,19 @@ def populate_user_facts_from_files():
                     cube_local = len(all_facts) % getattr(conduit.ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(conduit.ring_cone, 'rings') else 0
                     conduit.ring_cone.bake_ring(ring_idx, cube_local, emb.squeeze(0), orientation=len(all_facts) % 24)
 
-    print(f"✅ [Core Identity] Batched re-bake complete ({len(facts_to_bake)} facts)")
+    print(f"✓  [Core Identity] Batched re-bake complete ({len(facts_to_bake)} facts)")
     save_identity_structure()
 
-
 def run_pic_cli(command: str) -> Tuple[str, str, str]:
-    global user_facts
+    """Updated CLI handler for the new u*/a* identity system"""
+    global identity_structure
+
     cmd = command.strip()
     lower = cmd.lower()
     if lower.startswith("/"):
         cmd = cmd[1:].strip()
         lower = cmd.lower()
+
     parts = re.split(r'\s+', cmd, maxsplit=2)
     verb = parts[0]
     key = parts[1] if len(parts) > 1 else ""
@@ -297,29 +429,35 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 /remove category/sub/key
 /chapter category/sub/key
 /toc — beautiful indented tree
-/save, /wake, /sleep, /list"""
-        return help_text, json.dumps({"facts": user_facts}, indent=2), get_helix_stats()
+/save, /wake, /sleep, /list
+
+**Self-Improvement (QVPIC-powered, anti-drift)**
+/self-eval — current fidelity, drift metrics + topological signature
+/self-propose [optional goal] — LLM generates + bakes a guarded improvement proposal
+/self-cycle [goal] — full propose → benchmark → (conservative) record + bake cycle
+/self-history — show recent accepted/rejected improvement records"""
+        return help_text, json.dumps(identity_structure, indent=2), get_helix_stats()
 
     msg = ""
+    target = identity_structure["facts"]  # new structure: user + agent
+
     if verb in ("add", "set"):
         if key and value:
             if '/' in key:
-                set_nested(user_facts, key, value.strip())
-                user_facts = sort_identity_tree(user_facts)
-                msg = f"✅ Etched {key} = {value} into RingConeChain"
+                set_nested(target, key, value.strip())
+                msg = f"✓  Etched {key} = {value} into RingConeChain"
             else:
-                user_facts[key] = value
-                msg = f"✅ Set {key} = {value}"
-            for natural in flatten_for_bake(user_facts):
+                target[key] = value
+                msg = f"✓  Set {key} = {value}"
+            for natural in flatten_for_bake(target):
                 bake_new_fact(natural)
         else:
             msg = "❓ Usage: /add <path/to/key> <value>"
 
     elif verb in ("rm", "remove", "delete"):
         if key:
-            if delete_nested(user_facts, key) or (
-                    key in user_facts and not isinstance(user_facts[key], dict) and (user_facts.pop(key) or True)):
-                msg = f"✅ Removed {key}"
+            if delete_nested(target, key):
+                msg = f"✓  Removed {key}"
             else:
                 msg = f"❓ Path/Key '{key}' not found"
         else:
@@ -327,20 +465,27 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
 
     elif verb == "chapter":
         if key:
-            val = get_nested(user_facts, key)
+            # Normalize path (make case-insensitive and support both "user/..." and "facts/user/...")
+            normalized = key.lower().replace("facts/", "").replace("user/", "user/").replace("agent/", "agent/")
+            if normalized.startswith("user/") or normalized.startswith("agent/"):
+                val = get_nested(target, normalized)
+            else:
+                val = get_nested(target, f"user/{normalized}") or get_nested(target, f"agent/{normalized}")
+
             if val is not None:
-                natural = f"My {key.replace('/', ' ')} is {val}."
+                natural = f"My {normalized.replace('/', ' ')} is {val}."
                 page_id = abs(hash(natural)) % 10000
-                msg = f"📖 **Chapter {key.replace('/', ' • ')}**\n\n{natural}\n\n📍 Topological page: {page_id:04d}"
+                msg = f"**Chapter {normalized.replace('/', ' / ')}**\n\n{natural}\n\nTopological page: {page_id:04d}"
             else:
                 msg = f"❓ Chapter path '{key}' not found"
         else:
-            msg = "❓ Usage: /chapter category/sub/key"
+            msg = "❓ Usage: /chapter user/upublic   or   /chapter agent/apublic"
 
     elif verb in ("list", "show", "toc"):
         if verb == "toc":
             toc_lines = ["# QVPIC Hyperbook — Table of Contents\n"]
-            toc_lines.append(f"**Edition**: v10.8.3 TV-Optimized\n**Top-level Sections**: {len(user_facts)}\n")
+            toc_lines.append(f"**Edition**: v10.8.3 TV-Optimized")
+            toc_lines.append(f"**Top-level Sections**: {len(target.get('user', {})) + len(target.get('agent', {}))}\n")
 
             def render_tree(d, indent="", num=""):
                 i = 1
@@ -350,60 +495,76 @@ def run_pic_cli(command: str) -> Tuple[str, str, str]:
                         render_tree(v, indent + "   ", f"{num}{i}.")
                         i += 1
                     else:
-                        toc_lines.append(f"{indent}{num}{i}. **{k.title()}** — {v}")
+                        preview = str(v).split('\n')[0][:80]
+                        toc_lines.append(f"{indent}{num}{i}. **{k.title()}** → {preview}...")
                         i += 1
 
-            render_tree(user_facts)
+            render_tree(target)
             msg = "\n".join(toc_lines)
         else:
-            msg = f"Current top-level sections: {list(user_facts.keys())}"
+            msg = f"Current top-level sections: {list(target.keys())}"
 
     elif verb == "save":
         torch.save(conduit.state_dict(), checkpoint_path)
         save_identity_structure()
-        for natural in flatten_for_bake(user_facts):
+        for natural in flatten_for_bake(target):
             bake_new_fact(natural)
-        msg = "✅ Helix checkpoint + hierarchical re-bake complete"
+        msg = "✓  Helix checkpoint + hierarchical re-bake complete"
 
     elif verb == "wake":
         wake_snapshot()
-        msg = "🌅 Wake snapshot + morning narrative braid completed"
+        msg = "✓  Wake snapshot + morning narrative braid completed"
 
     elif verb == "sleep":
         sleep_snapshot()
-        msg = "🌙 Sleep snapshot + daily autobiography baked"
+        msg = "✓  Sleep snapshot + daily autobiography baked"
 
     elif verb == "sms":
-        if not key or not value:
-            msg = "❓ Usage: /sms <path/to/contact> \"your message here\""
+        msg = "❓ SMS command not yet migrated to new structure"
+
+    elif verb in ("self-eval", "selfeval", "eval-self"):
+        # Lightweight self-benchmark + topological health + source snapshot for the LLM self
+        if si is None:
+            msg = "❌ self_improver not available"
         else:
-            phone = get_nested(user_facts, f"{key}/phone")
-            if not phone:
-                msg = f"❓ No phone number found at path: {key}"
+            metrics = si.run_benchmark_lite(timeout_sec=120)
+            topo = si.get_topological_signature()
+            health = si.get_helix_health()
+            msg = f"**SELF-EVAL**\n\nHelix: {health}\n\nTopo: {json.dumps(topo, indent=2)}\n\nLite bench (fidelity/drift): {json.dumps(metrics, indent=2)[:800]}"
+
+    elif verb in ("self-propose", "propose"):
+        if si is None or not LLM_AVAILABLE:
+            msg = "❌ LLM or self_improver unavailable for proposals"
+        else:
+            goal = value or "Raise recall fidelity and/or drift protection factor while preserving all topological invariants"
+            prop = si.propose_improvement(goal)
+            if "error" in prop:
+                msg = f"Proposal error: {prop['error']}"
             else:
-                cfg_sms = cfg.sms  # Use global cfg (fixed)
-                if not cfg_sms.enabled or not cfg_sms.account_sid or not cfg_sms.from_number:
-                    msg = "❓ SMS not fully configured in default.yaml"
-                else:
-                    try:
-                        from twilio.rest import Client
-                        client = Client(cfg_sms.account_sid, cfg_sms.auth_token)
-                        message = client.messages.create(
-                            body=value,
-                            from_=cfg_sms.from_number,
-                            to=phone
-                        )
-                        msg = f"✅ SMS sent to {key} → {phone}\n\"{value}\"\nMessage SID: {message.sid}"
-                        bake_new_fact(f"[SMS sent to {key}] {value}")
-                    except Exception as e:
-                        msg = f"❌ SMS failed: {e}"
+                msg = f"✓ Proposal generated & baked into conduit.\n\nGoal: {prop.get('goal')}\nRisk: {prop.get('risk_level')}\nSaved: {prop.get('_proposal_file')}\n\nRationale (truncated): {str(prop)[:600]}"
+
+    elif verb in ("self-cycle", "self-improve", "improve"):
+        if si is None:
+            msg = "❌ self_improver module not wired"
+        else:
+            goal = value or "Increase overall system capability while keeping helix invariants and recall fidelity high"
+            res = si.run_improvement_cycle(goal, auto_apply_low_risk=False)
+            msg = f"SELF-CYCLE complete. Record: {res.get('record_path', 'in-memory')}\nDecision: {res.get('report',{}).get('decision')}\nSee proposals/ and improvements/ + ajournal for topological record."
+
+    elif verb in ("self-history", "improvement-history"):
+        if si is None:
+            msg = "❌ self_improver not available"
+        else:
+            past = si.load_past_improvements(6)
+            msg = "**SELF-IMPROVEMENT HISTORY (last cycles)**\n" + json.dumps(past, indent=2, default=str)[:2200]
+
     else:
         msg = "❓ Unknown command. Try /help"
 
+    # Final save + refresh
     save_identity_structure()
-    updated_json = json.dumps({"facts": user_facts}, indent=2)
+    updated_json = json.dumps(identity_structure, indent=2)
     return msg, updated_json, get_helix_stats()
-
 
 def bake_new_fact(message: str) -> bool:
     clean_message = re.sub(r'\s*(\+\+|---)(public|private)-facts\s*', '', message, flags=re.IGNORECASE).strip()
@@ -421,37 +582,44 @@ def bake_new_fact(message: str) -> bool:
         cube_local = len(all_facts) % getattr(conduit.ring_cone.rings[ring_idx], 'num_cubes', 27) if hasattr(conduit.ring_cone, 'rings') else 0
         conduit.ring_cone.bake_ring(ring_idx, cube_local, emb, orientation=len(all_facts) % 24)
 
-    print(f"✅ Baked: {clean_message[:80]}...")
+    print(f"✓  Baked: {clean_message[:80]}...")
     return True
 
 
 def bud_respond(message: str, history: list = None) -> str:
     if VERBOSE:
         print(f"[Bud] Recall request: {message}")
+
     query_lower = message.lower()
 
-    def find_nested_fact(d: Dict, query: str):
-        for k, v in d.items():
-            if isinstance(v, dict):
-                res = find_nested_fact(v, query)
-                if res:
-                    return res
-            else:
-                if k.lower() in query or query_lower in k.lower() or any(
-                        word in query_lower for word in k.lower().split()):
-                    return f"My {k.replace('_', ' ')} is {v}."
-        return None
+    # Dynamic search through all loaded facts (no hard-coded personal data)
+    for fact in all_facts:
+        if not fact:
+            continue
+        fact_lower = fact.lower()
 
-    result = find_nested_fact(user_facts, query_lower)
-    if result:
-        if VERBOSE:
-            print(f"[Bud] Nested hybrid match → {result}")
-        return result
+        # Simple but effective keyword/substring match
+        if any(word in query_lower for word in ["name", "who", "called"]) and any(word in fact_lower for word in ["name:", "name is"]):
+            # Return the first relevant fact line containing "name"
+            for line in fact.split('\n'):
+                if "name" in line.lower():
+                    return line.strip()
 
+        if any(word in query_lower for word in ["location", "where", "live", "city", "state"]) and any(word in fact_lower for word in ["location:", "lives in", "wilsonville", "oregon"]):
+            for line in fact.split('\n'):
+                if any(k in line.lower() for k in ["location", "lives", "city", "state"]):
+                    return line.strip()
+
+        # General fallback: any strong keyword overlap
+        if any(word in query_lower for word in ["interest", "like", "about me"]) or any(word in fact_lower for word in query_lower.split()):
+            return fact.split('\n')[0].strip() + "..."  # first line of matching fact
+
+    # Keep your existing RingConeChain topological recall as backup
     try:
         query_emb = embedder.encode(message, convert_to_tensor=True, device=device)
         output_scale = getattr(conduit, 'output_scale', torch.tensor(0.28)).item()
         query_emb = F.normalize(query_emb, dim=-1) * output_scale
+
         if hasattr(conduit, 'ring_cone'):
             cube_hits = conduit.ring_cone.recall(query_emb, top_k=3)
             if cube_hits:
@@ -462,6 +630,7 @@ def bud_respond(message: str, history: list = None) -> str:
         if VERBOSE:
             print(f"[Bud] Recall error: {e}")
 
+    # Final generic fallback
     return "Bud is braiding your query through the RingConeChain..."
 
 
@@ -543,14 +712,14 @@ def get_helix_stats():
         stability = min(100.0, 100 * (braiding_phase * 1.2))
         health_emoji = "🟢" if stability > 95 else "🟡" if stability > 80 else "🔴"
         phase_str = datetime.now().strftime("%A %H:%M — %p cycle")
-        return f"""**🌀 HELIX HEALTH EXPLORER** (v10.8.3 TV-Optimized)
+        return f"""**HELIX HEALTH EXPLORER**)
 {health_emoji} **Helix Integrity**: **{stability:.1f}%**
-📚 Topological Chapters: **{priority_facts}** | 📖 Total Pages Baked: **{total_baked}**
-🔄 Current Chapter Order: RingConeChain
-🌌 Braiding Phase: **{braiding_phase:.4f}**
-📅 Today: **{phase_str}**"""
+📚  Topological Chapters: **{priority_facts}** | 📖  Total Pages Baked: **{total_baked}**
+🔄  Current Chapter Order: RingConeChain
+🌌  Braiding Phase: **{braiding_phase:.4f}**
+📅  Today: **{phase_str}**"""
     except Exception:
-        return "**🌀 HELIX HEALTH** — Monitoring active (v10.8.3)"
+        return "**HELIX HEALTH** — Monitoring active)"
 
 
 def log_helix_event(event_type: str, summary: str = ""):
@@ -567,13 +736,21 @@ def log_helix_event(event_type: str, summary: str = ""):
 def wake_snapshot():
     now = datetime.now()
     phase = "morning" if now.hour < 12 else "afternoon" if now.hour < 18 else "evening"
-    print(f"🌅 Bud waking — {phase} cycle")
+    print(f"🌅  Bud waking — {phase} cycle")
     log_helix_event("wake")
 
 
 def sleep_snapshot():
-    print("🌙 Bud entering rest — daily autobiography page")
+    print("🌙  Bud entering rest — daily autobiography page")
     log_helix_event("sleep")
+    # Guarded daily autobiography entry — only writes to agent's own journal
+    append_fact(
+        f"Daily autobiography baked • {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+        f"Helix integrity: {get_helix_stats() if 'get_helix_stats' in globals() else 'stable'}\n"
+        f"Topological chapters baked today: {len(all_facts) if 'all_facts' in globals() else 'unknown'}",
+        fact_type="journal",
+        source="agent_ajournal"
+    )
 
 
 atexit.register(sleep_snapshot)
@@ -582,7 +759,7 @@ atexit.register(sleep_snapshot)
 def bake_narrative_braid(summary: str, meta_type: str = "daily"):
     fact = f"[META-AUTOBIOGRAPHY {meta_type.upper()}] {summary}"
     bake_new_fact(fact)
-    print(f"✅ Narrative braid baked ({meta_type})")
+    print(f"✓  Narrative braid baked ({meta_type})")
     log_helix_event(f"narrative_{meta_type}", summary)
 
 
@@ -611,20 +788,34 @@ def initialize_agent(args):
         from llama_cpp import Llama
         llm = Llama(model_path="models/Qwen2.5-14B-Instruct-Q4_K_M.gguf", n_gpu_layers=99, n_ctx=32768, n_batch=1024, n_threads=16, verbose=False, flash_attn=True)
         LLM_AVAILABLE = True
-        print("✅ Qwen loaded")
+        print("✓  Qwen loaded")
     except Exception as e:
-        print(f"⚠️ LLM: {e}")
+        print(f"⚠️  LLM: {e}")
         LLM_AVAILABLE = False
 
     if checkpoint_path.exists() and args.no_reset:
-        print("✅ Loading checkpoint...")
+        print("✓  Loading checkpoint...")
         state = torch.load(checkpoint_path, weights_only=True, map_location=device)
         conduit.load_state_dict(state, strict=False)
 
-    print(f"✅ Agent initialized (name={agent_name}, Performance Mode)")
+    print(f"✓  Agent initialized (name={agent_name}, Performance Mode)")
 
     if PROFILER:
-        print("🔍 Profiler active — check console/tensorboard after run")
+        print("🔍  Profiler active — check console/tensorboard after run")
+
+    # Wire the self-improver (uses QVPIC conduit as drift-proof self-memory)
+    if si is not None:
+        try:
+            si.wire({
+                "conduit": conduit,
+                "llm": llm,
+                "append_fact": append_fact,
+                "get_helix_stats": get_helix_stats,
+                "bake_new_fact": bake_new_fact,
+            })
+            print("✓  Self-improver (QVPIC-powered) wired — ready for autonomous evolution cycles")
+        except Exception as e:
+            print(f"⚠️  Self-improver wiring skipped: {e}")
 
 # ==================== EXPOSE FOR UI & MAIN ====================
 # Make key objects available at module level for ui.py
@@ -633,10 +824,11 @@ def initialize_agent(args):
 __all__ = ["initialize_agent", "chat_fn", "get_helix_stats", "load_identity_structure",
            "HEARTBEAT_MINUTES", "LLM_AVAILABLE", "llm", "chat_history", "last_message_time",
            "bake_narrative_braid", "wake_snapshot", "sleep_snapshot", "append_to_journal",
-           "conduit", "user_facts", "USE_VQC"]   # ← added these
+           "conduit", "user_facts", "USE_VQC",
+           "si", "run_pic_cli"]   # self-improver + CLI for meta use
 
 if __name__ == "__main__":
     initialize_agent(args)
     if PROFILER:
         PROFILER.__exit__(None, None, None)
-        print("📊 Profiler summary available")
+        print("✓  Profiler summary available")

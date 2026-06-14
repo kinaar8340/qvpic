@@ -18,7 +18,7 @@ The Quaternion Vortex Persistent Identity Conduit (QVPIC v10.2) is the software 
 
 QVPIC encodes data as quaternion-compressed shards embedded in a helical fiber bundle over a Clifford-torus base. Global topological invariants — winding number, quaternion linking/braiding phase, and zero-point ShellCube radial differential — serve as the single source of truth for memory. Optional OAM modulation mirrors the patent’s nested helical shielding.
 
-**New in v10.2**: A **Minimal Copresheaf Topological Neural Network (TNN)** layer performs higher-order sheaf diffusion reasoning directly on the RingConeChain combinatorial complex while keeping the underlying geometric identity lock completely frozen.
+**New in v10.2**: A **Minimal Copresheaf Topological Neural Network (TNN)** layer performs higher-order sheaf diffusion reasoning directly on the RingConeChain combinatorial complex while keeping the underlying geometric identity lock completely frozen. This act as linear maps between stalks. This is the key generalization in copresheaf message passing.
 
 On standard benchmarks, QVPIC achieves **0.98–1.000 cosine recall fidelity** with **5.68× drift protection** relative to conventional vector-store baselines.
 
@@ -34,6 +34,14 @@ On standard benchmarks, QVPIC achieves **0.98–1.000 cosine recall fidelity** w
 - **Benchmarked fidelity**: 1.0000 average pure recall cosine, 5.68× protection factor.
 - **Modular & production-ready**: SRP/DRY, configuration-driven, Torch 2.0 compiled.
 
+**New: Self-Improving AI Layer (v10.8+)**  
+QVPIC is now the substrate for a guarded, recursively self-improving agent ("Bud").  
+Improvement proposals, benchmark results, topological signatures (before/after), and "growth autobiography" are all baked into the conduit.  
+This gives the AI perfect long-term recall of its own evolution while the mathematical invariants act as a constitution that rejects regressive changes.  
+
+See `docs/self_improvement.md` and the new `/self-eval`, `/self-propose`, `/self-cycle`, `/self-history` CLI commands (usable in the Gradio chat).  
+Core geometry changes remain heavily guarded; everything is auditable + revertible via checkpoints + git.
+
 ## Relation to VQC Patent
 
 QVPIC implements the patent’s core claims:
@@ -46,96 +54,85 @@ The patent abstract and full specification are included in the repository as `do
 
 ## Quick Start: Quaternion Vortex Persistent Identity Conduit
 
-1. Usage Options:
-
-   i. Install from PyPI with:
-   ```bash
-   pip install qvpic
-   ```
-
-   ii. Clone the Repository:
-   ```bash
-   git clone https://github.com/kinaar8340/qvpic.git
-   ```
-
-   iii. Nightly Development Build updated every day at 2:00 AM UTC:
-   ```bash
-   pip install -i https://test.pypi.org/simple/ qvpic
-   ```
+1. Install & Setup:
+    ```bash
+    # clone the Repo
+    sudo apt update
+    sudo apt install git -y
+    mkdir -p ~/Projects
+    cd ~/Projects
+    git clone https://github.com/kinaar8340/qvpic.git
+    ```
+    ```bash
+    # Setup a Virtual Environment
+    sudo apt update
+    cd ~/Projects/qvpic
+    python3 -m venv venv
+    cd ~/Projects/qvpic
+    source venv/bin/activate
+    ```
 
 
 2. Install Dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+    ```bash
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    ```
 
 
-3. Edit Identity Files in ~/qvpic/scripts/:
-    
-   --  agent_public.md 
-
-   --  agent_private.md
-
-   --  user_public.md
-
-   --  user_private.md
+3. Set up your identity, do this before your first run.
+    Save & Exit: Ctrl+O → Enter → Ctrl+X
+    ```bash
+    nano identity/user/upublic.md      # Public data about you
+    nano identity/user/uprivate.md     # Private / sensitive data
+    nano identity/user/ujournal.md     # Your personal journal (optional)
+    ```
+    Then compile, uploads to Your Agent and done.
+    ```bash
+    python scripts/setup_identity.py
+    ```
 
 
 4. Run the agent:
-   ```bash
-    # First run creates initial checkpoints.
+    ```bash
+    # first run creates initial checkpoints
     python scripts/main.py
     ```
-   ```bash
-    # Use --no-reset to save sessions.
+    ```bash
+    # all future runs Persistent Sessions
     python scripts/main.py --no-reset
     ```
-
-
-5. Experimental:
-    ```bash
-    # See docs/paper.md for details.
-    python scripts/qvpic_test.py --strong-train --no-viz --vqc
+    Additional Options:
     ```
-   ```bash
-   # Runs demo with vqc enhancement.
-   python scripts/main.py --no-reset --verbose --vqc
-   ```
+    --vqc                   # experimental
+    --verbose               # expanded terminal readout
+    --heartbeat-minutes 5   # sets automatic checkpoint (default=60)
+    ```
+
+    ```bash
+    # experimental vqc
+    python scripts/main.py --no-reset --vqc --verbose --no-viz --heartbeat-minutes 5
+    ```
 
 
-6. Troubleshooting:
+5. Troubleshooting:
     ```bash
-    # Runs full pipeline test.
-    python scripts/qvpic_test.py --strong-train --no-viz
+    # runs full pipeline test with CPU only.
+    python scripts/qvpic_test.py --no-viz --device cpu --num-threads 70 --bake-steps 100
     ```
     ```bash
-    # Runs all diagnostic scripts in tests/test_*.py.
-    pytest -q --cov
+    # runs full pipeline test with GPU + CPU.
+    python scripts/qvpic_test.py --device auto --no-viz --strong-train --num-threads 20 
     ```
-   ```bash
-   # Run demo with verbose output.
-   python scripts/main.py --no-reset --verbose --heartbeat-minutes 15
-   ```
       
 
-7. Full agent reset, fresh start:
-   ```bash
-   # Removes old checkpoint + chat history
-   rm -f checkpoints/pic_conduit_final.pt
-   rm -f chat_history.json
-   rm -rf snapshots/braided_lattice/*
-   echo "✅ Agent's identity has been cleared."
-   ```
-
-## Benchmarks (RubikCone + ShellCube path)
-
-| Metric                        | Value          | Notes |
-|-------------------------------|----------------|-------|
-| Average pure recall cosine    | 1.0000         | Immediate read-back after bake |
-| Drift protection factor       | 5.68×          | vs. noisy vector baseline |
-| Shell differential norm       | 1.0000         | Closed-system topological lock |
-| Braiding phase (quaternion)   | ~0.82 (stable) | Toroidal window |
-| Active cubes                  | 8+             | Discrete persistence layer |
+6. Full Agent Reset (if needed):
+    ```bash
+    # deletes agent's memory
+    rm -f checkpoints/pic_conduit_final.pt
+    rm -f chat_history.json
+    rm -rf snapshots/braided_lattice/*
+    ```
 
 ## Architecture Overview
 
@@ -153,25 +150,55 @@ All cosine operations use the enforced pattern `safe_cosine(dim=-1 + .unsqueeze(
 ```
 qvpic/
 ├── models/                         # "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
-├── src/
+│
+├── identity/
+│   ├── user/                       # HUMAN
+│   │   ├── upublic.md              # User edits this with "PUBLIC" data.
+│   │   ├── uprivate.md             # User edits this with "PRIVATE" data.
+│   │   └── ujournal.md             # User's journal as long-term record.         
+│   └── agent/                      # AI
+│       ├── apublic.md              # Agent can modify these (with guardrails)
+│       ├── aprivate.md             # Agent can modify these (with guardrails)
+│       └── ajournal.md             # Agent's journal as long-term memory.
+│
+├── facts/                          # JSON – structured & appendable
+│   ├── public_facts.json           # "PUBLIC" runtime facts 
+│   └── private_facts.json          # "PRIVATE" runtime facts 
+│
+├── scripts/                        
+│   ├── setup_identity.py           # One-time compiler: .md → JSON
+│   ├── main.py                     # Executable
+│   ├── agent.py                    # Agent's Guardrails + self CLI
+│   ├── ui.py                       # User Interface via Gradio
+│   ├── heartbeat.py                # Task Scheduler
+│   ├── qvpic_test.py               # Full Benchmark & Diagnostics
+│   ├── self_improver.py            # ★ Core self-improving AI loop (propose-eval-bake using conduit invariants)
+│   └── bud_squad_bridge.py         # Reference for Bud DevSquad + QVPIC persistent team memory
+│
+├── src/                            
 │   ├── conduit.py                  # Core TwistedHelicalConduit + RubikConeConduit
 │   ├── vqc_enhanced_conduit.py     # OAM-modulated VQC subclass
-│   ├── config.py
-│   ├── encoder.py
-│   └── decoder.py
-├── scripts/
-│   ├── main.py               # User Interface via Gradio
-│   ├── qvpic_test.py               # Full Benchmark & Diagnostics
-│   └── heartbeat.py                # Task Scheduler
-├── identity/
-│   ├── agent_public.md             # Agent's Public Identity
-│   ├── agent_private.md            # Agent's Private Identity
-│   ├── user_public.md              # User's Public Identity
-│   └── user_private.md             # User's Private Identity
-├── docs/
-│   └── United_States_Non-Provisional_Patent_Application.pdf
-├── configs/default.yaml
-└── README.md
+│   └── config.py                   
+│
+├── tests/                          # Runs all diagnostic scripts
+│   └── test_conduit.py             
+│
+├── pyproject.toml                  
+├── configs/                        
+│   └── default.yaml                
+│
+├── checkpoints/                    
+├── logs/                           
+├── outputs/                        
+├── images/                         
+├── requirements.txt                
+├── README.md                       
+└── docs/
+    ├── non_technical_QVPIC_Whitepaper.md
+    ├── QVPIC_Whitepaper.md
+    ├── VQC_NonProvisional_Patent_Application.md
+    └── self_improvement.md           # How QVPIC powers a self-improving AI (proposals + topological baking of growth)
+
 ```
 
 ## License
@@ -182,11 +209,6 @@ MIT
 **Contact:** 
 - kinaar0@protonmail.com
 - X: @kinaar8340
-
-**Repository:**
-- https://github.com/kinaar8340/pic 
-- https://github.com/kinaar8340/qvpic
-- https://github.com/kinaar8340/vqc_sims_public
 
 
 Built as the reference software implementation of the VQC patent.
