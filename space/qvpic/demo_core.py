@@ -49,6 +49,7 @@ DEFAULT_FACTS_PATH = next(
 
 DEFAULT_READ_KWARGS = {"bandwidth": 0.32, "num_samples": 31}
 _EMBEDDER = None
+_EMBEDDER_DEVICE: str | None = None
 
 
 def is_hf_space() -> bool:
@@ -91,12 +92,28 @@ def _configure_cpu_threads() -> None:
     torch.set_num_interop_threads(2)
 
 
+def _torch_device(device: str) -> torch.device:
+    return torch.device(device)
+
+
+def _sync_conduit_devices(conduit, device: str) -> None:
+    """Align stale self.device attrs after .to() — RingConeChain keeps cuda at init."""
+    dev = _torch_device(device)
+    conduit.to(dev)
+    if hasattr(conduit, "device"):
+        conduit.device = dev
+    ring = getattr(conduit, "ring_cone", None)
+    if ring is not None and hasattr(ring, "device"):
+        ring.device = dev
+
+
 def _get_embedder(device: str):
-    global _EMBEDDER
-    if _EMBEDDER is None:
+    global _EMBEDDER, _EMBEDDER_DEVICE
+    if _EMBEDDER is None or _EMBEDDER_DEVICE != device:
         from sentence_transformers import SentenceTransformer
 
         _EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2", device=device)
+        _EMBEDDER_DEVICE = device
     return _EMBEDDER
 
 
@@ -153,8 +170,8 @@ def _make_conduit(*, use_vqc: bool, device: str):
             vortex_math_369=True,
             clifford_projection=True,
         )
-    conduit = conduit.to(device)
-    if device == "cuda":
+    _sync_conduit_devices(conduit, device)
+    if device == "cuda" and not is_hf_space():
         try:
             conduit = torch.compile(conduit, mode="default")
         except Exception:
@@ -175,13 +192,14 @@ def _bake_facts(
     max_facts: int,
     progress_cb=None,
 ) -> list[tuple[str, float, torch.Tensor]]:
+    dev = _torch_device(conduit.device if isinstance(conduit.device, str) else str(conduit.device))
     raw = json.loads(DEFAULT_FACTS_PATH.read_text(encoding="utf-8"))
     lines = _extract_clean_facts(raw, max_facts=max_facts)
-    embedder = _get_embedder(conduit.device)
+    embedder = _get_embedder(str(dev))
     embeddings_raw = embedder.encode(
         lines,
         convert_to_tensor=True,
-        device=conduit.device,
+        device=str(dev),
         batch_size=16,
     )
 
@@ -193,7 +211,8 @@ def _bake_facts(
     for idx, (fact, emb_raw) in enumerate(zip(lines, embeddings_raw)):
         if progress_cb:
             progress_cb(idx / max(len(lines), 1), desc=f"Baking fact {idx + 1}/{len(lines)}")
-        emb = F.normalize(emb_raw, dim=-1) * conduit.output_scale.item()
+        emb = F.normalize(emb_raw.to(dev), dim=-1) * conduit.output_scale.item()
+        emb = emb.to(dev)
         s = depth + idx * step_size
 
         if is_rubik:

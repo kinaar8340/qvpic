@@ -11,7 +11,8 @@ echo "=== 1. Sync HF space bundle ==="
 bash scripts/sync_hf_space.sh
 
 echo "=== 2. Git commit (qvpic) ==="
-git add -A
+git add docs/HF_SPACE_README.md scripts/sync_hf_space.sh scripts/deploy_hf_space.sh \
+  space/qvpic/ tests/test_hf_space.py web/
 git status --short
 if git diff --cached --quiet; then
   echo "No staged changes"
@@ -41,6 +42,7 @@ rsync -av --delete \
   --exclude='.venv' \
   --exclude='__pycache__' \
   --exclude='*.pyc' \
+  --exclude='*.egg-info' \
   "$ROOT/space/qvpic/" "$HF_DIR/"
 cd "$HF_DIR"
 git add -A

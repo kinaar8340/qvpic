@@ -31,6 +31,7 @@ cp "$ROOT/web/build_info.py" "$DST/"
 cp "$ROOT/web/gradio_demo.py" "$DST/app.py"
 
 cat > "$DST/requirements.txt" <<'EOF'
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.4.0,<3.0.0
 numpy>=1.24.0,<3.0.0
 scipy>=1.10.0
@@ -42,6 +43,7 @@ tqdm>=4.60.0
 python-dotenv>=1.0.0
 omegaconf>=2.3.0
 scikit-learn>=1.3.0
+huggingface-hub>=0.23.0
 EOF
 
 {
