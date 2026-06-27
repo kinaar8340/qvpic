@@ -1,0 +1,17 @@
+# HF Space safe defaults — no secrets (Twilio loaded from env in src/config.py)
+
+identity:
+  canonical_order:
+    core:
+      - contacts
+      - identity
+      - socials
+
+journal:
+  path: "identity/agent/ajournal.md"
+  max_words_per_entry: 600
+  max_entries_per_day: 1
+
+sms:
+  enabled: false
+  provider: twilio

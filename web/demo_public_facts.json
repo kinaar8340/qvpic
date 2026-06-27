@@ -1,0 +1,17 @@
+[
+  {
+    "text": "QVPIC is the Quaternion Vortex Persistent Identity Conduit.\nTopological memory uses winding number and braiding phase.\nRingConeChain stores facts in a 216-cube hierarchical double-cone.\nShellCube radial differential enforces global consistency.",
+    "source": "demo",
+    "type": "public"
+  },
+  {
+    "text": "The default production path is RubikConeConduit with quaternion-compressed shards.\nRecall uses dual-cone geometry plus safe_cosine alignment.\nDrift protection benchmarks report roughly 5.68x recovery vs noisy vectors.",
+    "source": "demo",
+    "type": "public"
+  },
+  {
+    "text": "VQCEnhancedHelicalConduit is the experimental OAM-modulated variant.\nCopresheaf TNN layers diffuse reasoning on the RingConeChain complex.\nIdentity remains frozen while higher-order topological reasoning runs.",
+    "source": "demo",
+    "type": "public"
+  }
+]
