@@ -17,7 +17,11 @@ BUILD_COMMIT = "$COMMIT"
 BUILD_UPDATED_UTC = "$UPDATED"
 EOF
 
-cp -r "$ROOT/src" "$DST/"
+rsync -a --delete \
+  --exclude='__pycache__' \
+  --exclude='*.pyc' \
+  --exclude='*.egg-info' \
+  "$ROOT/src/" "$DST/src/"
 mkdir -p "$DST/configs"
 cp "$ROOT/web/hf_default.yaml" "$DST/configs/default.yaml"
 mkdir -p "$DST/facts"
