@@ -208,10 +208,7 @@ TERM_NAV_DEFINED: dict[str, str] = {
     "dpad_right": "Right — next menu item",
     "clear": "Clear — blank display",
 }
-TERM_KEYPAD_CONTROL_ORDER: tuple[str, ...] = (
-    *TERM_NAV_KEYS,
-    *(f"key{i:02d}" for i in range(1, TERM_KEYPAD_COUNT + 1)),
-)
+TERM_KEYPAD_CONTROL_ORDER: tuple[str, ...] = TERM_NAV_KEYS
 
 
 def _optics_terminal_home() -> str:
@@ -887,18 +884,18 @@ html, body { background-color: #0a0818 !important; }
             '.vqc-hud-bar',
             '.vqc-demo-links',
             '.vqc-cockpit-tools',
-            '.vqc-cockpit-keypad',
+            '.vqc-cockpit-prompt',
         ].forEach(function(sel) {
             var el = document.querySelector(sel);
             if (el) chrome += el.offsetHeight;
         });
         chrome += 28;
-        if (chrome < 220) chrome = Math.floor(h * 0.44);
-        if (chrome > h * 0.68) chrome = Math.floor(h * 0.68);
+        if (chrome < 160) chrome = Math.floor(h * 0.28);
+        if (chrome > h * 0.52) chrome = Math.floor(h * 0.52);
         root.style.setProperty('--vqc-chrome', chrome + 'px');
         if (hud) {
             var termH = Math.max(100, h - chrome);
-            var ta = hud.querySelector('textarea');
+            var ta = hud.querySelector('.vqc-optics-terminal textarea');
             if (ta) {
                 ta.style.height = termH + 'px';
                 ta.style.maxHeight = termH + 'px';
@@ -1143,11 +1140,108 @@ body {{
     flex: 1 1 auto !important;
     width: 100% !important;
     min-height: 0 !important;
-    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 420px)) !important;
-    padding: 0.35rem 0.55rem 0.25rem !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 280px)) !important;
+    padding: 0.3rem 0.45rem 0.2rem !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.gradio-container .vqc-hud-stage {{
+    display: flex !important;
+    flex-direction: row !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+}}
+.gradio-container .vqc-hud-terminal-col {{
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.gradio-container .vqc-hud-terminal-col > .block,
+.gradio-container .vqc-hud-terminal-col > .form {{
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.gradio-container .vqc-hud-dpad-rail {{
+    flex: 0 0 clamp(3.25rem, 7.5vw, 4.75rem) !important;
+    width: clamp(3.25rem, 7.5vw, 4.75rem) !important;
+    min-width: clamp(3.25rem, 7.5vw, 4.75rem) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: flex-end !important;
+    padding: 0.2rem 0.2rem 0.15rem 0 !important;
+    box-sizing: border-box !important;
+}}
+.gradio-container .vqc-hud-dpad-rail > .block,
+.gradio-container .vqc-hud-dpad-rail > .form {{
+    width: 100% !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+.gradio-container .vqc-hud-dpad-stack {{
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.1rem !important;
+    width: 100% !important;
+    padding: 0.15rem 0 !important;
+}}
+.gradio-container .vqc-hud-dpad-mid {{
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.1rem !important;
+    width: 100% !important;
+}}
+.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key {{
+    width: clamp(1.65rem, 3.6vh, 2.1rem) !important;
+    min-width: clamp(1.65rem, 3.6vh, 2.1rem) !important;
+    max-width: clamp(1.65rem, 3.6vh, 2.1rem) !important;
+    min-height: clamp(1.1rem, 2.4vh, 1.4rem) !important;
+    height: clamp(1.1rem, 2.4vh, 1.4rem) !important;
+    max-height: clamp(1.1rem, 2.4vh, 1.4rem) !important;
+    flex: 0 0 auto !important;
+    padding: 0.1rem !important;
+    margin: 0 auto !important;
+    border: 1px solid rgba(0, 255, 140, 0.28) !important;
+    border-radius: 3px !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    font-size: clamp(0.52rem, 1.1vh, 0.62rem) !important;
+}}
+.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key-dpad,
+.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key-dpad span {{
+    font-size: clamp(0.78rem, 1.65vh, 0.95rem) !important;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
+}}
+.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key-clear {{
+    font-size: clamp(0.46rem, 0.95vh, 0.54rem) !important;
+    letter-spacing: 0.04em !important;
+    text-transform: lowercase !important;
+}}
+.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key.active {{
+    background: {_VQC_MATRIX_GREEN} !important;
+    border-color: {_VQC_MATRIX_GREEN} !important;
+    box-shadow: 0 0 8px rgba(51, 255, 102, 0.35) !important;
+}}
+.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key.active,
+.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key.active span {{
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
 }}
 .gradio-container .vqc-hud-display::before {{
     content: "◢ HUD DISPLAY ◣" !important;
@@ -1167,7 +1261,7 @@ body {{
 .gradio-container .vqc-hud-display::after {{
     content: "" !important;
     position: absolute !important;
-    inset: 0.28rem 0.42rem 0.18rem !important;
+    inset: 0.28rem clamp(3.6rem, 8vw, 5.2rem) 0.18rem 0.42rem !important;
     pointer-events: none !important;
     z-index: 2 !important;
     border: 1px solid rgba(234, 88, 12, 0.42) !important;
@@ -1186,10 +1280,22 @@ body {{
 }}
 .gradio-container .vqc-hud-display > .block,
 .gradio-container .vqc-hud-display > .form {{
+    flex: 1 1 auto !important;
     height: 100% !important;
     max-height: 100% !important;
     min-height: 0 !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.gradio-container .vqc-hud-stage > .block,
+.gradio-container .vqc-hud-stage > .form {{
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
 }}
 .gradio-container .vqc-cockpit-tools {{
     flex-shrink: 0 !important;
@@ -1198,30 +1304,51 @@ body {{
     border-top: 1px solid rgba(0, 255, 160, 0.15) !important;
     background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.35)) !important;
 }}
-.gradio-container .vqc-cockpit-keypad {{
+.gradio-container .vqc-cockpit-prompt {{
     flex-shrink: 0 !important;
     width: 100% !important;
     margin-top: auto !important;
-    padding: 0.22rem 0.38rem 0.26rem !important;
-    border-top: 1px solid rgba(234, 88, 12, 0.42) !important;
-    background:
-        linear-gradient(180deg, rgba(0, 255, 120, 0.05), transparent 28%),
-        rgba(0, 0, 0, 0.68) !important;
-    box-shadow: inset 0 1px 0 rgba(0, 255, 140, 0.14) !important;
-    position: relative !important;
+    padding: 0.3rem 0.55rem 0.42rem !important;
+    border-top: 1px solid rgba(0, 255, 140, 0.18) !important;
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.5)) !important;
+    box-sizing: border-box !important;
 }}
-.gradio-container .vqc-cockpit-keypad::before {{
-    content: "◢ KEYPAD DECK ◣" !important;
-    display: block !important;
-    text-align: center !important;
-    font-family: "Courier New", Courier, monospace !important;
-    font-size: clamp(0.44rem, 0.88vh, 0.52rem) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.24em !important;
-    color: rgba(234, 88, 12, 0.55) !important;
-    text-shadow: 0 0 6px rgba(234, 88, 12, 0.25) !important;
-    margin: 0 0 0.12rem 0 !important;
+.gradio-container .vqc-cockpit-prompt > .block,
+.gradio-container .vqc-cockpit-prompt > .form {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     padding: 0 !important;
+    margin: 0 !important;
+}}
+.gradio-container .vqc-grok-prompt textarea,
+.gradio-container .vqc-grok-prompt input {{
+    background: rgba(0, 0, 0, 0.62) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 1.35rem !important;
+    color: #e8e0f8 !important;
+    -webkit-text-fill-color: #e8e0f8 !important;
+    font-size: clamp(0.68rem, 1.42vh, 0.82rem) !important;
+    line-height: 1.45 !important;
+    padding: 0.55rem 1rem 0.55rem 1.1rem !important;
+    min-height: clamp(2.1rem, 4.5vh, 2.65rem) !important;
+    box-shadow:
+        inset 0 0 18px rgba(0, 0, 0, 0.45),
+        0 0 12px rgba(0, 255, 120, 0.04) !important;
+    resize: none !important;
+}}
+.gradio-container .vqc-grok-prompt textarea::placeholder,
+.gradio-container .vqc-grok-prompt input::placeholder {{
+    color: rgba(200, 190, 220, 0.45) !important;
+    opacity: 1 !important;
+}}
+.gradio-container .vqc-grok-prompt textarea:focus,
+.gradio-container .vqc-grok-prompt input:focus {{
+    border-color: rgba(0, 255, 160, 0.45) !important;
+    box-shadow:
+        inset 0 0 18px rgba(0, 0, 0, 0.45),
+        0 0 14px rgba(0, 255, 140, 0.12) !important;
+    outline: none !important;
 }}
 .gradio-container .vqc-cockpit-title {{
     display: flex !important;
@@ -1317,9 +1444,13 @@ body {{
 }}
 .gradio-container .vqc-action-row {{
     gap: 0.35rem !important;
-    margin: 0.15rem 0 0.2rem 0 !important;
+    margin: 0.12rem 0 0.15rem 0 !important;
     flex-shrink: 0 !important;
     align-items: stretch !important;
+    justify-content: stretch !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-action-row > .block {{
+    flex: 1 1 0 !important;
 }}
 .gradio-container .vqc-action-row button {{
     min-height: clamp(1.35rem, 2.9vh, 1.75rem) !important;
@@ -1900,9 +2031,9 @@ footer {{
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-terminal textarea,
 .gradio-container .vqc-hud-display .vqc-optics-terminal textarea {{
-    height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 420px)) !important;
+    height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 280px)) !important;
     min-height: 0 !important;
-    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 420px)) !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 280px)) !important;
     white-space: pre !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -2529,52 +2660,84 @@ def build_app() -> gr.Blocks:
                                 variant="secondary",
                             )
                 gr.HTML(DEMO_LINKS_HTML)
-                with gr.Column(elem_classes=["vqc-hud-display"]):
-                    optics_terminal = gr.Textbox(
-                        label="HUD",
-                        value="",
-                        lines=1,
-                        max_lines=80,
-                        show_label=False,
-                        interactive=False,
-                        elem_classes=["vqc-optics-terminal-wrap", "vqc-optics-terminal"],
-                    )
-                    term_conduit_helix_scan = gr.HTML(
-                        CONDUIT_HELIX_SCANNER_HTML,
-                        visible=False,
-                        elem_classes=["vqc-oam-helix-host"],
-                    )
-                    lattice_figure = gr.Image(
-                        label="Braided lattice",
-                        type="filepath",
-                        visible=False,
-                        show_label=False,
-                        elem_classes=["vqc-lattice-compact"],
-                    )
                 term_active_key = gr.State("")
                 term_ui_state = gr.State(_default_term_ui_state())
                 term_all_btns: dict[str, gr.Button] = {}
-                _dpad_row_labels = {
-                    "dpad_select": "enter",
-                    "dpad_up": "▲",
-                    "dpad_down": "▼",
-                    "dpad_left": "◀",
-                    "dpad_right": "▶",
-                    "clear": "clear",
-                }
+                with gr.Column(elem_classes=["vqc-hud-display"]):
+                    with gr.Row(elem_classes=["vqc-hud-stage"]):
+                        with gr.Column(elem_classes=["vqc-hud-terminal-col"], scale=1):
+                            optics_terminal = gr.Textbox(
+                                label="HUD",
+                                value="",
+                                lines=1,
+                                max_lines=80,
+                                show_label=False,
+                                interactive=False,
+                                elem_classes=[
+                                    "vqc-optics-terminal-wrap",
+                                    "vqc-optics-terminal",
+                                ],
+                            )
+                            term_conduit_helix_scan = gr.HTML(
+                                CONDUIT_HELIX_SCANNER_HTML,
+                                visible=False,
+                                elem_classes=["vqc-oam-helix-host"],
+                            )
+                            lattice_figure = gr.Image(
+                                label="Braided lattice",
+                                type="filepath",
+                                visible=False,
+                                show_label=False,
+                                elem_classes=["vqc-lattice-compact"],
+                            )
+                        with gr.Column(
+                            elem_classes=["vqc-hud-dpad-rail"],
+                            scale=0,
+                            min_width=72,
+                        ):
+                            with gr.Column(elem_classes=["vqc-hud-dpad-stack"]):
+                                term_all_btns["dpad_select"] = gr.Button(
+                                    "enter",
+                                    elem_classes=_term_key_btn_classes(
+                                        "dpad_select", ""
+                                    ),
+                                    variant="secondary",
+                                )
+                                term_all_btns["dpad_up"] = gr.Button(
+                                    "▲",
+                                    elem_classes=_term_key_btn_classes("dpad_up", ""),
+                                    variant="secondary",
+                                )
+                                with gr.Row(elem_classes=["vqc-hud-dpad-mid"]):
+                                    term_all_btns["dpad_left"] = gr.Button(
+                                        "◀",
+                                        elem_classes=_term_key_btn_classes(
+                                            "dpad_left", ""
+                                        ),
+                                        variant="secondary",
+                                    )
+                                    term_all_btns["dpad_right"] = gr.Button(
+                                        "▶",
+                                        elem_classes=_term_key_btn_classes(
+                                            "dpad_right", ""
+                                        ),
+                                        variant="secondary",
+                                    )
+                                term_all_btns["dpad_down"] = gr.Button(
+                                    "▼",
+                                    elem_classes=_term_key_btn_classes("dpad_down", ""),
+                                    variant="secondary",
+                                )
+                                term_all_btns["clear"] = gr.Button(
+                                    "clear",
+                                    elem_classes=_term_key_btn_classes("clear", ""),
+                                    variant="secondary",
+                                )
 
                 with gr.Column(elem_classes=["vqc-cockpit-tools", "vqc-controls-stack"]):
                     with gr.Row(elem_classes=["vqc-action-row"]):
                         benchmark_btn = gr.Button("Run benchmark", variant="primary", scale=1)
                         query_btn = gr.Button("Run query recall", variant="secondary", scale=1)
-                        query_text = gr.Textbox(
-                            label="Query",
-                            value=_DEFAULTS["query_text"],
-                            show_label=False,
-                            max_lines=1,
-                            scale=3,
-                            elem_classes=["vqc-query-inline"],
-                        )
                     with gr.Row(elem_classes=["vqc-check-row"]):
                         use_vqc = gr.Checkbox(
                             label="VQCEnhanced",
@@ -2621,33 +2784,16 @@ def build_app() -> gr.Blocks:
                                 elem_classes=["vqc-optics-dial-wrap"],
                             )
 
-                with gr.Column(elem_classes=["vqc-cockpit-keypad", "vqc-optics-keypad"]):
-                    with gr.Row(elem_classes=["vqc-optics-dpad-row"], equal_height=True):
-                        for nav_key in TERM_NAV_KEYS:
-                            term_all_btns[nav_key] = gr.Button(
-                                _dpad_row_labels[nav_key],
-                                elem_classes=_term_key_btn_classes(nav_key, ""),
-                                scale=1,
-                                variant="secondary",
-                            )
-                    with gr.Row(elem_classes=["vqc-optics-prog-row"], equal_height=True):
-                        for index in range(1, 13):
-                            key_id = _term_key_id(index)
-                            term_all_btns[key_id] = gr.Button(
-                                _term_keypad_label(index),
-                                elem_classes=_term_key_btn_classes(key_id, ""),
-                                scale=1,
-                                variant="secondary",
-                            )
-                    with gr.Row(elem_classes=["vqc-optics-prog-row"], equal_height=True):
-                        for index in range(13, 25):
-                            key_id = _term_key_id(index)
-                            term_all_btns[key_id] = gr.Button(
-                                _term_keypad_label(index),
-                                elem_classes=_term_key_btn_classes(key_id, ""),
-                                scale=1,
-                                variant="secondary",
-                            )
+                with gr.Column(elem_classes=["vqc-cockpit-prompt"]):
+                    query_text = gr.Textbox(
+                        label="Prompt",
+                        value=_DEFAULTS["query_text"],
+                        placeholder="Ask QVPIC — quaternion vortex recall, conduit topology…",
+                        show_label=False,
+                        lines=1,
+                        max_lines=4,
+                        elem_classes=["vqc-grok-prompt"],
+                    )
                 term_keypad_outputs = [
                     optics_terminal,
                     term_conduit_helix_scan,
@@ -2675,12 +2821,6 @@ def build_app() -> gr.Blocks:
                     outputs=hud_outputs,
                 )
 
-            helix_key = _term_key_id(8)
-            _bind_term_event(
-                term_all_btns[helix_key],
-                _make_activate_oam_helix_scan(helix_key),
-                inputs=[term_ui_state],
-            )
             _bind_term_event(
                 term_all_btns["clear"],
                 _make_term_clear_click("clear"),
@@ -2692,32 +2832,6 @@ def build_app() -> gr.Blocks:
                     _make_term_dpad_click(hold_key),
                     inputs=[optics_terminal, term_ui_state],
                 )
-            _bind_term_event(
-                term_all_btns[TERM_KEYPAD_HOME_KEY],
-                _make_term_home_momentary(),
-                inputs=[term_active_key, term_ui_state],
-            )
-            for index in range(1, TERM_KEYPAD_COUNT + 1):
-                key_id = _term_key_id(index)
-                if index == 1 or index == 8:
-                    continue
-                if index in TERM_KEYPAD_DEFINED:
-                    action = TERM_KEYPAD_DEFINED[index]
-                    _bind_term_event(
-                        term_all_btns[key_id],
-                        _make_term_stream_click(
-                            key_id,
-                            TERM_KEYPAD_STREAMERS[action],
-                            menu_action=action,
-                        ),
-                        inputs=[term_ui_state],
-                    )
-                else:
-                    _bind_term_event(
-                        term_all_btns[key_id],
-                        _make_term_latch_click(key_id),
-                        inputs=[optics_terminal, term_ui_state],
-                    )
 
             tune_inputs = [bake_steps, bandwidth, use_vqc, drift_samples, max_facts]
             benchmark_btn.click(
