@@ -92,7 +92,7 @@ DISPLAY_BACKING_HTML = """
 """
 
 TORUS_STATE_BRIDGE_HTML = (
-    '<div class="quartz-torus-bridge" data-echo="0" data-nudge="0" '
+    '<div id="quartz-torus-bridge" class="quartz-torus-bridge" data-echo="0" data-nudge="0" '
     'data-visible="1" hidden></div>'
 )
 
@@ -203,7 +203,7 @@ def _torus_bridge_html(state: dict) -> str:
     replay = 1 if state.get("pending_startup_replay") else 0
     game_start = 1 if state.get("pending_game_start") else 0
     return (
-        f'<div class="quartz-torus-bridge" data-echo="{echo}" '
+        f'<div id="quartz-torus-bridge" class="quartz-torus-bridge" data-echo="{echo}" '
         f'data-nudge="{nudge}" data-visible="{visible}" '
         f'data-startup-replay="{replay}" data-game-start="{game_start}" hidden></div>'
     )
@@ -326,13 +326,15 @@ def _build_game_menu_ack_js() -> str:
     return """
 function() {
     setTimeout(function() {
-        var node = document.querySelector('.quartz-torus-bridge');
-        if (!node) return;
-        if (parseInt(node.getAttribute('data-game-start') || '0', 10) !== 1) return;
+        var node = document.querySelector('#quartz-torus-bridge, .quartz-torus-bridge');
+        var bridgeStart = node ? parseInt(node.getAttribute('data-game-start') || '0', 10) === 1 : false;
+        var ta = document.querySelector('.quartz-terminal textarea');
+        var textStart = !!(ta && ta.value && ta.value.indexOf('SPACE INVADERS') >= 0);
+        if (!bridgeStart && !textStart) return;
         if (typeof window.quartzBeginPlayerMode === 'function') {
             window.quartzBeginPlayerMode();
         }
-    }, 240);
+    }, 320);
 }
 """
 
@@ -753,6 +755,14 @@ def _handle_send(
             gr.update(),
         )
     if state.get("game_active"):
+        if cmd == "2":
+            state["pending_game_start"] = True
+            state = _touch_torus(state, 0.2)
+            terminal = _append_terminal(
+                terminal,
+                "> SPACE INVADERS loading…",
+                "> Arrows move · Space shoot · Esc quit",
+            )
         return (
             terminal,
             "",
@@ -1096,16 +1106,56 @@ def _quartz_games_js_block() -> str:
     function spriteFrames(type) {
         return SPRITES[type].map(spriteRows);
     }
-    function terminalDisplayRect() {
+    function displayApertureRect() {
+        var backing = document.querySelector('.quartz-display-backing');
+        if (backing) {
+            var br = backing.getBoundingClientRect();
+            if (br.width >= 40 && br.height >= 40) return br;
+        }
         var ta = document.querySelector('.quartz-terminal textarea');
-        if (!ta) return null;
-        var tr = ta.getBoundingClientRect();
-        if (tr.width < 40 || tr.height < 40) return null;
-        return tr;
+        if (ta) {
+            var tr = ta.getBoundingClientRect();
+            if (tr.width >= 40 && tr.height >= 40) return tr;
+        }
+        var bay = document.querySelector('.quartz-display-bay');
+        var input = document.querySelector('.quartz-input-row');
+        if (bay) {
+            var bayRect = bay.getBoundingClientRect();
+            var inputH = input ? input.getBoundingClientRect().height : 0;
+            if (bayRect.width >= 40 && bayRect.height - inputH >= 40) {
+                return {
+                    top: bayRect.top,
+                    left: bayRect.left,
+                    width: bayRect.width,
+                    height: Math.max(40, bayRect.height - inputH - 6),
+                    right: bayRect.right,
+                    bottom: bayRect.bottom - inputH
+                };
+            }
+        }
+        return null;
+    }
+    function terminalDisplayRect() {
+        return displayApertureRect();
+    }
+    function ensureInvadersStage() {
+        var stage = document.querySelector('.quartz-invaders-stage');
+        if (!stage) {
+            stage = document.createElement('div');
+            stage.className = 'quartz-invaders-stage';
+            stage.setAttribute('aria-hidden', 'true');
+            stage.innerHTML =
+                '<canvas class="quartz-invaders-canvas"></canvas>' +
+                '<div class="quartz-invaders-crt" aria-hidden="true"></div>';
+        }
+        if (stage.parentElement !== document.body) {
+            document.body.appendChild(stage);
+        }
+        return stage;
     }
     function fitGameStage() {
-        var stage = document.querySelector('.quartz-invaders-stage');
-        var tr = terminalDisplayRect();
+        var stage = ensureInvadersStage();
+        var tr = displayApertureRect();
         if (!stage || !tr) return null;
         stage.style.position = 'fixed';
         stage.style.top = Math.round(tr.top) + 'px';
@@ -1123,7 +1173,7 @@ def _quartz_games_js_block() -> str:
         var rect = stage.getBoundingClientRect();
         var w = Math.max(1, Math.floor(rect.width));
         var h = Math.max(1, Math.floor(rect.height));
-        if (w < 80 || h < 80) return false;
+        if (w < 48 || h < 48) return false;
         canvas.width = w;
         canvas.height = h;
         g.width = w;
@@ -1135,6 +1185,8 @@ def _quartz_games_js_block() -> str:
         return true;
     }
     function activateGameOverlay(g) {
+        var stage = ensureInvadersStage();
+        if (stage) stage.style.display = 'block';
         document.body.classList.add('quartz-game-on');
         var torus = document.querySelector('.quartz-torus-stage');
         if (torus) torus.style.display = 'none';
@@ -1150,6 +1202,7 @@ def _quartz_games_js_block() -> str:
         }
         var stage = document.querySelector('.quartz-invaders-stage');
         if (stage) {
+            stage.style.display = 'none';
             stage.style.position = '';
             stage.style.top = '';
             stage.style.left = '';
@@ -1175,13 +1228,13 @@ def _quartz_games_js_block() -> str:
             if (done) done(true);
             return;
         }
-        if (attempt >= 30) {
+        if (attempt >= 48) {
             if (done) done(false);
             return;
         }
         setTimeout(function() {
             bootGameSurface(g, attempt + 1, done);
-        }, attempt < 8 ? 80 : 160);
+        }, attempt < 12 ? 60 : 120);
     }
     function makeBunker(x, y, scale) {
         var pattern = [
@@ -1545,13 +1598,7 @@ def _quartz_games_js_block() -> str:
     };
     window.quartzBeginPlayerMode = function() {
         var g = window.quartzGame;
-        if (g && g.running) {
-            if (!g.attractMode) {
-                if (typeof window.quartzClickGameStartDone === 'function') {
-                    window.quartzClickGameStartDone();
-                }
-                return;
-            }
+        if (g && g.running && g.overlayReady && g.attractMode) {
             leaveAttractMode(g);
             g.score = 0;
             g.lives = 3;
@@ -1565,11 +1612,21 @@ def _quartz_games_js_block() -> str:
             }
             return;
         }
-        window.quartzStartSpaceInvaders({ attract: false });
+        if (g && g.running) {
+            window.quartzStopSpaceInvaders();
+        }
+        setTimeout(function() {
+            window.quartzStartSpaceInvaders({ attract: false });
+        }, 60);
     };
     window.quartzStartSpaceInvaders = function(opts) {
         opts = opts || {};
-        if (window.quartzGame && window.quartzGame.running) return;
+        if (window.quartzGame && window.quartzGame.running) {
+            if (!opts.attract && window.quartzGame.attractMode && window.quartzGame.overlayReady) {
+                window.quartzBeginPlayerMode();
+            }
+            return;
+        }
         if (opts.attract) window.quartzAttractStarted = true;
         if (typeof fitPanel === 'function') fitPanel();
         var cmd = document.querySelector('.quartz-cmd-input textarea');
@@ -2335,7 +2392,7 @@ _QUARTZ_HEAD_TEMPLATE = """
     setInterval(watchStartupReplay, 200);
     var quartzLastGameNudge = -1;
     function watchGameStart() {
-        var node = document.querySelector('.quartz-torus-bridge');
+        var node = document.querySelector('#quartz-torus-bridge, .quartz-torus-bridge');
         if (!node) return;
         var start = parseInt(node.getAttribute('data-game-start') || '0', 10);
         if (!start) return;
@@ -3408,11 +3465,11 @@ def build_app() -> gr.Blocks:
         send_evt = send_btn.click(
             _handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs
         )
-        send_evt.then(None, None, None, js=_build_game_menu_ack_js())
+        send_evt.then(js=_build_game_menu_ack_js())
         cmd_submit_evt = cmd_input.submit(
             _handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs
         )
-        cmd_submit_evt.then(None, None, None, js=_build_game_menu_ack_js())
+        cmd_submit_evt.then(js=_build_game_menu_ack_js())
 
         startup_done_btn.click(
             _handle_startup_replay_done,
