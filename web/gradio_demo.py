@@ -92,7 +92,7 @@ HELP_TEXT = "\n".join(
         "> MEMORY: run full benchmark (bake → recall → drift)",
         "> TOOLS: repo links and CLI pointers",
         "> SEND / Enter key: submit command",
-        "> PROG 1–16: maintained toggle keys (red LED = on) · Prog 1 = torus",
+        "> PROG 1–16: maintained toggles (red LED = on) · Prog 1 = torus · Prog 9 = move",
         "> MEMORY tab: run benchmark · SETTINGS: tune conduit dials",
         f"> Repo: {GITHUB_URL}",
     ]
@@ -564,6 +564,24 @@ QUARTZ_HEAD = """
         if (states.prog1 !== undefined) {
             applyTorusVisibility(!!states.prog1, false);
         }
+        syncTorusInteractionMode();
+    }
+    function torusMoveMode() {
+        return !!(window.quartzProgStates && window.quartzProgStates.prog9);
+    }
+    function syncTorusInteractionMode() {
+        var stage = document.querySelector('.quartz-torus-stage');
+        var moveMode = torusMoveMode();
+        window.quartzTorusSpinPaused = moveMode;
+        if (stage) {
+            stage.classList.toggle('quartz-torus-move-mode', moveMode);
+        }
+    }
+    function isNearTorusEdge(stage, clientX, clientY, margin) {
+        var r = stage.getBoundingClientRect();
+        var m = margin || 14;
+        return (clientX - r.left < m) || (r.right - clientX < m)
+            || (clientY - r.top < m) || (r.bottom - clientY < m);
     }
     function toggleProg(index) {
         var pid = 'prog' + index;
@@ -652,7 +670,9 @@ QUARTZ_HEAD = """
         stage.style.display = window.quartzTorusPrefs.visible ? 'block' : 'none';
     }
     function layoutTorusStage() {
-        if (window.quartzTorusDragging || window.quartzTorusRotating) return;
+        if (window.quartzTorusDragging || window.quartzTorusRotating || window.quartzTorusResizing) {
+            return;
+        }
         var stage = document.querySelector('.quartz-torus-stage');
         if (!stage) return;
         if (!window.quartzTorusPrefs.visible) {
@@ -699,14 +719,23 @@ QUARTZ_HEAD = """
         var offsetY = 0;
         var lastRotX = 0;
         var lastRotY = 0;
+        var resizeStartX = 0;
+        var resizeStartSize = 0;
         stage.addEventListener('mousedown', function(e) {
             if (e.button !== 0 || !window.quartzTorusPrefs.visible) return;
-            if (e.shiftKey) {
-                window.quartzTorusDragging = true;
-                stage.classList.add('quartz-torus-dragging');
-                var rect = stage.getBoundingClientRect();
-                offsetX = e.clientX - rect.left;
-                offsetY = e.clientY - rect.top;
+            if (torusMoveMode()) {
+                if (isNearTorusEdge(stage, e.clientX, e.clientY, 14)) {
+                    window.quartzTorusResizing = true;
+                    resizeStartX = e.clientX;
+                    resizeStartSize = stage.offsetWidth;
+                    stage.classList.add('quartz-torus-resizing');
+                } else {
+                    window.quartzTorusDragging = true;
+                    stage.classList.add('quartz-torus-dragging');
+                    var rect = stage.getBoundingClientRect();
+                    offsetX = e.clientX - rect.left;
+                    offsetY = e.clientY - rect.top;
+                }
             } else {
                 window.quartzTorusRotating = true;
                 window.quartzTorusSpinPaused = true;
@@ -716,14 +745,29 @@ QUARTZ_HEAD = """
             }
             e.preventDefault();
         });
+        stage.addEventListener('mousemove', function(e) {
+            if (window.quartzTorusDragging || window.quartzTorusRotating || window.quartzTorusResizing) {
+                return;
+            }
+            if (!torusMoveMode()) return;
+            stage.style.cursor = isNearTorusEdge(stage, e.clientX, e.clientY, 14)
+                ? 'nwse-resize' : 'move';
+        });
         document.addEventListener('mousemove', function(e) {
+            if (window.quartzTorusResizing) {
+                var dx = e.clientX - resizeStartX;
+                var size = Math.max(56, Math.min(420, Math.round(resizeStartSize + dx)));
+                stage.style.width = size + 'px';
+                stage.style.height = size + 'px';
+                return;
+            }
             if (window.quartzTorusRotating) {
-                var dx = e.clientX - lastRotX;
-                var dy = e.clientY - lastRotY;
+                var rdx = e.clientX - lastRotX;
+                var rdy = e.clientY - lastRotY;
                 lastRotX = e.clientX;
                 lastRotY = e.clientY;
                 if (window.quartzTorus && window.quartzTorus.spinBy) {
-                    window.quartzTorus.spinBy(dx, dy);
+                    window.quartzTorus.spinBy(rdx, rdy);
                 }
                 return;
             }
@@ -739,9 +783,21 @@ QUARTZ_HEAD = """
         document.addEventListener('mouseup', function() {
             if (window.quartzTorusRotating) {
                 window.quartzTorusRotating = false;
-                window.quartzTorusSpinPaused = false;
                 stage.classList.remove('quartz-torus-rotating');
                 saveTorusOrientation();
+                syncTorusInteractionMode();
+            }
+            if (window.quartzTorusResizing) {
+                window.quartzTorusResizing = false;
+                stage.classList.remove('quartz-torus-resizing');
+                window.quartzTorusPrefs.custom = true;
+                window.quartzTorusPrefs.left = parseFloat(stage.style.left) || 0;
+                window.quartzTorusPrefs.top = parseFloat(stage.style.top) || 0;
+                window.quartzTorusPrefs.width = stage.offsetWidth;
+                window.quartzTorusPrefs.height = stage.offsetHeight;
+                saveTorusPrefs(window.quartzTorusPrefs);
+                syncTorusInteractionMode();
+                return;
             }
             if (!window.quartzTorusDragging) return;
             window.quartzTorusDragging = false;
@@ -752,7 +808,9 @@ QUARTZ_HEAD = """
             window.quartzTorusPrefs.width = stage.offsetWidth;
             window.quartzTorusPrefs.height = stage.offsetHeight;
             saveTorusPrefs(window.quartzTorusPrefs);
+            syncTorusInteractionMode();
         });
+        syncTorusInteractionMode();
     }
     function ensureTorusStage() {
         var root = torusMountRoot();
@@ -1030,6 +1088,7 @@ QUARTZ_HEAD = """
     }
     whenBodyReady(function() {
         initProgToggles();
+        syncTorusInteractionMode();
         bootQuartzTorus();
         fitPanel();
         initTorusInteraction();
@@ -1450,6 +1509,19 @@ html, body {{
 .quartz-torus-stage.quartz-torus-rotating {{
     cursor: grabbing !important;
     opacity: 0.94 !important;
+}}
+.quartz-torus-stage.quartz-torus-move-mode {{
+    cursor: move !important;
+    outline: 1px solid rgba(0, 255, 65, 0.38) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 14px rgba(0, 255, 65, 0.16) !important;
+}}
+.quartz-torus-stage.quartz-torus-move-mode .quartz-torus-orbit {{
+    stroke: rgba(0, 255, 65, 0.42) !important;
+}}
+.quartz-torus-stage.quartz-torus-resizing {{
+    cursor: nwse-resize !important;
+    opacity: 0.9 !important;
 }}
 .quartz-torus-stage.quartz-torus-hidden {{
     display: none !important;
