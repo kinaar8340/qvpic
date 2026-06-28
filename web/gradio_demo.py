@@ -26,10 +26,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULTS = default_run_params()
 _PHOSPHOR = "#00FF41"
-_PANEL_BG = "#353a42"
-_QUARTZ_GOLD = "#d4af37"
-_QUARTZ_GOLD_BRIGHT = "#f0d878"
-_QUARTZ_GOLD_DIM = "#a88b2e"
+_PANEL_BG = "#1a1d22"
 
 TOP_TABS: tuple[str, ...] = ("chat", "settings", "history", "memory", "tools")
 TAB_LABELS: dict[str, str] = {
@@ -46,6 +43,10 @@ PROG_PROMPTS: dict[str, str] = {
     "prog3": "Run benchmark on demo facts",
     "prog4": "Show topology braiding and drift protection",
 }
+
+GRID_LAYER_HTML = """
+<div class="quartz-grid-layer" aria-hidden="true"></div>
+"""
 
 DISPLAY_FRAME_HTML = """
 <div class="quartz-display-frame" aria-hidden="true">
@@ -71,7 +72,7 @@ INITIAL_TERMINAL = "\n".join(
 HELP_TEXT = "\n".join(
     [
         "> HELP — QUARTZ AI SYNTHESIZER / QVPIC",
-        "> CHAT: terminal + command input",
+        "> CHAT: toggle four-panel grid view on/off",
         "> SETTINGS: tune bake steps, bandwidth, drift samples",
         "> MEMORY: run full benchmark (bake → recall → drift)",
         "> TOOLS: repo links and CLI pointers",
@@ -117,10 +118,15 @@ _patch_gradio_client_bool_schema()
 def _default_ui_state() -> dict:
     return {
         "active_tab": "chat",
+        "grid_view": True,
         "history": [],
         "cmd_index": -1,
         "last_cmd": "",
     }
+
+
+def _root_classes(grid_on: bool) -> list[str]:
+    return ["quartz-root", "quartz-grid-on" if grid_on else "quartz-grid-off"]
 
 
 def _append_terminal(terminal: str, *lines: str) -> str:
@@ -179,6 +185,22 @@ def _make_tab_switch(tab_id: str):
     return handler
 
 
+def _handle_grid_toggle(terminal: str, state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    grid_on = not bool(state.get("grid_view", True))
+    state["grid_view"] = grid_on
+    state["active_tab"] = "chat"
+    label = "ON — four-panel grid visible" if grid_on else "OFF — solid display"
+    terminal = _append_terminal(terminal, f"> GRID VIEW: {label}")
+    return (
+        terminal,
+        state,
+        gr.update(visible=False),
+        *_tab_updates("chat"),
+        gr.update(elem_classes=_root_classes(grid_on)),
+    )
+
+
 def _switch_tab(tab_id: str, terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
     state["active_tab"] = tab_id
@@ -212,11 +234,13 @@ def _switch_tab(tab_id: str, terminal: str, state: dict) -> tuple:
     else:
         terminal = _append_terminal(terminal, f"> TAB: {label}")
     show_settings = tab_id == "settings"
+    grid_on = bool(state.get("grid_view", True))
     return (
         terminal,
         state,
         gr.update(visible=show_settings),
         *_tab_updates(tab_id),
+        gr.update(elem_classes=_root_classes(grid_on)),
     )
 
 
@@ -443,21 +467,21 @@ QUARTZ_HEAD = """
 QUARTZ_CSS = f"""
 :root {{
     --quartz-phosphor: {_PHOSPHOR};
+    --quartz-phosphor-dim: #00cc34;
+    --quartz-phosphor-bright: #33ff66;
     --quartz-panel: {_PANEL_BG};
     --quartz-display: #0d0d0d;
-    --quartz-gold: {_QUARTZ_GOLD};
-    --quartz-gold-bright: {_QUARTZ_GOLD_BRIGHT};
-    --quartz-gold-dim: {_QUARTZ_GOLD_DIM};
-    --quartz-btn-top: #6e7582;
-    --quartz-btn-mid: #4a515c;
-    --quartz-btn-bot: #2e333b;
-    --quartz-border: #1e2228;
-    --quartz-border-hi: #5c6370;
+    --quartz-btn-top: #3d424a;
+    --quartz-btn-mid: #2a2e35;
+    --quartz-btn-bot: #181b20;
+    --quartz-border: #121418;
+    --quartz-border-hi: #3a3f47;
     --quartz-inset: 0.2in;
-    --quartz-mullion: #525862;
+    --quartz-mullion: #3a3f47;
+    --quartz-grid-line: rgba(90, 96, 104, 0.55);
 }}
 html, body {{
-    background: #1a1c22 !important;
+    background: #000000 !important;
     height: var(--quartz-vh, 100dvh) !important;
     overflow: hidden !important;
     margin: 0 !important;
@@ -466,8 +490,35 @@ html, body {{
     max-width: 100% !important;
     height: var(--quartz-vh, 100dvh) !important;
     padding: 0.35rem 0.5rem !important;
-    background: #1a1c22 !important;
+    background: #000000 !important;
     overflow: hidden !important;
+    position: relative !important;
+}}
+.gradio-container .quartz-root {{
+    position: relative !important;
+    z-index: 1 !important;
+    height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
+    max-height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
+}}
+.gradio-container .quartz-grid-layer {{
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+    background-color: #000000 !important;
+    background-image:
+        linear-gradient(var(--quartz-grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--quartz-grid-line) 1px, transparent 1px) !important;
+    background-size: 14px 14px !important;
+    background-position: center center !important;
+}}
+.gradio-container .quartz-grid-off .quartz-grid-layer {{
+    opacity: 0 !important;
+    visibility: hidden !important;
+}}
+.gradio-container .quartz-grid-off .quartz-display-frame {{
+    opacity: 0 !important;
+    visibility: hidden !important;
 }}
 .gradio-container .block, .gradio-container .form {{
     background: transparent !important;
@@ -475,15 +526,17 @@ html, body {{
     box-shadow: none !important;
 }}
 .gradio-container .quartz-panel {{
+    position: relative !important;
+    z-index: 2 !important;
     background: linear-gradient(
         165deg,
-        #4a5059 0%,
-        #3a3f47 12%,
-        #2e333b 55%,
-        #252930 92%,
-        #1a1d22 100%
+        #2e333b 0%,
+        #252930 12%,
+        #1e2228 55%,
+        #14171c 92%,
+        #0a0c0e 100%
     ) !important;
-    border: 2px solid #1a1d22 !important;
+    border: 2px solid #0a0c0e !important;
     border-radius: 6px !important;
     padding: 0.45rem 0.55rem 0.35rem !important;
     box-shadow:
@@ -508,47 +561,47 @@ html, body {{
     border: 1px solid var(--quartz-border) !important;
     border-radius: 4px 4px 0 0 !important;
     background: linear-gradient(180deg, var(--quartz-btn-top) 0%, var(--quartz-btn-mid) 55%, var(--quartz-btn-bot) 100%) !important;
-    color: var(--quartz-gold-dim) !important;
-    -webkit-text-fill-color: var(--quartz-gold-dim) !important;
+    color: var(--quartz-phosphor-dim) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
     font-family: "Segoe UI", system-ui, sans-serif !important;
-    font-size: clamp(0.52rem, 1.1vh, 0.68rem) !important;
+    font-size: clamp(0.62rem, 1.32vh, 0.82rem) !important;
     font-weight: 700 !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
     text-shadow:
         0 1px 2px rgba(0,0,0,0.85),
-        0 0 4px rgba(212,175,55,0.2) !important;
+        0 0 6px rgba(0,255,65,0.25) !important;
     box-shadow:
         inset 0 1px 0 rgba(140,148,160,0.35),
         0 2px 5px rgba(0,0,0,0.45) !important;
     cursor: pointer !important;
 }}
 .gradio-container button.quartz-tab span {{
-    color: var(--quartz-gold-dim) !important;
-    -webkit-text-fill-color: var(--quartz-gold-dim) !important;
+    color: var(--quartz-phosphor-dim) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
     text-shadow:
         0 1px 2px rgba(0,0,0,0.85),
-        0 0 4px rgba(212,175,55,0.2) !important;
+        0 0 6px rgba(0,255,65,0.25) !important;
 }}
 .gradio-container button.quartz-tab-active {{
-    background: linear-gradient(180deg, #7a8290 0%, #5a6270 42%, #3d434d 100%) !important;
-    color: var(--quartz-gold-bright) !important;
-    -webkit-text-fill-color: var(--quartz-gold-bright) !important;
+    background: linear-gradient(180deg, #4a515c 0%, #353a42 42%, #252930 100%) !important;
+    color: var(--quartz-phosphor-bright) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor-bright) !important;
     text-shadow:
-        0 0 10px rgba(240,216,120,0.55),
+        0 0 10px rgba(0,255,65,0.55),
         0 1px 2px rgba(0,0,0,0.9),
-        0 0 1px rgba(255,255,255,0.15) !important;
+        0 0 1px rgba(0,255,65,0.2) !important;
     box-shadow:
-        inset 0 1px 0 rgba(180,188,200,0.4),
-        0 0 14px rgba(212,175,55,0.22),
+        inset 0 1px 0 rgba(100,108,120,0.35),
+        0 0 14px rgba(0,255,65,0.18),
         0 2px 6px rgba(0,0,0,0.5) !important;
     border-color: var(--quartz-border-hi) !important;
 }}
 .gradio-container button.quartz-tab-active span {{
-    color: var(--quartz-gold-bright) !important;
-    -webkit-text-fill-color: var(--quartz-gold-bright) !important;
+    color: var(--quartz-phosphor-bright) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor-bright) !important;
     text-shadow:
-        0 0 10px rgba(240,216,120,0.55),
+        0 0 10px rgba(0,255,65,0.55),
         0 1px 2px rgba(0,0,0,0.9) !important;
 }}
 .gradio-container .quartz-display-bay {{
@@ -571,12 +624,12 @@ html, body {{
     border-radius: 4px !important;
     background: linear-gradient(
         155deg,
-        #5a6270 0%,
-        #454b56 30%,
-        #353a42 70%,
-        #2a2e35 100%
+        #353a42 0%,
+        #2a2e35 30%,
+        #1e2228 70%,
+        #14171c 100%
     ) !important;
-    border: 2px solid #1e2228 !important;
+    border: 2px solid #121418 !important;
     box-shadow:
         inset 0 1px 0 rgba(130,138,150,0.3),
         inset 0 -4px 12px rgba(0,0,0,0.5),
@@ -601,8 +654,8 @@ html, body {{
 }}
 .gradio-container .quartz-bezel {{
     position: absolute !important;
-    background: linear-gradient(180deg, #b8bdc8 0%, #6e7380 100%) !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.45) !important;
+    background: linear-gradient(180deg, #6a707a 0%, #3d434d 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(120,128,140,0.3) !important;
 }}
 .gradio-container .quartz-bezel-top,
 .gradio-container .quartz-bezel-bottom {{
@@ -624,15 +677,15 @@ html, body {{
     position: absolute !important;
     background: linear-gradient(
         90deg,
-        #6a707a 0%,
-        #d0d4dc 18%,
-        #9aa0ac 50%,
-        #d0d4dc 82%,
-        #6a707a 100%
+        #3a3f47 0%,
+        #6e7582 18%,
+        #525862 50%,
+        #6e7582 82%,
+        #3a3f47 100%
     ) !important;
     box-shadow:
-        0 0 0 1px rgba(0,0,0,0.45),
-        inset 0 1px 0 rgba(255,255,255,0.35) !important;
+        0 0 0 1px rgba(0,0,0,0.65),
+        inset 0 1px 0 rgba(140,148,160,0.28) !important;
 }}
 .gradio-container .quartz-mullion-h {{
     left: 0.42rem !important;
@@ -649,11 +702,11 @@ html, body {{
     transform: translateX(-50%) !important;
     background: linear-gradient(
         180deg,
-        #6a707a 0%,
-        #d0d4dc 18%,
-        #9aa0ac 50%,
-        #d0d4dc 82%,
-        #6a707a 100%
+        #3a3f47 0%,
+        #6e7582 18%,
+        #525862 50%,
+        #6e7582 82%,
+        #3a3f47 100%
     ) !important;
 }}
 .gradio-container .quartz-terminal-col {{
@@ -671,6 +724,11 @@ html, body {{
     box-shadow: inset 0 0 22px rgba(0,0,0,0.92) !important;
     margin: 0.42rem !important;
 }}
+.gradio-container .quartz-grid-on .quartz-terminal-col {{
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}}
 .gradio-container .quartz-terminal {{
     flex: 1 1 auto !important;
     min-height: 0 !important;
@@ -681,7 +739,7 @@ html, body {{
     color: var(--quartz-phosphor) !important;
     -webkit-text-fill-color: var(--quartz-phosphor) !important;
     font-family: "Courier New", Courier, monospace !important;
-    font-size: clamp(0.58rem, 1.2vh, 0.72rem) !important;
+    font-size: clamp(0.7rem, 1.44vh, 0.86rem) !important;
     line-height: 1.38 !important;
     border: none !important;
     border-radius: 2px !important;
@@ -691,6 +749,13 @@ html, body {{
     overflow-y: auto !important;
     height: calc(var(--quartz-vh, 100dvh) - var(--quartz-chrome, 220px) - 52px) !important;
     max-height: calc(var(--quartz-vh, 100dvh) - var(--quartz-chrome, 220px) - 52px) !important;
+}}
+.gradio-container .quartz-grid-on .quartz-terminal textarea {{
+    background: transparent !important;
+    box-shadow: none !important;
+}}
+.gradio-container .quartz-grid-off .quartz-terminal textarea {{
+    background: var(--quartz-display) !important;
 }}
 .gradio-container .quartz-terminal-col::after {{
     content: "" !important;
@@ -708,6 +773,9 @@ html, body {{
     opacity: 0.3 !important;
     border-radius: 2px !important;
 }}
+.gradio-container .quartz-grid-on .quartz-terminal-col::after {{
+    opacity: 0.12 !important;
+}}
 .gradio-container .quartz-input-row {{
     gap: 0.28rem !important;
     margin: 0.22rem 0 0 0 !important;
@@ -721,34 +789,61 @@ html, body {{
     color: var(--quartz-phosphor) !important;
     -webkit-text-fill-color: var(--quartz-phosphor) !important;
     font-family: "Courier New", Courier, monospace !important;
-    font-size: clamp(0.54rem, 1.1vh, 0.66rem) !important;
+    font-size: clamp(0.65rem, 1.32vh, 0.8rem) !important;
     min-height: clamp(1.45rem, 3vh, 1.85rem) !important;
     box-shadow: inset 0 0 10px rgba(0,255,65,0.08) !important;
-}}
-.gradio-container button.quartz-send {{
-    flex: 0 0 clamp(3.2rem, 7vw, 4.2rem) !important;
-    min-width: clamp(3.2rem, 7vw, 4.2rem) !important;
-    color: var(--quartz-phosphor) !important;
-    -webkit-text-fill-color: var(--quartz-phosphor) !important;
-    font-size: clamp(0.48rem, 1vh, 0.58rem) !important;
-    letter-spacing: 0.1em !important;
 }}
 .gradio-container button.quartz-btn {{
     border: 1px solid var(--quartz-border) !important;
     border-radius: 4px !important;
-    background: linear-gradient(180deg, var(--quartz-btn-top) 0%, var(--quartz-btn-mid) 50%, var(--quartz-btn-bot) 100%) !important;
-    color: #2a2e36 !important;
-    -webkit-text-fill-color: #2a2e36 !important;
+    background: linear-gradient(
+        180deg,
+        var(--quartz-btn-top) 0%,
+        var(--quartz-btn-mid) 48%,
+        var(--quartz-btn-bot) 100%
+    ) !important;
+    color: var(--quartz-phosphor) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor) !important;
     font-family: "Segoe UI", system-ui, sans-serif !important;
     font-weight: 700 !important;
+    font-size: clamp(0.58rem, 1.2vh, 0.74rem) !important;
+    text-shadow:
+        0 0 8px rgba(0,255,65,0.35),
+        0 1px 2px rgba(0,0,0,0.9),
+        0 -1px 0 rgba(0,255,65,0.08) !important;
     box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.65),
-        0 2px 4px rgba(0,0,0,0.35) !important;
+        inset 0 1px 0 rgba(140,148,160,0.32),
+        inset 0 -2px 4px rgba(0,0,0,0.45),
+        0 2px 5px rgba(0,0,0,0.45) !important;
     cursor: pointer !important;
-    transition: filter 0.1s ease !important;
+    transition: filter 0.12s ease, box-shadow 0.12s ease !important;
+}}
+.gradio-container button.quartz-btn span {{
+    color: var(--quartz-phosphor) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor) !important;
+    text-shadow:
+        0 0 8px rgba(0,255,65,0.35),
+        0 1px 2px rgba(0,0,0,0.9) !important;
 }}
 .gradio-container button.quartz-btn:hover {{
-    filter: brightness(1.06) !important;
+    filter: brightness(1.12) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(100,108,120,0.32),
+        0 0 12px rgba(0,255,65,0.22),
+        0 2px 6px rgba(0,0,0,0.5) !important;
+}}
+.gradio-container button.quartz-btn:hover span {{
+    color: var(--quartz-phosphor-bright) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor-bright) !important;
+    text-shadow:
+        0 0 12px rgba(0,255,65,0.5),
+        0 1px 2px rgba(0,0,0,0.9) !important;
+}}
+.gradio-container button.quartz-send {{
+    flex: 0 0 clamp(3.2rem, 7vw, 4.2rem) !important;
+    min-width: clamp(3.2rem, 7vw, 4.2rem) !important;
+    font-size: clamp(0.58rem, 1.2vh, 0.7rem) !important;
+    letter-spacing: 0.1em !important;
 }}
 .gradio-container button.quartz-btn-pulse {{
     filter: brightness(0.92) !important;
@@ -758,12 +853,17 @@ html, body {{
     gap: 0.22rem !important;
     margin: 0.32rem 0 0.22rem 0 !important;
     flex-shrink: 0 !important;
+    padding: 0.28rem 0.22rem !important;
+    background: linear-gradient(180deg, #252930 0%, #1a1d22 100%) !important;
+    border: 1px solid #1e2228 !important;
+    border-radius: 4px !important;
+    box-shadow: inset 0 1px 0 rgba(100,108,120,0.2) !important;
 }}
 .gradio-container button.quartz-prog {{
     flex: 1 1 0 !important;
     min-width: 0 !important;
     min-height: clamp(1.35rem, 2.8vh, 1.7rem) !important;
-    font-size: clamp(0.4rem, 0.82vh, 0.5rem) !important;
+    font-size: clamp(0.48rem, 0.98vh, 0.6rem) !important;
     letter-spacing: 0.05em !important;
     padding: 0.12rem 0.08rem !important;
     position: relative !important;
@@ -783,23 +883,25 @@ html, body {{
     flex-shrink: 0 !important;
     text-align: right !important;
     padding: 0.18rem 0.35rem 0.05rem 0 !important;
-    border-top: 2px solid #5a5f6a !important;
+    border-top: 2px solid #1e2228 !important;
     margin-top: 0.1rem !important;
 }}
 .gradio-container .quartz-footer {{
-    color: #e8eaef !important;
+    color: var(--quartz-phosphor-dim) !important;
     font-family: "Segoe UI", system-ui, sans-serif !important;
-    font-size: clamp(0.44rem, 0.9vh, 0.54rem) !important;
+    font-size: clamp(0.53rem, 1.08vh, 0.65rem) !important;
     font-weight: 700 !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
-    text-shadow: 0 1px 0 rgba(0,0,0,0.5) !important;
+    text-shadow:
+        0 0 6px rgba(0,255,65,0.25),
+        0 1px 2px rgba(0,0,0,0.8) !important;
 }}
 .gradio-container .quartz-settings {{
     margin: 0.2rem 0 !important;
     padding: 0.28rem 0.35rem !important;
-    background: rgba(0,0,0,0.12) !important;
-    border: 1px solid #6a6f7a !important;
+    background: rgba(0,0,0,0.28) !important;
+    border: 1px solid #3d434d !important;
     border-radius: 4px !important;
 }}
 .gradio-container .quartz-settings input[type="range"] {{
@@ -813,8 +915,8 @@ def _build_theme() -> gr.themes.Base:
     return gr.themes.Base(primary_hue="neutral", neutral_hue="gray").set(
         body_background_fill="transparent",
         block_background_fill="transparent",
-        button_primary_background_fill="#a8adb8",
-        button_primary_text_color="#101218",
+        button_primary_background_fill="#4a515c",
+        button_primary_text_color=_PHOSPHOR,
     )
 
 
@@ -830,93 +932,102 @@ def build_app() -> gr.Blocks:
         ui_state = gr.State(_default_ui_state())
         tab_btns: dict[str, gr.Button] = {}
 
-        with gr.Column(elem_classes=["quartz-panel"]):
-            with gr.Row(elem_classes=["quartz-top-tabs"]):
-                for tab_id in TOP_TABS:
-                    tab_btns[tab_id] = gr.Button(
-                        TAB_LABELS[tab_id],
-                        elem_classes=_tab_btn_classes("chat", tab_id),
-                        variant="secondary",
-                    )
-
-            with gr.Column(elem_classes=["quartz-display-bay"]):
-                with gr.Column(elem_classes=["quartz-display-shell"]):
-                    gr.HTML(DISPLAY_FRAME_HTML)
-                    with gr.Column(elem_classes=["quartz-terminal-col"]):
-                        terminal = gr.Textbox(
-                            value=INITIAL_TERMINAL,
-                            label="Terminal",
-                            show_label=False,
-                            interactive=False,
-                            lines=12,
-                            max_lines=80,
-                            elem_classes=["quartz-terminal"],
+        with gr.Column(elem_classes=_root_classes(True)) as root_col:
+            gr.HTML(GRID_LAYER_HTML)
+            with gr.Column(elem_classes=["quartz-panel"]):
+                with gr.Row(elem_classes=["quartz-top-tabs"]):
+                    for tab_id in TOP_TABS:
+                        tab_btns[tab_id] = gr.Button(
+                            TAB_LABELS[tab_id],
+                            elem_classes=_tab_btn_classes("chat", tab_id),
+                            variant="secondary",
                         )
-                        with gr.Row(elem_classes=["quartz-input-row"]):
-                            cmd_input = gr.Textbox(
-                                placeholder="Type command or message...",
+
+                with gr.Column(elem_classes=["quartz-display-bay"]):
+                    with gr.Column(elem_classes=["quartz-display-shell"]):
+                        gr.HTML(DISPLAY_FRAME_HTML)
+                        with gr.Column(elem_classes=["quartz-terminal-col"]):
+                            terminal = gr.Textbox(
+                                value=INITIAL_TERMINAL,
+                                label="Terminal",
                                 show_label=False,
-                                max_lines=1,
-                                scale=5,
-                                elem_classes=["quartz-cmd-input"],
+                                interactive=False,
+                                lines=12,
+                                max_lines=80,
+                                elem_classes=["quartz-terminal"],
                             )
-                            send_btn = gr.Button(
-                                "SEND",
-                                scale=0,
-                                elem_classes=_metallic_btn("quartz-send"),
-                            )
+                            with gr.Row(elem_classes=["quartz-input-row"]):
+                                cmd_input = gr.Textbox(
+                                    placeholder="Type command or message...",
+                                    show_label=False,
+                                    max_lines=1,
+                                    scale=5,
+                                    elem_classes=["quartz-cmd-input"],
+                                )
+                                send_btn = gr.Button(
+                                    "SEND",
+                                    scale=0,
+                                    elem_classes=_metallic_btn("quartz-send"),
+                                )
 
-            with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
-                with gr.Row():
-                    bake_steps = gr.Slider(
-                        10, 150, value=_DEFAULTS["bake_steps"], step=5, label="Bake steps"
-                    )
-                    bandwidth = gr.Slider(
-                        0.1, 1.0, value=_DEFAULTS["bandwidth"], step=0.05, label="Bandwidth"
-                    )
-                    drift_samples = gr.Slider(
-                        10, 80, value=_DEFAULTS["drift_samples"], step=5, label="Drift samples"
-                    )
-                    max_facts = gr.Slider(
-                        3, 12, value=_DEFAULTS["max_facts"], step=1, label="Max facts"
-                    )
-                    use_vqc = gr.Checkbox(label="VQCEnhanced", value=_DEFAULTS["use_vqc"])
+                with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
+                    with gr.Row():
+                        bake_steps = gr.Slider(
+                            10, 150, value=_DEFAULTS["bake_steps"], step=5, label="Bake steps"
+                        )
+                        bandwidth = gr.Slider(
+                            0.1, 1.0, value=_DEFAULTS["bandwidth"], step=0.05, label="Bandwidth"
+                        )
+                        drift_samples = gr.Slider(
+                            10, 80, value=_DEFAULTS["drift_samples"], step=5, label="Drift samples"
+                        )
+                        max_facts = gr.Slider(
+                            3, 12, value=_DEFAULTS["max_facts"], step=1, label="Max facts"
+                        )
+                        use_vqc = gr.Checkbox(label="VQCEnhanced", value=_DEFAULTS["use_vqc"])
 
-            with gr.Row(elem_classes=["quartz-prog-row"]):
-                prog_btns = {}
-                for index in range(1, 5):
-                    prog_btns[f"prog{index}"] = gr.Button(
-                        f"PROG {index}",
-                        elem_classes=_metallic_btn("quartz-prog"),
+                with gr.Row(elem_classes=["quartz-prog-row"]):
+                    prog_btns = {}
+                    for index in range(1, 5):
+                        prog_btns[f"prog{index}"] = gr.Button(
+                            f"PROG {index}",
+                            elem_classes=_metallic_btn("quartz-prog"),
+                        )
+                    exec_btn = gr.Button(
+                        "EXEC",
+                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
                     )
-                exec_btn = gr.Button(
-                    "EXEC",
-                    elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                )
-                clear_btn = gr.Button(
-                    "CLEAR",
-                    elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                )
-                mode_btn = gr.Button(
-                    "MODE",
-                    elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                )
-                help_btn = gr.Button(
-                    "HELP",
-                    elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                )
+                    clear_btn = gr.Button(
+                        "CLEAR",
+                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
+                    )
+                    mode_btn = gr.Button(
+                        "MODE",
+                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
+                    )
+                    help_btn = gr.Button(
+                        "HELP",
+                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
+                    )
 
-            gr.HTML(
-                '<div class="quartz-footer-wrap"><span class="quartz-footer">'
-                "QUARTZ AI SYNTHESIZER</span></div>"
-            )
+                gr.HTML(
+                    '<div class="quartz-footer-wrap"><span class="quartz-footer">'
+                    "QUARTZ AI SYNTHESIZER</span></div>"
+                )
 
         core_outputs = [terminal, cmd_input, ui_state]
         tune_inputs = [bake_steps, bandwidth, use_vqc, drift_samples, max_facts]
 
-        tab_outputs = [terminal, ui_state, settings_panel, *tab_btns.values()]
+        tab_outputs = [terminal, ui_state, settings_panel, *tab_btns.values(), root_col]
 
+        tab_btns["chat"].click(
+            _handle_grid_toggle,
+            inputs=[terminal, ui_state],
+            outputs=tab_outputs,
+        )
         for tab_id, btn in tab_btns.items():
+            if tab_id == "chat":
+                continue
             evt = btn.click(
                 _make_tab_switch(tab_id),
                 inputs=[terminal, ui_state],
