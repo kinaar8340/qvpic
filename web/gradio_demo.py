@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import traceback
@@ -27,20 +26,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULTS = default_run_params()
 _PHOSPHOR = "#00FF41"
-_ORANGE_ICON = "#ffaa00"
 _PANEL_BG = "#1a1d22"
-
-STARTUP_MESSAGE = "TEST EVERYTHING, HOLD FAST WHAT IS GOOD AND KNOW YOUR GOD"
-
-HOME_MENU_ITEMS: tuple[tuple[str, str, str], ...] = (
-    ("Enter QVPIC Conduit", "conduit", "chat"),
-    ("Topology Explorer", "topology", "chat"),
-    ("Quaternion Vortex Controls", "vortex", "settings"),
-    ("Persistent Identity Settings", "identity", "settings"),
-    ("VQC Tuning Panel", "vqc", "settings"),
-    ("System Diagnostics", "diagnostics", "memory"),
-    ("About / Credits", "about", "tools"),
-)
 
 TOP_TABS: tuple[str, ...] = ("chat", "settings", "history", "memory", "tools")
 TAB_LABELS: dict[str, str] = {
@@ -87,37 +73,6 @@ PANEL_SKINS: dict[str, str] = {
 
 def _panel_skin_html() -> str:
     return PANEL_SKINS.get(ACTIVE_SKIN, PANEL_SKIN_HTML)
-
-
-def _home_menu_text() -> str:
-    lines = [
-        "> ═══════════════════════════════════════════════════════",
-        ">  QVPIC //@ BASH SELECTION MENU",
-        "> ═══════════════════════════════════════════════════════",
-        "> ",
-    ]
-    for index, (title, _key, _tab) in enumerate(HOME_MENU_ITEMS, start=1):
-        lines.append(f">  {index}. {title}")
-    lines.extend(
-        [
-            "> ",
-            ">  Select an option below or press HOME to return here.",
-            "> _",
-        ]
-    )
-    return "\n".join(lines)
-
-
-HOME_MENU_TEXT = _home_menu_text()
-
-STARTUP_SPLASH_HTML = f"""
-<div id="quartz-boot-splash" class="quartz-boot-splash" aria-live="polite">
-  <div class="quartz-boot-splash-inner">
-    <span id="quartz-boot-typewriter" class="quartz-boot-typewriter"></span>
-    <span id="quartz-boot-cursor" class="quartz-boot-cursor">_</span>
-  </div>
-</div>
-"""
 
 INITIAL_TERMINAL = "\n".join(
     [
@@ -185,8 +140,6 @@ def _default_ui_state() -> dict:
         "torus_echo": 0.0,
         "torus_nudge": 0,
         "torus_visible": True,
-        "show_home": True,
-        "boot_complete": False,
     }
 
 
@@ -219,7 +172,7 @@ def _append_terminal(terminal: str, *lines: str) -> str:
 
 def _tab_btn_classes(active: str, tab_id: str) -> list[str]:
     classes = ["quartz-tab", f"quartz-tab-{tab_id}"]
-    if active != "home" and tab_id == active:
+    if tab_id == active:
         classes.append("quartz-tab-active")
     return classes
 
@@ -228,62 +181,6 @@ def _tab_updates(active: str) -> tuple:
     return tuple(
         gr.update(elem_classes=_tab_btn_classes(active, tab_id)) for tab_id in TOP_TABS
     )
-
-
-def _home_btn_classes(active: bool = False) -> list[str]:
-    classes = ["quartz-btn", "quartz-tab", "quartz-home-btn"]
-    if active:
-        classes.append("quartz-tab-active")
-    return classes
-
-
-def _panel_visibility(show_home: bool) -> tuple[gr.update, gr.update]:
-    return gr.update(visible=show_home), gr.update(visible=not show_home)
-
-
-def _handle_home_show(state: dict) -> tuple:
-    state = dict(state) if state else _default_ui_state()
-    state["show_home"] = True
-    state["active_tab"] = "home"
-    grid_on = bool(state.get("grid_view", True))
-    return (
-        HOME_MENU_TEXT,
-        state,
-        gr.update(visible=False),
-        *_tab_updates("home"),
-        _home_btn_classes(True),
-        *_panel_visibility(True),
-        gr.update(elem_classes=_root_classes(grid_on)),
-        gr.update(value=_torus_bridge_html(state)),
-    )
-
-
-def _make_home_nav_handler(menu_key: str, tab_id: str, title: str):
-    def handler(terminal: str, state: dict) -> tuple:
-        state = dict(state) if state else _default_ui_state()
-        state = _touch_torus(state, 0.2)
-        state["show_home"] = False
-        state["active_tab"] = tab_id
-        terminal = _append_terminal(
-            INITIAL_TERMINAL,
-            f"> MENU: {title}",
-            f"> ROUTING → {TAB_LABELS.get(tab_id, tab_id.upper())}",
-            "> _",
-        )
-        show_settings = tab_id == "settings"
-        grid_on = bool(state.get("grid_view", True))
-        return (
-            terminal,
-            state,
-            gr.update(visible=show_settings),
-            *_tab_updates(tab_id),
-            _home_btn_classes(False),
-            *_panel_visibility(False),
-            gr.update(elem_classes=_root_classes(grid_on)),
-            gr.update(value=_torus_bridge_html(state)),
-        )
-
-    return handler
 
 
 def _metallic_btn(*extra: str) -> list[str]:
@@ -335,14 +232,11 @@ def _handle_grid_toggle(terminal: str, state: dict) -> tuple:
     state["active_tab"] = "chat"
     label = "ON — four-panel grid visible" if grid_on else "OFF — solid display"
     terminal = _append_terminal(terminal, f"> GRID VIEW: {label}")
-    state["show_home"] = False
     return (
         terminal,
         state,
         gr.update(visible=False),
         *_tab_updates("chat"),
-        _home_btn_classes(False),
-        *_panel_visibility(False),
         gr.update(elem_classes=_root_classes(grid_on)),
         gr.update(value=_torus_bridge_html(state)),
     )
@@ -383,14 +277,11 @@ def _switch_tab(tab_id: str, terminal: str, state: dict) -> tuple:
         terminal = _append_terminal(terminal, f"> TAB: {label}")
     show_settings = tab_id == "settings"
     grid_on = bool(state.get("grid_view", True))
-    state["show_home"] = False
     return (
         terminal,
         state,
         gr.update(visible=show_settings),
         *_tab_updates(tab_id),
-        _home_btn_classes(False),
-        *_panel_visibility(False),
         gr.update(elem_classes=_root_classes(grid_on)),
         gr.update(value=_torus_bridge_html(state)),
     )
@@ -546,7 +437,7 @@ def _handle_exec(
     return terminal, "", state, gr.update(value=_torus_bridge_html(state))
 
 
-_QUARTZ_HEAD_TEMPLATE = """
+QUARTZ_HEAD = """
 <script>
 (function() {
     function whenBodyReady(fn) {
@@ -605,7 +496,7 @@ _QUARTZ_HEAD_TEMPLATE = """
         var gc = document.querySelector('.gradio-container');
         if (gc) { gc.style.height = h + 'px'; gc.style.overflow = 'hidden'; }
         var chrome = 0;
-        ['.quartz-top-tabs', '.quartz-prog-bank', '.quartz-footer-wrap', '.quartz-settings', '.quartz-home-menu'].forEach(function(sel) {
+        ['.quartz-top-tabs', '.quartz-prog-bank', '.quartz-footer-wrap', '.quartz-settings'].forEach(function(sel) {
             var el = document.querySelector(sel);
             if (el) chrome += el.offsetHeight;
         });
@@ -1195,56 +1086,7 @@ _QUARTZ_HEAD_TEMPLATE = """
             pulse: function() { state.pulseUntil = Date.now() + 1200; }
         };
     }
-    var BOOT_MSG = __BOOT_MSG__;
-    var BOOT_KEY = 'qvpic-boot-complete';
-    var BOOT_DELAY = 200;
-    function revealHomeAfterBoot() {
-        document.body.classList.remove('quartz-preboot');
-        var splash = document.getElementById('quartz-boot-splash');
-        if (splash) splash.style.display = 'none';
-        fitPanel();
-    }
-    function runBootAnimation() {
-        if (sessionStorage.getItem(BOOT_KEY)) {
-            revealHomeAfterBoot();
-            return;
-        }
-        document.body.classList.add('quartz-preboot');
-        var splash = document.getElementById('quartz-boot-splash');
-        var tw = document.getElementById('quartz-boot-typewriter');
-        var cursor = document.getElementById('quartz-boot-cursor');
-        if (!splash || !tw) {
-            sessionStorage.setItem(BOOT_KEY, '1');
-            revealHomeAfterBoot();
-            return;
-        }
-        splash.style.display = 'flex';
-        tw.textContent = '';
-        var i = 0;
-        function typeChar() {
-            if (i < BOOT_MSG.length) {
-                tw.textContent += BOOT_MSG.charAt(i);
-                i += 1;
-                setTimeout(typeChar, BOOT_DELAY);
-                return;
-            }
-            typeDots(0);
-        }
-        function typeDots(count) {
-            if (count < 6) {
-                tw.textContent += '.';
-                setTimeout(function() { typeDots(count + 1); }, BOOT_DELAY);
-                return;
-            }
-            if (cursor) cursor.style.display = 'none';
-            splash.classList.add('quartz-boot-done');
-            sessionStorage.setItem(BOOT_KEY, '1');
-            setTimeout(revealHomeAfterBoot, 350);
-        }
-        setTimeout(typeChar, BOOT_DELAY);
-    }
     whenBodyReady(function() {
-        runBootAnimation();
         initProgToggles();
         syncTorusInteractionMode();
         bootQuartzTorus();
@@ -1282,8 +1124,6 @@ _QUARTZ_HEAD_TEMPLATE = """
 </script>
 """
 
-QUARTZ_HEAD = _QUARTZ_HEAD_TEMPLATE.replace("__BOOT_MSG__", json.dumps(STARTUP_MESSAGE))
-
 QUARTZ_CSS = f"""
 :root {{
     --quartz-phosphor: {_PHOSPHOR};
@@ -1309,7 +1149,6 @@ QUARTZ_CSS = f"""
     --quartz-skin-footer-h: 1.4rem;
     --quartz-skin-settings-h: 0px;
     --quartz-btn-label-size: clamp(calc(0.42rem + 2px), calc(0.9vh + 2px), calc(0.56rem + 2px));
-    --quartz-orange-icon: {_ORANGE_ICON};
     --torus-line: {_PHOSPHOR};
     --torus-line-dim: rgba(0, 204, 52, 0.45);
     --torus-orbit: rgba(0, 255, 65, 0.22);
@@ -1516,109 +1355,6 @@ html, body {{
     gap: 0.28rem !important;
     margin: 0 0 var(--quartz-tab-display-gap) 0 !important;
     flex-shrink: 0 !important;
-    align-items: stretch !important;
-}}
-.gradio-container .quartz-chat-home-stack {{
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 0.1rem !important;
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-}}
-.gradio-container .quartz-chat-home-stack > .block,
-.gradio-container .quartz-chat-home-stack > .form {{
-    width: 100% !important;
-    min-width: 0 !important;
-}}
-.gradio-container .quartz-chat-home-stack button.quartz-tab,
-.gradio-container .quartz-chat-home-stack button.quartz-home-btn {{
-    flex: 0 0 auto !important;
-    width: 100% !important;
-    min-height: clamp(1.65rem, 3.5vh, 2.1rem) !important;
-}}
-.gradio-container button.quartz-home-btn {{
-    border-radius: 0 0 4px 4px !important;
-}}
-#quartz-boot-splash {{
-    display: none;
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 200000 !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: #000000 !important;
-    pointer-events: none !important;
-}}
-#quartz-boot-splash.quartz-boot-done {{
-    opacity: 0 !important;
-    transition: opacity 0.35s ease !important;
-}}
-.quartz-boot-splash-inner {{
-    max-width: min(92vw, 52rem) !important;
-    padding: 1.5rem 1.2rem !important;
-    font-family: "Courier New", "Lucida Console", monospace !important;
-    font-size: clamp(0.72rem, 1.6vh, 0.95rem) !important;
-    font-weight: 700 !important;
-    color: var(--quartz-phosphor) !important;
-    -webkit-text-fill-color: var(--quartz-phosphor) !important;
-    text-shadow: 0 0 10px rgba(0,255,65,0.45) !important;
-    letter-spacing: 0.04em !important;
-    line-height: 1.45 !important;
-}}
-.quartz-boot-cursor {{
-    animation: quartz-boot-blink 0.9s step-end infinite !important;
-}}
-@keyframes quartz-boot-blink {{
-    50% {{ opacity: 0 !important; }}
-}}
-body.quartz-preboot .gradio-container .quartz-root {{
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-}}
-.gradio-container .quartz-home-panel {{
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 0.35rem !important;
-}}
-.gradio-container .quartz-home-display {{
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-}}
-.gradio-container .quartz-home-display textarea {{
-    font-family: "Courier New", "Lucida Console", monospace !important;
-    font-size: clamp(0.62rem, 1.35vh, 0.78rem) !important;
-    line-height: 1.35 !important;
-    color: var(--quartz-phosphor) !important;
-    -webkit-text-fill-color: var(--quartz-phosphor) !important;
-    background: var(--quartz-display) !important;
-    border: 1px solid #1a3a1a !important;
-    box-shadow: inset 0 0 12px rgba(0,255,65,0.06) !important;
-}}
-.gradio-container .quartz-home-menu {{
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 0.14rem !important;
-    flex-shrink: 0 !important;
-    padding: 0 0.15rem 0.1rem !important;
-}}
-.gradio-container button.quartz-home-menu-item {{
-    justify-content: flex-start !important;
-    text-align: left !important;
-    font-family: "Courier New", "Lucida Console", monospace !important;
-    font-size: clamp(0.58rem, 1.2vh, 0.72rem) !important;
-    letter-spacing: 0.06em !important;
-    text-transform: none !important;
-    padding: 0.28rem 0.45rem !important;
-    min-height: clamp(1.7rem, 3.2vh, 2rem) !important;
-}}
-.gradio-container .quartz-main-panel {{
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
 }}
 .gradio-container button.quartz-tab {{
     flex: 1 1 0 !important;
@@ -1992,7 +1728,7 @@ body.quartz-preboot .gradio-container .quartz-root {{
     text-transform: none !important;
     text-align: center !important;
 }}
-.gradio-container button.quartz-prog-active::before {{
+.gradio-container button.quartz-prog-active::after {{
     content: "" !important;
     position: absolute !important;
     top: 0.32rem !important;
@@ -2002,34 +1738,27 @@ body.quartz-preboot .gradio-container .quartz-root {{
     border-radius: 50% !important;
     background: #ff2222 !important;
     box-shadow: 0 0 6px rgba(255, 40, 40, 0.85) !important;
-    z-index: 2 !important;
 }}
-.gradio-container button.quartz-prog-id-1,
-.gradio-container button.quartz-prog-id-9 {{
-    padding-right: 1.55em !important;
-}}
-.gradio-container button.quartz-prog-id-1::after,
-.gradio-container button.quartz-prog-id-9::after {{
-    content: "" !important;
-    position: absolute !important;
-    right: 0.42rem !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: var(--quartz-btn-label-size) !important;
+.gradio-container button.quartz-prog-id-1::before,
+.gradio-container button.quartz-prog-id-9::before {{
+    display: inline-block !important;
+    vertical-align: middle !important;
+    margin-right: 0.2em !important;
+    font-size: calc(var(--quartz-btn-label-size) * 0.72) !important;
     line-height: 1 !important;
     font-weight: 900 !important;
-    color: var(--quartz-orange-icon) !important;
-    -webkit-text-fill-color: var(--quartz-orange-icon) !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    position: relative !important;
     z-index: 1 !important;
-    pointer-events: none !important;
 }}
-.gradio-container button.quartz-prog-id-1::after {{
+.gradio-container button.quartz-prog-id-1::before {{
     content: "↵" !important;
 }}
-.gradio-container button.quartz-prog-id-9::after {{
+.gradio-container button.quartz-prog-id-9::before {{
     content: "▶" !important;
 }}
-.gradio-container button.quartz-prog-id-9.quartz-prog-active::after {{
+.gradio-container button.quartz-prog-id-9.quartz-prog-active::before {{
     content: "||" !important;
     letter-spacing: -0.07em !important;
 }}
@@ -2089,7 +1818,6 @@ def build_app() -> gr.Blocks:
         ui_state = gr.State(_default_ui_state())
         tab_btns: dict[str, gr.Button] = {}
 
-        gr.HTML(STARTUP_SPLASH_HTML)
         with gr.Column(elem_classes=_root_classes(True)) as root_col:
             torus_bridge = gr.HTML(TORUS_STATE_BRIDGE_HTML, visible=False)
             gr.HTML(GRID_LAYER_HTML)
@@ -2097,116 +1825,73 @@ def build_app() -> gr.Blocks:
                 gr.HTML(_panel_skin_html(), elem_classes=["quartz-skin-mount"])
                 with gr.Column(elem_classes=["quartz-content", "quartz-content-wrap"]):
                     with gr.Row(elem_classes=["quartz-top-tabs"]):
-                        with gr.Column(elem_classes=["quartz-chat-home-stack"]):
-                            tab_btns["chat"] = gr.Button(
-                                TAB_LABELS["chat"],
-                                elem_classes=_tab_btn_classes("home", "chat"),
-                                variant="secondary",
-                            )
-                            home_btn = gr.Button(
-                                "HOME",
-                                elem_classes=_home_btn_classes(True),
-                                variant="secondary",
-                            )
                         for tab_id in TOP_TABS:
-                            if tab_id == "chat":
-                                continue
                             tab_btns[tab_id] = gr.Button(
                                 TAB_LABELS[tab_id],
-                                elem_classes=_tab_btn_classes("home", tab_id),
+                                elem_classes=_tab_btn_classes("chat", tab_id),
                                 variant="secondary",
                             )
 
                     with gr.Column(elem_classes=["quartz-display-bay"]):
-                        with gr.Column(
-                            elem_classes=["quartz-home-panel"],
-                            visible=True,
-                        ) as home_panel:
-                            home_display = gr.Textbox(
-                                value=HOME_MENU_TEXT,
-                                label="Home",
+                        with gr.Column(elem_classes=["quartz-terminal-col"]):
+                            gr.HTML(DISPLAY_BACKING_HTML)
+                            terminal = gr.Textbox(
+                                value=INITIAL_TERMINAL,
+                                label="Terminal",
                                 show_label=False,
                                 interactive=False,
-                                lines=14,
-                                max_lines=40,
-                                elem_classes=["quartz-home-display"],
+                                lines=12,
+                                max_lines=80,
+                                elem_classes=["quartz-terminal"],
                             )
-                            with gr.Column(elem_classes=["quartz-home-menu"]):
-                                home_menu_btns: list[gr.Button] = []
-                                for index, (title, key, _tab) in enumerate(HOME_MENU_ITEMS, start=1):
-                                    home_menu_btns.append(
-                                        gr.Button(
-                                            f"{index}. {title}",
-                                            elem_classes=_metallic_btn(
-                                                "quartz-home-menu-item",
-                                                f"quartz-home-key-{key}",
-                                            ),
-                                        )
-                                    )
-
-                        with gr.Column(
-                            elem_classes=["quartz-main-panel"],
-                            visible=False,
-                        ) as main_panel:
-                            with gr.Column(elem_classes=["quartz-terminal-col"]):
-                                gr.HTML(DISPLAY_BACKING_HTML)
-                                terminal = gr.Textbox(
-                                    value=INITIAL_TERMINAL,
-                                    label="Terminal",
+                            with gr.Row(elem_classes=["quartz-input-row"]):
+                                cmd_input = gr.Textbox(
+                                    placeholder="Type command or message...",
                                     show_label=False,
-                                    interactive=False,
-                                    lines=12,
-                                    max_lines=80,
-                                    elem_classes=["quartz-terminal"],
+                                    max_lines=1,
+                                    scale=5,
+                                    elem_classes=["quartz-cmd-input"],
                                 )
-                                with gr.Row(elem_classes=["quartz-input-row"]):
-                                    cmd_input = gr.Textbox(
-                                        placeholder="Type command or message...",
-                                        show_label=False,
-                                        max_lines=1,
-                                        scale=5,
-                                        elem_classes=["quartz-cmd-input"],
-                                    )
-                                    send_btn = gr.Button(
-                                        "SEND",
-                                        scale=0,
-                                        elem_classes=_metallic_btn("quartz-send"),
-                                    )
+                                send_btn = gr.Button(
+                                    "SEND",
+                                    scale=0,
+                                    elem_classes=_metallic_btn("quartz-send"),
+                                )
 
-                            with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
-                                with gr.Row():
-                                    bake_steps = gr.Slider(
-                                        10, 150, value=_DEFAULTS["bake_steps"], step=5, label="Bake steps"
-                                    )
-                                    bandwidth = gr.Slider(
-                                        0.1, 1.0, value=_DEFAULTS["bandwidth"], step=0.05, label="Bandwidth"
-                                    )
-                                    drift_samples = gr.Slider(
-                                        10, 80, value=_DEFAULTS["drift_samples"], step=5, label="Drift samples"
-                                    )
-                                    max_facts = gr.Slider(
-                                        3, 12, value=_DEFAULTS["max_facts"], step=1, label="Max facts"
-                                    )
-                                    use_vqc = gr.Checkbox(label="VQCEnhanced", value=_DEFAULTS["use_vqc"])
-
-                            with gr.Column(elem_classes=["quartz-prog-bank"]):
-                                with gr.Row(elem_classes=["quartz-prog-row", "quartz-prog-row-1"]):
-                                    for index in PROG_ROW_1:
-                                        gr.Button(
-                                            f"Prog {index}",
-                                            elem_classes=_prog_btn_classes(index),
-                                        )
-                                with gr.Row(elem_classes=["quartz-prog-row", "quartz-prog-row-2"]):
-                                    for index in PROG_ROW_2:
-                                        gr.Button(
-                                            f"Prog {index}",
-                                            elem_classes=_prog_btn_classes(index),
-                                        )
-
-                            gr.HTML(
-                                '<div class="quartz-footer-wrap"><span class="quartz-footer">'
-                                "QUARTZ AI SYNTHESIZER</span></div>"
+                    with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
+                        with gr.Row():
+                            bake_steps = gr.Slider(
+                                10, 150, value=_DEFAULTS["bake_steps"], step=5, label="Bake steps"
                             )
+                            bandwidth = gr.Slider(
+                                0.1, 1.0, value=_DEFAULTS["bandwidth"], step=0.05, label="Bandwidth"
+                            )
+                            drift_samples = gr.Slider(
+                                10, 80, value=_DEFAULTS["drift_samples"], step=5, label="Drift samples"
+                            )
+                            max_facts = gr.Slider(
+                                3, 12, value=_DEFAULTS["max_facts"], step=1, label="Max facts"
+                            )
+                            use_vqc = gr.Checkbox(label="VQCEnhanced", value=_DEFAULTS["use_vqc"])
+
+                    with gr.Column(elem_classes=["quartz-prog-bank"]):
+                        with gr.Row(elem_classes=["quartz-prog-row", "quartz-prog-row-1"]):
+                            for index in PROG_ROW_1:
+                                gr.Button(
+                                    f"Prog {index}",
+                                    elem_classes=_prog_btn_classes(index),
+                                )
+                        with gr.Row(elem_classes=["quartz-prog-row", "quartz-prog-row-2"]):
+                            for index in PROG_ROW_2:
+                                gr.Button(
+                                    f"Prog {index}",
+                                    elem_classes=_prog_btn_classes(index),
+                                )
+
+                    gr.HTML(
+                        '<div class="quartz-footer-wrap"><span class="quartz-footer">'
+                        "QUARTZ AI SYNTHESIZER</span></div>"
+                    )
 
         core_outputs = [terminal, cmd_input, ui_state, torus_bridge]
         tune_inputs = [bake_steps, bandwidth, use_vqc, drift_samples, max_facts]
@@ -2215,41 +1900,10 @@ def build_app() -> gr.Blocks:
             terminal,
             ui_state,
             settings_panel,
-            tab_btns["chat"],
-            tab_btns["settings"],
-            tab_btns["history"],
-            tab_btns["memory"],
-            tab_btns["tools"],
-            home_btn,
-            home_panel,
-            main_panel,
+            *tab_btns.values(),
             root_col,
             torus_bridge,
         ]
-        home_outputs = [
-            home_display,
-            ui_state,
-            settings_panel,
-            tab_btns["chat"],
-            tab_btns["settings"],
-            tab_btns["history"],
-            tab_btns["memory"],
-            tab_btns["tools"],
-            home_btn,
-            home_panel,
-            main_panel,
-            root_col,
-            torus_bridge,
-        ]
-
-        home_btn.click(_handle_home_show, inputs=[ui_state], outputs=home_outputs)
-
-        for (title, key, tab_id), menu_btn in zip(HOME_MENU_ITEMS, home_menu_btns):
-            menu_btn.click(
-                _make_home_nav_handler(key, tab_id, title),
-                inputs=[terminal, ui_state],
-                outputs=tab_outputs,
-            )
 
         tab_btns["chat"].click(
             _handle_grid_toggle,
