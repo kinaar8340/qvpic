@@ -38,7 +38,8 @@ if ! git clone git@hf.co:spaces/kinaar111/qvpic "$HF_DIR" 2>/dev/null; then
 fi
 
 rsync -av --delete --delete-excluded \
-  --exclude='.git' \
+  --filter='protect .git/' \
+  --filter='protect .git/**' \
   --exclude='.venv' \
   --exclude='__pycache__' \
   --exclude='*.pyc' \
