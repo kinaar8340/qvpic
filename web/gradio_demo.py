@@ -576,7 +576,7 @@ QUARTZ_HEAD = """
             bank.addEventListener('click', function(e) {
                 var btn = e.target && e.target.closest('button.quartz-prog-toggle');
                 if (!btn) return;
-                var m = btn.className.match(/quartz-prog-id-(\d+)/);
+                var m = btn.className.match(/quartz-prog-id-(\\d+)/);
                 if (!m) return;
                 toggleProg(parseInt(m[1], 10));
                 clickPulse(btn);
