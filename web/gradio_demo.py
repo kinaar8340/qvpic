@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import traceback
@@ -36,6 +37,30 @@ TAB_LABELS: dict[str, str] = {
     "memory": "MEMORY",
     "tools": "TOOLS",
 }
+
+STARTUP_STRING = "TEST EVERYTHING, HOLD FAST WHAT IS GOOD AND KNOW YOUR GOD"
+
+# (label, action_key) — max 9 entries per page; overflow uses next/prev page slots.
+HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
+    (
+        ("Enter QVPIC Conduit", "conduit"),
+        ("Topology Explorer", "topology"),
+        ("Quaternion Vortex Controls", "vortex"),
+        ("Persistent Identity Settings", "identity"),
+        ("VQC Tuning Panel", "vqc"),
+        ("Bake → Recall Benchmark", "benchmark"),
+        ("System Diagnostics", "diagnostics"),
+        ("Tools & Repositories", "tools"),
+        ("Next page", "next_page"),
+    ),
+    (
+        ("Command History", "history"),
+        ("Grid View Toggle", "grid_toggle"),
+        ("About / Credits", "about"),
+        ("Help & Keypad Guide", "help"),
+        ("Previous page", "prev_page"),
+    ),
+)
 
 PROG_BANK_SIZE = 16
 PROG_ROW_1 = tuple(range(1, 9))
@@ -92,6 +117,7 @@ HELP_TEXT = "\n".join(
         "> MEMORY: run full benchmark (bake → recall → drift)",
         "> TOOLS: repo links and CLI pointers",
         "> SEND / Enter key: submit command",
+        "> HOME: toggle selection menu (red LED = on) · enter index to select",
         "> PROG 1–16: maintained toggles (red LED = on) · Prog 1 = torus · Prog 9 = move",
         "> MEMORY tab: run benchmark · SETTINGS: tune conduit dials",
         f"> Repo: {GITHUB_URL}",
@@ -132,7 +158,7 @@ _patch_gradio_client_bool_schema()
 
 def _default_ui_state() -> dict:
     return {
-        "active_tab": "chat",
+        "active_tab": "home",
         "grid_view": True,
         "history": [],
         "cmd_index": -1,
@@ -140,6 +166,8 @@ def _default_ui_state() -> dict:
         "torus_echo": 0.0,
         "torus_nudge": 0,
         "torus_visible": True,
+        "home_active": True,
+        "menu_page": 0,
     }
 
 
@@ -172,7 +200,7 @@ def _append_terminal(terminal: str, *lines: str) -> str:
 
 def _tab_btn_classes(active: str, tab_id: str) -> list[str]:
     classes = ["quartz-tab", f"quartz-tab-{tab_id}"]
-    if tab_id == active:
+    if active != "home" and tab_id == active:
         classes.append("quartz-tab-active")
     return classes
 
@@ -181,6 +209,33 @@ def _tab_updates(active: str) -> tuple:
     return tuple(
         gr.update(elem_classes=_tab_btn_classes(active, tab_id)) for tab_id in TOP_TABS
     )
+
+
+def _home_btn_classes(active: bool = False) -> list[str]:
+    classes = ["quartz-btn", "quartz-tab", "quartz-home-btn"]
+    if active:
+        classes.append("quartz-home-active")
+    return classes
+
+
+def _home_menu_text(page: int = 0) -> str:
+    page = max(0, min(page, len(HOME_MENU_PAGES) - 1))
+    items = HOME_MENU_PAGES[page]
+    lines = [
+        "> ═══════════════════════════════════════════════════════",
+        ">  QVPIC //@ SELECTION MENU",
+        f">  PAGE {page + 1}/{len(HOME_MENU_PAGES)}",
+        "> ═══════════════════════════════════════════════════════",
+        ">  Enter index number to select:",
+        "> ",
+    ]
+    for index, (title, _action) in enumerate(items, start=1):
+        lines.append(f">  {index}. {title}")
+    lines.extend(["> ", "> _"])
+    return "\n".join(lines)
+
+
+HOME_MENU_TEXT = _home_menu_text(0)
 
 
 def _metallic_btn(*extra: str) -> list[str]:
@@ -224,11 +279,194 @@ def _make_tab_switch(tab_id: str):
     return handler
 
 
+def _deactivate_home(state: dict) -> dict:
+    state = dict(state)
+    state["home_active"] = False
+    return state
+
+
+def _handle_home_toggle(terminal: str, state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    state = _touch_torus(state, 0.25)
+    active = not bool(state.get("home_active", False))
+    state["home_active"] = active
+    grid_on = bool(state.get("grid_view", True))
+    if active:
+        state["active_tab"] = "home"
+        state["menu_page"] = 0
+        terminal = _home_menu_text(0)
+        tab_key = "home"
+    else:
+        if state.get("active_tab") == "home":
+            state["active_tab"] = "chat"
+        terminal = _append_terminal(terminal, "> HOME: selection menu closed", "> _")
+        tab_key = state.get("active_tab", "chat")
+    return (
+        terminal,
+        state,
+        gr.update(visible=False),
+        *_tab_updates(tab_key),
+        gr.update(elem_classes=_home_btn_classes(active)),
+        gr.update(elem_classes=_root_classes(grid_on)),
+        gr.update(value=_torus_bridge_html(state)),
+    )
+
+
+def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, dict, str, bool]:
+    """Return (terminal, state, active_tab, show_settings)."""
+    state = _deactivate_home(state)
+    if action == "next_page":
+        state["home_active"] = True
+        state["menu_page"] = min(int(state.get("menu_page", 0)) + 1, len(HOME_MENU_PAGES) - 1)
+        return _home_menu_text(state["menu_page"]), state, "home", False
+    if action == "prev_page":
+        state["home_active"] = True
+        state["menu_page"] = max(int(state.get("menu_page", 0)) - 1, 0)
+        return _home_menu_text(state["menu_page"]), state, "home", False
+    if action == "conduit":
+        terminal = _append_terminal(
+            terminal,
+            "> MENU: Enter QVPIC Conduit",
+            "> QVPIC: Conduit online — quaternion vortex recall ready.",
+            "> _",
+        )
+        return terminal, state, "chat", False
+    if action == "topology":
+        terminal = _append_terminal(
+            terminal,
+            "> MENU: Topology Explorer",
+            "> QVPIC: ShellCube braiding_phase shields persistent identity from drift.",
+            "> _",
+        )
+        return terminal, state, "chat", False
+    if action == "vortex":
+        terminal = _append_terminal(terminal, "> MENU: Quaternion Vortex Controls", "> SETTINGS: tune conduit dials below.")
+        return terminal, state, "settings", True
+    if action == "identity":
+        terminal = _append_terminal(
+            terminal,
+            "> MENU: Persistent Identity Settings",
+            "> SETTINGS: bandwidth and drift samples affect identity retention.",
+        )
+        return terminal, state, "settings", True
+    if action == "vqc":
+        terminal = _append_terminal(terminal, "> MENU: VQC Tuning Panel", "> SETTINGS: enable VQCEnhanced for helical conduit.")
+        return terminal, state, "settings", True
+    if action == "benchmark":
+        terminal = _append_terminal(terminal, "> MENU: Bake → Recall Benchmark", "> MEMORY: press SEND with 'benchmark' or tap MEMORY.")
+        return terminal, state, "memory", False
+    if action == "diagnostics":
+        terminal = _append_terminal(terminal, "> MENU: System Diagnostics", "> MEMORY: launching benchmark diagnostics…")
+        return terminal, state, "memory", False
+    if action == "tools":
+        terminal = _append_terminal(
+            terminal,
+            "> MENU: Tools & Repositories",
+            f">   GitHub  {GITHUB_URL}",
+            f">   VQC     {VQC_URL}",
+            f">   Space   {HF_SPACE_URL}",
+            "> _",
+        )
+        return terminal, state, "tools", False
+    if action == "history":
+        hist = state.get("history") or []
+        if hist:
+            lines = ["> MENU: Command History", "> HISTORY — recent commands:"] + [
+                f">   · {c}" for c in hist[-12:]
+            ]
+            terminal = _append_terminal(terminal, *lines, "> _")
+        else:
+            terminal = _append_terminal(terminal, "> MENU: Command History", "> HISTORY: (empty)", "> _")
+        return terminal, state, "history", False
+    if action == "grid_toggle":
+        grid_on = not bool(state.get("grid_view", True))
+        state["grid_view"] = grid_on
+        label = "ON — four-panel grid visible" if grid_on else "OFF — solid display"
+        terminal = _append_terminal(terminal, "> MENU: Grid View Toggle", f"> GRID VIEW: {label}", "> _")
+        return terminal, state, "chat", False
+    if action == "about":
+        terminal = _append_terminal(
+            terminal,
+            "> MENU: About / Credits",
+            "> QVPIC — Quaternion Vortex Persistent Identity Conduit",
+            "> QUARTZ AI SYNTHESIZER control panel",
+            f"> Repo: {GITHUB_URL}",
+            "> _",
+        )
+        return terminal, state, "tools", False
+    if action == "help":
+        terminal = _append_terminal(terminal, "> MENU: Help & Keypad Guide", HELP_TEXT, "> _")
+        return terminal, state, "chat", False
+    terminal = _append_terminal(terminal, f"> MENU: unknown action '{action}'", "> _")
+    return terminal, state, "chat", False
+
+
+def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    page = int(state.get("menu_page", 0))
+    page = max(0, min(page, len(HOME_MENU_PAGES) - 1))
+    items = HOME_MENU_PAGES[page]
+    raw = (cmd or "").strip()
+    try:
+        index = int(raw)
+    except ValueError:
+        terminal = _append_terminal(
+            terminal,
+            f"> SELECT: enter a number 1–{len(items)}",
+            "> _",
+        )
+        grid_on = bool(state.get("grid_view", True))
+        return (
+            terminal,
+            "",
+            state,
+            gr.update(value=_torus_bridge_html(state)),
+            gr.update(elem_classes=_home_btn_classes(True)),
+            gr.update(visible=False),
+            *_tab_updates("home"),
+            gr.update(elem_classes=_root_classes(grid_on)),
+        )
+    if index < 1 or index > len(items):
+        terminal = _append_terminal(
+            terminal,
+            f"> SELECT: invalid index — choose 1–{len(items)}",
+            "> _",
+        )
+        grid_on = bool(state.get("grid_view", True))
+        return (
+            terminal,
+            "",
+            state,
+            gr.update(value=_torus_bridge_html(state)),
+            gr.update(elem_classes=_home_btn_classes(True)),
+            gr.update(visible=False),
+            *_tab_updates("home"),
+            gr.update(elem_classes=_root_classes(grid_on)),
+        )
+    _title, action = items[index - 1]
+    state = _touch_torus(state, 0.4)
+    terminal, state, active_tab, show_settings = _route_menu_action(action, terminal, state)
+    state["active_tab"] = active_tab
+    grid_on = bool(state.get("grid_view", True))
+    home_on = bool(state.get("home_active", False))
+    return (
+        terminal,
+        "",
+        state,
+        gr.update(value=_torus_bridge_html(state)),
+        gr.update(elem_classes=_home_btn_classes(home_on)),
+        gr.update(visible=show_settings),
+        *_tab_updates("home" if home_on else active_tab),
+        gr.update(elem_classes=_root_classes(grid_on)),
+    )
+
+
 def _handle_grid_toggle(terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
     state = _touch_torus(state, 0.35)
     grid_on = not bool(state.get("grid_view", True))
     state["grid_view"] = grid_on
+    state = _deactivate_home(state)
     state["active_tab"] = "chat"
     label = "ON — four-panel grid visible" if grid_on else "OFF — solid display"
     terminal = _append_terminal(terminal, f"> GRID VIEW: {label}")
@@ -237,6 +475,7 @@ def _handle_grid_toggle(terminal: str, state: dict) -> tuple:
         state,
         gr.update(visible=False),
         *_tab_updates("chat"),
+        gr.update(elem_classes=_home_btn_classes(False)),
         gr.update(elem_classes=_root_classes(grid_on)),
         gr.update(value=_torus_bridge_html(state)),
     )
@@ -277,11 +516,13 @@ def _switch_tab(tab_id: str, terminal: str, state: dict) -> tuple:
         terminal = _append_terminal(terminal, f"> TAB: {label}")
     show_settings = tab_id == "settings"
     grid_on = bool(state.get("grid_view", True))
+    state = _deactivate_home(state)
     return (
         terminal,
         state,
         gr.update(visible=show_settings),
         *_tab_updates(tab_id),
+        gr.update(elem_classes=_home_btn_classes(False)),
         gr.update(elem_classes=_root_classes(grid_on)),
         gr.update(value=_torus_bridge_html(state)),
     )
@@ -309,11 +550,40 @@ def _handle_send(
     state = dict(state) if state else _default_ui_state()
     cmd = (cmd or "").strip()
     if not cmd:
-        return terminal, "", state, gr.update(value=_torus_bridge_html(state))
+        return (
+            terminal,
+            "",
+            state,
+            gr.update(value=_torus_bridge_html(state)),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
+    if state.get("home_active"):
+        return _handle_menu_selection(cmd, terminal, state)
     state = _push_history(state, cmd)
     state = _touch_torus(state, 1.0)
     terminal = _append_terminal(terminal, f"> USER: {cmd}", _simulate_chat_response(cmd), "> _")
-    return terminal, "", state, gr.update(value=_torus_bridge_html(state))
+    grid_on = bool(state.get("grid_view", True))
+    return (
+        terminal,
+        "",
+        state,
+        gr.update(value=_torus_bridge_html(state)),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(),
+        gr.update(elem_classes=_root_classes(grid_on)),
+    )
 
 
 def _make_nav_handler(action: str):
@@ -437,7 +707,7 @@ def _handle_exec(
     return terminal, "", state, gr.update(value=_torus_bridge_html(state))
 
 
-QUARTZ_HEAD = """
+_QUARTZ_HEAD_TEMPLATE = """
 <script>
 (function() {
     function whenBodyReady(fn) {
@@ -1086,7 +1356,61 @@ QUARTZ_HEAD = """
             pulse: function() { state.pulseUntil = Date.now() + 1200; }
         };
     }
+    var STARTUP_STRING = __STARTUP_STRING__;
+    var HOME_MENU_TEXT = __HOME_MENU_TEXT__;
+    var BOOT_KEY = 'qvpic-boot-complete';
+    var BOOT_DELAY = 200;
+    function setHomeButtonActive(on) {
+        document.querySelectorAll('button.quartz-home-btn').forEach(function(btn) {
+            btn.classList.toggle('quartz-home-active', !!on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+    function showHomeMenuInTerminal() {
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (!ta) return;
+        ta.value = HOME_MENU_TEXT;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        setHomeButtonActive(true);
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (vh > 0) syncTerminalOverflow(vh);
+    }
+    function runStartupScript() {
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (!ta) {
+            setTimeout(runStartupScript, 120);
+            return;
+        }
+        if (sessionStorage.getItem(BOOT_KEY)) {
+            showHomeMenuInTerminal();
+            return;
+        }
+        ta.value = '> ';
+        var i = 0;
+        function typeChar() {
+            if (i < STARTUP_STRING.length) {
+                ta.value += STARTUP_STRING.charAt(i);
+                i += 1;
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
+                setTimeout(typeChar, BOOT_DELAY);
+                return;
+            }
+            typeDots(0);
+        }
+        function typeDots(count) {
+            if (count < 5) {
+                ta.value += '.';
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
+                setTimeout(function() { typeDots(count + 1); }, BOOT_DELAY);
+                return;
+            }
+            sessionStorage.setItem(BOOT_KEY, '1');
+            setTimeout(showHomeMenuInTerminal, BOOT_DELAY);
+        }
+        setTimeout(typeChar, BOOT_DELAY);
+    }
     whenBodyReady(function() {
+        runStartupScript();
         initProgToggles();
         syncTorusInteractionMode();
         bootQuartzTorus();
@@ -1123,6 +1447,12 @@ QUARTZ_HEAD = """
 })();
 </script>
 """
+
+QUARTZ_HEAD = (
+    _QUARTZ_HEAD_TEMPLATE.replace("__STARTUP_STRING__", json.dumps(STARTUP_STRING)).replace(
+        "__HOME_MENU_TEXT__", json.dumps(HOME_MENU_TEXT)
+    )
+)
 
 QUARTZ_CSS = f"""
 :root {{
@@ -1355,6 +1685,40 @@ html, body {{
     gap: 0.28rem !important;
     margin: 0 0 var(--quartz-tab-display-gap) 0 !important;
     flex-shrink: 0 !important;
+    align-items: stretch !important;
+}}
+.gradio-container .quartz-chat-home-stack {{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.1rem !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+}}
+.gradio-container .quartz-chat-home-stack > .block,
+.gradio-container .quartz-chat-home-stack > .form {{
+    width: 100% !important;
+    min-width: 0 !important;
+}}
+.gradio-container .quartz-chat-home-stack button.quartz-tab,
+.gradio-container .quartz-chat-home-stack button.quartz-home-btn {{
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-height: clamp(1.65rem, 3.5vh, 2.1rem) !important;
+}}
+.gradio-container button.quartz-home-btn {{
+    border-radius: 0 0 4px 4px !important;
+    position: relative !important;
+}}
+.gradio-container button.quartz-home-btn.quartz-home-active::after {{
+    content: "" !important;
+    position: absolute !important;
+    top: 0.32rem !important;
+    right: 0.14rem !important;
+    width: 5px !important;
+    height: 5px !important;
+    border-radius: 50% !important;
+    background: #ff2222 !important;
+    box-shadow: 0 0 6px rgba(255, 40, 40, 0.85) !important;
 }}
 .gradio-container button.quartz-tab {{
     flex: 1 1 0 !important;
@@ -1739,18 +2103,24 @@ html, body {{
     background: #ff2222 !important;
     box-shadow: 0 0 6px rgba(255, 40, 40, 0.85) !important;
 }}
+.gradio-container button.quartz-prog-id-1,
+.gradio-container button.quartz-prog-id-9 {{
+    padding-left: 1.45em !important;
+}}
 .gradio-container button.quartz-prog-id-1::before,
 .gradio-container button.quartz-prog-id-9::before {{
-    display: inline-block !important;
-    vertical-align: middle !important;
-    margin-right: 0.2em !important;
-    font-size: calc(var(--quartz-btn-label-size) * 0.72) !important;
+    content: "" !important;
+    position: absolute !important;
+    left: 0.32rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: var(--quartz-btn-label-size) !important;
     line-height: 1 !important;
     font-weight: 900 !important;
     color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
-    position: relative !important;
     z-index: 1 !important;
+    pointer-events: none !important;
 }}
 .gradio-container button.quartz-prog-id-1::before {{
     content: "↵" !important;
@@ -1825,10 +2195,23 @@ def build_app() -> gr.Blocks:
                 gr.HTML(_panel_skin_html(), elem_classes=["quartz-skin-mount"])
                 with gr.Column(elem_classes=["quartz-content", "quartz-content-wrap"]):
                     with gr.Row(elem_classes=["quartz-top-tabs"]):
+                        with gr.Column(elem_classes=["quartz-chat-home-stack"]):
+                            tab_btns["chat"] = gr.Button(
+                                TAB_LABELS["chat"],
+                                elem_classes=_tab_btn_classes("home", "chat"),
+                                variant="secondary",
+                            )
+                            home_btn = gr.Button(
+                                "HOME",
+                                elem_classes=_home_btn_classes(True),
+                                variant="secondary",
+                            )
                         for tab_id in TOP_TABS:
+                            if tab_id == "chat":
+                                continue
                             tab_btns[tab_id] = gr.Button(
                                 TAB_LABELS[tab_id],
-                                elem_classes=_tab_btn_classes("chat", tab_id),
+                                elem_classes=_tab_btn_classes("home", tab_id),
                                 variant="secondary",
                             )
 
@@ -1836,7 +2219,7 @@ def build_app() -> gr.Blocks:
                         with gr.Column(elem_classes=["quartz-terminal-col"]):
                             gr.HTML(DISPLAY_BACKING_HTML)
                             terminal = gr.Textbox(
-                                value=INITIAL_TERMINAL,
+                                value="",
                                 label="Terminal",
                                 show_label=False,
                                 interactive=False,
@@ -1846,7 +2229,7 @@ def build_app() -> gr.Blocks:
                             )
                             with gr.Row(elem_classes=["quartz-input-row"]):
                                 cmd_input = gr.Textbox(
-                                    placeholder="Type command or message...",
+                                    placeholder="Enter menu index or command...",
                                     show_label=False,
                                     max_lines=1,
                                     scale=5,
@@ -1900,10 +2283,35 @@ def build_app() -> gr.Blocks:
             terminal,
             ui_state,
             settings_panel,
-            *tab_btns.values(),
+            tab_btns["chat"],
+            tab_btns["settings"],
+            tab_btns["history"],
+            tab_btns["memory"],
+            tab_btns["tools"],
+            home_btn,
             root_col,
             torus_bridge,
         ]
+        send_outputs = [
+            terminal,
+            cmd_input,
+            ui_state,
+            torus_bridge,
+            home_btn,
+            settings_panel,
+            tab_btns["chat"],
+            tab_btns["settings"],
+            tab_btns["history"],
+            tab_btns["memory"],
+            tab_btns["tools"],
+            root_col,
+        ]
+
+        home_btn.click(
+            _handle_home_toggle,
+            inputs=[terminal, ui_state],
+            outputs=tab_outputs,
+        )
 
         tab_btns["chat"].click(
             _handle_grid_toggle,
@@ -1925,8 +2333,8 @@ def build_app() -> gr.Blocks:
                     outputs=[terminal, cmd_input, ui_state, torus_bridge],
                 )
 
-        send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
-        cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
+        send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
+        cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
 
     return demo
 
