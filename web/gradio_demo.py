@@ -325,16 +325,25 @@ def _sync_boot_state(state: dict) -> tuple:
 def _build_game_menu_ack_js() -> str:
     return """
 function() {
-    setTimeout(function() {
+    function shouldStartGame() {
         var node = document.querySelector('#quartz-torus-bridge, .quartz-torus-bridge');
-        var bridgeStart = node ? parseInt(node.getAttribute('data-game-start') || '0', 10) === 1 : false;
+        if (node && parseInt(node.getAttribute('data-game-start') || '0', 10) === 1) return true;
         var ta = document.querySelector('.quartz-terminal textarea');
-        var textStart = !!(ta && ta.value && ta.value.indexOf('SPACE INVADERS') >= 0);
-        if (!bridgeStart && !textStart) return;
+        if (!ta || !ta.value) return false;
+        return ta.value.indexOf('SPACE INVADERS') >= 0
+            || (ta.value.indexOf('Games') >= 0 && ta.value.indexOf('SELECT:') >= 0);
+    }
+    function tryStart(attempt) {
+        if (window.quartzGame && window.quartzGame.running) return;
+        if (!shouldStartGame()) return;
         if (typeof window.quartzStartPlayerGame === 'function') {
             window.quartzStartPlayerGame();
         }
-    }, 320);
+        if (attempt < 6 && !(window.quartzGame && window.quartzGame.running)) {
+            setTimeout(function() { tryStart(attempt + 1); }, 200);
+        }
+    }
+    setTimeout(function() { tryStart(0); }, 120);
 }
 """
 
@@ -1143,10 +1152,6 @@ def _quartz_games_js_block() -> str:
         stage.style.visibility = 'hidden';
     }
     function fitGameStage() {
-        if (!document.body.classList.contains('quartz-game-on')) {
-            hideInvadersStage();
-            return null;
-        }
         var stage = ensureInvadersStage();
         var tr = displayApertureRect();
         if (!stage || !tr) return null;
@@ -1156,9 +1161,6 @@ def _quartz_games_js_block() -> str:
         stage.style.width = Math.round(tr.width) + 'px';
         stage.style.height = Math.round(tr.height) + 'px';
         stage.style.zIndex = '100001';
-        stage.style.display = 'block';
-        stage.style.pointerEvents = 'auto';
-        stage.style.visibility = 'visible';
         return stage;
     }
     function resizeCanvas(g) {
@@ -1600,8 +1602,20 @@ def _quartz_games_js_block() -> str:
     window.quartzTerminalReady = function() {
         return !!terminalDisplayRect();
     };
+    function abortGameAttempt() {
+        var g = window.quartzGame;
+        if (!g) return;
+        g.running = false;
+        if (g.loopId) clearInterval(g.loopId);
+        if (g.keyDown) document.removeEventListener('keydown', g.keyDown, true);
+        if (g.keyUp) document.removeEventListener('keyup', g.keyUp, true);
+        if (g.resizeHandler) window.removeEventListener('resize', g.resizeHandler);
+        deactivateGameOverlay(g);
+        window.quartzGame = null;
+    }
     window.quartzStartPlayerGame = function() {
-        if (window.quartzGame && window.quartzGame.running) return;
+        if (window.quartzGame && window.quartzGame.running && window.quartzGame.overlayReady) return;
+        if (window.quartzGame) abortGameAttempt();
         window.quartzStartSpaceInvaders({ attract: false });
     };
     window.quartzBeginPlayerMode = window.quartzStartPlayerGame;
@@ -1616,9 +1630,7 @@ def _quartz_games_js_block() -> str:
         window.quartzGame = g;
         bootGameSurface(g, 0, function(ok) {
             if (ok || !g.running) return;
-            g.running = false;
-            window.quartzGame = null;
-            deactivateGameOverlay(g);
+            abortGameAttempt();
         });
         g.keyDown = function(e) {
             if (!g.running) return;
@@ -2370,6 +2382,7 @@ _QUARTZ_HEAD_TEMPLATE = """
     setInterval(watchStartupReplay, 200);
     var quartzLastGameNudge = -1;
     function watchGameStart() {
+        if (window.quartzGame && window.quartzGame.running && window.quartzGame.overlayReady) return;
         var node = document.querySelector('#quartz-torus-bridge, .quartz-torus-bridge');
         if (!node) return;
         var start = parseInt(node.getAttribute('data-game-start') || '0', 10);
@@ -2381,7 +2394,7 @@ _QUARTZ_HEAD_TEMPLATE = """
             if (typeof window.quartzStartPlayerGame === 'function') {
                 window.quartzStartPlayerGame();
             }
-        }, 100);
+        }, 80);
     }
     setInterval(watchGameStart, 200);
     whenBodyReady(function() {
