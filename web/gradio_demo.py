@@ -860,7 +860,41 @@ html, body { background-color: #0a0818 !important; }
         var root = document.documentElement;
         root.style.setProperty('--vqc-vh', h + 'px');
         root.style.setProperty('--vqc-vw', w + 'px');
-        root.style.setProperty('--vqc-chrome', '340px');
+        document.documentElement.style.height = h + 'px';
+        document.documentElement.style.maxHeight = h + 'px';
+        document.body.style.height = h + 'px';
+        document.body.style.maxHeight = h + 'px';
+        document.body.style.overflow = 'hidden';
+        var gc = document.querySelector('.gradio-container');
+        if (gc) {
+            gc.style.height = h + 'px';
+            gc.style.maxHeight = h + 'px';
+            gc.style.overflow = 'hidden';
+        }
+        var chrome = 0;
+        var hud = document.querySelector('.vqc-hud-display');
+        [
+            '.vqc-cockpit-title',
+            '.vqc-hud-bar',
+            '.vqc-demo-links',
+            '.vqc-cockpit-tools',
+            '.vqc-cockpit-keypad',
+        ].forEach(function(sel) {
+            var el = document.querySelector(sel);
+            if (el) chrome += el.offsetHeight;
+        });
+        chrome += 28;
+        if (chrome < 220) chrome = Math.floor(h * 0.44);
+        if (chrome > h * 0.68) chrome = Math.floor(h * 0.68);
+        root.style.setProperty('--vqc-chrome', chrome + 'px');
+        if (hud) {
+            var termH = Math.max(100, h - chrome);
+            var ta = hud.querySelector('textarea');
+            if (ta) {
+                ta.style.height = termH + 'px';
+                ta.style.maxHeight = termH + 'px';
+            }
+        }
     }
     applyViewportFit();
     window.addEventListener('resize', applyViewportFit);
@@ -870,8 +904,16 @@ html, body { background-color: #0a0818 !important; }
     }
     document.addEventListener('DOMContentLoaded', applyViewportFit);
     window.addEventListener('load', applyViewportFit);
-    setTimeout(applyViewportFit, 250);
-    setTimeout(applyViewportFit, 1000);
+    setTimeout(applyViewportFit, 120);
+    setTimeout(applyViewportFit, 450);
+    setTimeout(applyViewportFit, 1200);
+    if (window.MutationObserver) {
+        var mo = new MutationObserver(function() { applyViewportFit(); });
+        document.addEventListener('DOMContentLoaded', function() {
+            var cockpit = document.querySelector('.vqc-cockpit');
+            if (cockpit) mo.observe(cockpit, { childList: true, subtree: true, attributes: true });
+        });
+    }
 })();
 </script>
 """
@@ -902,7 +944,9 @@ body {{
     background-color: transparent !important;
     color: #e8e0f8 !important;
     width: 100% !important;
-    overflow-x: hidden !important;
+    height: var(--vqc-vh, 100dvh) !important;
+    max-height: var(--vqc-vh, 100dvh) !important;
+    overflow: hidden !important;
     margin: 0 !important;
 }}
 #root, .app {{
@@ -914,25 +958,39 @@ body {{
     position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: var(--vqc-vh, 100dvh) !important;
+    max-height: var(--vqc-vh, 100dvh) !important;
     padding: 0 !important;
     margin: 0 !important;
     background: #0a0818 !important;
     background-color: #0a0818 !important;
+    overflow: hidden !important;
     box-sizing: border-box !important;
+}}
+.gradio-container .main,
+.gradio-container .wrap,
+.gradio-container .contain {{
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }}
 .gradio-container .vqc-fullscreen-shell {{
     width: 100% !important;
     max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    min-height: var(--vqc-vh, 100dvh) !important;
+    overflow: hidden !important;
 }}
 .gradio-container .vqc-cockpit,
 .gradio-container .vqc-cockpit > fieldset {{
     position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-height: var(--vqc-vh, 100dvh) !important;
+    height: var(--vqc-vh, 100dvh) !important;
+    max-height: var(--vqc-vh, 100dvh) !important;
     margin: 0 !important;
     padding: 0 !important;
     display: flex !important;
@@ -941,6 +999,8 @@ body {{
     border: 1px solid rgba(51, 255, 102, 0.42) !important;
     box-shadow: inset 0 0 24px rgba(51, 255, 102, 0.06) !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
 }}
 .gradio-container .vqc-cockpit > .block,
 .gradio-container .vqc-cockpit .block {{
@@ -1026,8 +1086,18 @@ body {{
 .gradio-container .vqc-hud-display {{
     flex: 1 1 auto !important;
     width: 100% !important;
+    min-height: 0 !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 420px)) !important;
     padding: 0.25rem 0.45rem !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
+}}
+.gradio-container .vqc-hud-display > .block,
+.gradio-container .vqc-hud-display > .form {{
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }}
 .gradio-container .vqc-cockpit-tools {{
     flex-shrink: 0 !important;
@@ -1584,9 +1654,9 @@ footer {{
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-terminal textarea,
 .gradio-container .vqc-hud-display .vqc-optics-terminal textarea {{
-    height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 340px)) !important;
-    min-height: 160px !important;
-    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 340px)) !important;
+    height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 420px)) !important;
+    min-height: 0 !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 420px)) !important;
     white-space: pre !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -2143,7 +2213,7 @@ def build_app() -> gr.Blocks:
                     optics_terminal = gr.Textbox(
                         label="HUD",
                         value="",
-                        lines=10,
+                        lines=1,
                         max_lines=80,
                         show_label=False,
                         interactive=False,
