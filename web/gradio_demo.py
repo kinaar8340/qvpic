@@ -1850,7 +1850,7 @@ def run_benchmark_terminal(
     max_facts: float,
     include_lattice: bool,
     progress: gr.Progress = gr.Progress(track_tqdm=False),
-) -> tuple[str, gr.Update]:
+) -> tuple[str, dict]:
     metrics, lattice = run_benchmark(
         bake_steps,
         bandwidth,
@@ -1875,7 +1875,7 @@ def run_query_terminal(
     use_vqc: bool,
     max_facts: float,
     progress: gr.Progress = gr.Progress(track_tqdm=False),
-) -> tuple[str, gr.Update]:
+) -> tuple[str, dict]:
     result = run_query(
         query_text,
         bake_steps,
