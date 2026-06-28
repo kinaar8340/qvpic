@@ -810,14 +810,27 @@ html, body { background-color: #0a0818 !important; }
     function applyViewportFit() {
         var h = window.innerHeight || document.documentElement.clientHeight || 0;
         var w = window.innerWidth || document.documentElement.clientWidth || 0;
+        if (window.visualViewport && window.visualViewport.height > 0) {
+            h = window.visualViewport.height;
+        }
+        try {
+            if (window.frameElement && window.frameElement.clientHeight > 0) {
+                h = Math.min(h, window.frameElement.clientHeight);
+            }
+        } catch (e) {}
         if (h < 1) return;
         var root = document.documentElement;
         root.style.setProperty('--vqc-vh', h + 'px');
         root.style.setProperty('--vqc-vw', w + 'px');
         root.style.setProperty('--vqc-vh-num', String(h));
-        document.body.style.height = h + 'px';
-        document.body.style.maxHeight = h + 'px';
-        document.body.style.overflow = 'hidden';
+        var targets = [document.documentElement, document.body];
+        var gc = document.querySelector('.gradio-container');
+        if (gc) targets.push(gc);
+        targets.forEach(function(el) {
+            el.style.height = h + 'px';
+            el.style.maxHeight = h + 'px';
+            el.style.overflow = 'hidden';
+        });
     }
     applyViewportFit();
     window.addEventListener('resize', applyViewportFit);
@@ -923,18 +936,32 @@ body {{
     padding: 0 !important;
 }}
 .gradio-container .vqc-terminal-stage {{
-    flex: 1 1 auto !important;
+    flex: 1 1 58% !important;
     display: flex !important;
     flex-direction: column !important;
-    min-height: 0 !important;
+    min-height: clamp(180px, 46vh, 520px) !important;
     width: 100% !important;
+    overflow: hidden !important;
 }}
 .gradio-container .vqc-terminal-stage > .block,
-.gradio-container .vqc-terminal-stage > .form {{
+.gradio-container .vqc-terminal-stage > .form,
+.gradio-container .vqc-terminal-stage > .column {{
     flex: 1 1 auto !important;
     display: flex !important;
     flex-direction: column !important;
     min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+}}
+.gradio-container .vqc-terminal-stage .vqc-optics-terminal,
+.gradio-container .vqc-terminal-stage .vqc-optics-terminal > .form,
+.gradio-container .vqc-terminal-stage .vqc-optics-terminal .wrap,
+.gradio-container .vqc-terminal-stage .vqc-optics-terminal-wrap {{
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
 }}
 .gradio-container .vqc-lattice-compact {{
     flex: 0 0 auto !important;
@@ -952,10 +979,50 @@ body {{
     min-height: 0 !important;
     overflow: hidden !important;
 }}
+.gradio-container .vqc-tune-accordion {{
+    flex: 0 0 auto !important;
+    margin: 0.15rem 0 0.2rem 0 !important;
+}}
+.gradio-container .vqc-tune-accordion > .label-wrap {{
+    padding: 0.15rem 0.35rem !important;
+    min-height: 0 !important;
+}}
+.gradio-container .vqc-tune-accordion summary,
+.gradio-container .vqc-tune-accordion .label-wrap span {{
+    font-size: clamp(0.62rem, 1.35vh, 0.72rem) !important;
+    letter-spacing: 0.08em !important;
+}}
+.gradio-container .vqc-tune-accordion .form {{
+    padding: 0.2rem 0.25rem 0.15rem !important;
+}}
 .gradio-container .vqc-action-row {{
-    gap: 0.45rem !important;
-    margin: 0.2rem 0 0.25rem 0 !important;
+    gap: 0.35rem !important;
+    margin: 0.15rem 0 0.2rem 0 !important;
     flex-shrink: 0 !important;
+    align-items: stretch !important;
+}}
+.gradio-container .vqc-action-row button {{
+    min-height: clamp(1.45rem, 3.2vh, 1.9rem) !important;
+    max-height: clamp(1.45rem, 3.2vh, 1.9rem) !important;
+    font-size: clamp(0.68rem, 1.45vh, 0.82rem) !important;
+    padding: 0.15rem 0.35rem !important;
+}}
+.gradio-container .vqc-query-inline .wrap input {{
+    min-height: clamp(1.45rem, 3.2vh, 1.9rem) !important;
+    font-size: clamp(0.62rem, 1.3vh, 0.72rem) !important;
+    padding: 0.2rem 0.35rem !important;
+}}
+.gradio-container .vqc-check-row {{
+    gap: 0.35rem !important;
+    margin: 0 0 0.15rem 0 !important;
+    flex-shrink: 0 !important;
+}}
+.gradio-container .vqc-check-row label span {{
+    font-size: clamp(0.58rem, 1.2vh, 0.68rem) !important;
+}}
+.gradio-container .vqc-check-row .info {{
+    font-size: clamp(0.52rem, 1.05vh, 0.6rem) !important;
+    display: none !important;
 }}
 footer {{
     background: transparent !important;
@@ -1377,17 +1444,20 @@ footer {{
     font-weight: 700 !important;
 }}
 .gradio-container .vqc-optics-panel-title {{
-    font-size: 1.15rem !important;
-    letter-spacing: 0.12em !important;
+    font-size: clamp(0.78rem, 2vh, 1rem) !important;
+    letter-spacing: 0.1em !important;
     color: #f5e6c8 !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
     text-shadow: 0 0 10px rgba(255, 180, 80, 0.35) !important;
 }}
 .gradio-container .vqc-optics-subtitle {{
-    font-size: 0.68rem !important;
-    letter-spacing: 0.22em !important;
+    font-size: clamp(0.52rem, 1.15vh, 0.62rem) !important;
+    letter-spacing: 0.14em !important;
     color: #9a8458 !important;
+}}
+.gradio-container .vqc-optics-panel .vqc-optics-terminal .label-wrap {{
+    display: none !important;
 }}
 .gradio-container .vqc-optics-terminal-caption {{
     font-size: 0.58rem !important;
@@ -1533,12 +1603,14 @@ footer {{
 .gradio-container .vqc-optics-keypad {{
     background: linear-gradient(180deg, #16120c 0%, #0a0806 100%) !important;
     border: 2px inset #3d3020 !important;
-    border-radius: 10px !important;
-    padding: 0.28rem 0.3rem 0.32rem !important;
+    border-radius: 8px !important;
+    padding: 0.18rem 0.22rem 0.2rem !important;
     margin: 0 !important;
     box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.55) !important;
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
+    max-height: clamp(108px, 21vh, 168px) !important;
+    overflow: hidden !important;
 }}
 .gradio-container .vqc-optics-keypad > .block,
 .gradio-container .vqc-optics-keypad .block {{
@@ -1554,15 +1626,15 @@ footer {{
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-dpad-row,
 .gradio-container .vqc-optics-panel .vqc-optics-prog-row {{
-    gap: 0.2rem !important;
-    margin: 0 0 0.2rem 0 !important;
+    gap: 0.12rem !important;
+    margin: 0 0 0.1rem 0 !important;
     justify-content: stretch !important;
     width: 100% !important;
 }}
 .gradio-container .vqc-optics-keypad button.vqc-optics-key,
 .gradio-container .vqc-optics-keypad button.vqc-optics-key span {{
     font-family: "Courier New", Courier, monospace !important;
-    font-size: clamp(0.95rem, 2.2vh, 1.35rem) !important;
+    font-size: clamp(0.72rem, 1.65vh, 0.95rem) !important;
     font-weight: 700 !important;
     line-height: 1.1 !important;
 }}
@@ -1570,9 +1642,9 @@ footer {{
     flex: 1 1 0 !important;
     min-width: 0 !important;
     max-width: none !important;
-    min-height: clamp(1.75rem, 4.8vh, 2.55rem) !important;
-    height: clamp(1.75rem, 4.8vh, 2.55rem) !important;
-    max-height: clamp(1.75rem, 4.8vh, 2.55rem) !important;
+    min-height: clamp(1.25rem, 2.9vh, 1.65rem) !important;
+    height: clamp(1.25rem, 2.9vh, 1.65rem) !important;
+    max-height: clamp(1.25rem, 2.9vh, 1.65rem) !important;
     aspect-ratio: auto !important;
     background: #000000 !important;
     border: none !important;
@@ -1717,9 +1789,30 @@ footer {{
     margin: 0 !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-tune-row {{
-    gap: 0.45rem !important;
-    margin-bottom: 0.25rem !important;
+    gap: 0.3rem !important;
+    margin-bottom: 0.15rem !important;
     flex-shrink: 0 !important;
+}}
+.gradio-container .vqc-optics-panel .vqc-optics-tune-row .label-wrap span {{
+    font-size: clamp(0.52rem, 1.1vh, 0.62rem) !important;
+}}
+.gradio-container .vqc-optics-panel .vqc-optics-tune-row input[type="range"] {{
+    height: 4px !important;
+}}
+.gradio-container .vqc-optics-panel .vqc-optics-tune-row input[type="number"] {{
+    min-height: 1.2rem !important;
+    font-size: 0.62rem !important;
+    padding: 0.05rem !important;
+}}
+.gradio-container .vqc-fullscreen-shell .gap,
+.gradio-container .vqc-optics-panel .gap,
+.gradio-container .vqc-terminal-stage .gap,
+.gradio-container .vqc-controls-stack .gap,
+.gradio-container .vqc-optics-keypad .gap {{
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-dial-row {{
     gap: 0.65rem !important;
@@ -1968,10 +2061,11 @@ def build_app() -> gr.Blocks:
                         gr.HTML(DEMO_LINKS_HTML)
                 with gr.Column(elem_classes=["vqc-terminal-stage"]):
                     optics_terminal = gr.Textbox(
-                        label="Demo terminal — keypad teaches · results appear here",
+                        label="Demo terminal",
                         value="",
-                        lines=1,
+                        lines=12,
                         max_lines=80,
+                        show_label=False,
                         interactive=False,
                         elem_classes=["vqc-optics-terminal-wrap", "vqc-optics-terminal"],
                     )
@@ -2003,56 +2097,59 @@ def build_app() -> gr.Blocks:
                     with gr.Row(elem_classes=["vqc-action-row"]):
                         benchmark_btn = gr.Button("Run benchmark", variant="primary", scale=1)
                         query_btn = gr.Button("Run query recall", variant="secondary", scale=1)
-                    with gr.Row(elem_classes=["vqc-optics-tune-row"]):
-                        bake_steps = gr.Slider(
-                            10,
-                            150,
-                            value=_DEFAULTS["bake_steps"],
-                            step=5,
-                            label="Bake steps / fact",
-                            elem_classes=["vqc-optics-dial-wrap"],
-                        )
-                        bandwidth = gr.Slider(
-                            0.1,
-                            1.0,
-                            value=_DEFAULTS["bandwidth"],
-                            step=0.05,
-                            label="Read bandwidth",
-                            elem_classes=["vqc-optics-dial-wrap"],
-                        )
-                        drift_samples = gr.Slider(
-                            10,
-                            80,
-                            value=_DEFAULTS["drift_samples"],
-                            step=5,
-                            label="Drift samples",
-                            elem_classes=["vqc-optics-dial-wrap"],
-                        )
-                        max_facts = gr.Slider(
-                            3,
-                            12,
-                            value=_DEFAULTS["max_facts"],
-                            step=1,
-                            label="Max demo facts",
-                            elem_classes=["vqc-optics-dial-wrap"],
-                        )
-                    with gr.Row(elem_classes=["vqc-optics-tune-row"]):
                         query_text = gr.Textbox(
-                            label="Query recall text",
+                            label="Query",
                             value=_DEFAULTS["query_text"],
-                            elem_classes=["vqc-optics-dial-wrap"],
+                            show_label=False,
+                            max_lines=1,
+                            scale=3,
+                            elem_classes=["vqc-query-inline"],
                         )
+                    with gr.Row(elem_classes=["vqc-check-row"]):
                         use_vqc = gr.Checkbox(
-                            label="VQCEnhanced conduit (experimental)",
+                            label="VQCEnhanced",
                             value=_DEFAULTS["use_vqc"],
-                            elem_classes=["vqc-optics-dial-wrap"],
+                            scale=1,
                         )
                         include_lattice = gr.Checkbox(
-                            label="Include braided lattice PNG",
+                            label="Lattice PNG",
                             value=True,
-                            info=lattice_info,
-                            elem_classes=["vqc-optics-dial-wrap"],
+                            scale=1,
                         )
+                    with gr.Accordion("Tune dials (optional)", open=False, elem_classes=["vqc-tune-accordion"]):
+                        with gr.Row(elem_classes=["vqc-optics-tune-row"]):
+                            bake_steps = gr.Slider(
+                                10,
+                                150,
+                                value=_DEFAULTS["bake_steps"],
+                                step=5,
+                                label="Bake steps",
+                                elem_classes=["vqc-optics-dial-wrap"],
+                            )
+                            bandwidth = gr.Slider(
+                                0.1,
+                                1.0,
+                                value=_DEFAULTS["bandwidth"],
+                                step=0.05,
+                                label="Bandwidth",
+                                elem_classes=["vqc-optics-dial-wrap"],
+                            )
+                            drift_samples = gr.Slider(
+                                10,
+                                80,
+                                value=_DEFAULTS["drift_samples"],
+                                step=5,
+                                label="Drift samples",
+                                elem_classes=["vqc-optics-dial-wrap"],
+                            )
+                            max_facts = gr.Slider(
+                                3,
+                                12,
+                                value=_DEFAULTS["max_facts"],
+                                step=1,
+                                label="Max facts",
+                                elem_classes=["vqc-optics-dial-wrap"],
+                            )
 
                 with gr.Column(elem_classes=["vqc-optics-keypad"]):
                     with gr.Row(elem_classes=["vqc-optics-dpad-row"], equal_height=True):
