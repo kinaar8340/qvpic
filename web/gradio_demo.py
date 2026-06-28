@@ -464,12 +464,47 @@ QUARTZ_HEAD = """
     function torusMountRoot() {
         return document.body || null;
     }
+    var quartzResizeTimer = null;
+    function debouncedFitPanel() {
+        if (quartzResizeTimer) clearTimeout(quartzResizeTimer);
+        quartzResizeTimer = setTimeout(fitPanel, 80);
+    }
+    function clampViewport() {
+        var vw = window.innerWidth || document.documentElement.clientWidth || 0;
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (vw < 1) return;
+        document.documentElement.style.setProperty('--quartz-vw', vw + 'px');
+        if (document.body) {
+            document.body.style.maxWidth = vw + 'px';
+            document.body.style.overflowX = 'hidden';
+            document.body.style.overflowY = 'hidden';
+        }
+        var gc = document.querySelector('.gradio-container');
+        if (gc) {
+            gc.style.maxWidth = vw + 'px';
+            gc.style.width = '100%';
+            gc.style.overflowX = 'hidden';
+            if (vh > 0) gc.style.height = vh + 'px';
+            gc.style.overflowY = 'hidden';
+        }
+        ['.quartz-root', '.quartz-panel', '.quartz-content'].forEach(function(sel) {
+            var el = document.querySelector(sel);
+            if (!el) return;
+            el.style.maxWidth = '100%';
+            el.style.overflowX = 'hidden';
+        });
+    }
+    function terminalOutputRect() {
+        var ta = document.querySelector('.quartz-terminal textarea');
+        return ta ? ta.getBoundingClientRect() : null;
+    }
     function fitPanel() {
         var h = window.innerHeight || document.documentElement.clientHeight || 0;
         if (window.visualViewport && window.visualViewport.height > 0) {
             h = window.visualViewport.height;
         }
         if (h < 1) return;
+        clampViewport();
         document.documentElement.style.setProperty('--quartz-vh', h + 'px');
         if (document.body) document.body.style.overflow = 'hidden';
         var gc = document.querySelector('.gradio-container');
@@ -546,12 +581,12 @@ QUARTZ_HEAD = """
         var w = mount.clientWidth;
         var h = mount.clientHeight;
         if (w < 40 || h < 40) return;
-        var pad = Math.max(5, Math.round(Math.min(w, h) * 0.035));
-        var halfLeft = w * 0.5;
-        var halfW = w * 0.5 - pad;
-        var availH = h - pad * 2;
-        var size = Math.floor(Math.min(halfW, availH) * 0.78);
-        var originX = halfLeft + halfW * 0.5;
+        var pad = Math.max(6, Math.round(Math.min(w, h) * 0.045));
+        var rightX0 = w * 0.5 + pad * 0.5;
+        var rightW = Math.max(20, w * 0.5 - pad * 1.5);
+        var availH = Math.max(20, h - pad * 2);
+        var size = Math.floor(Math.min(rightW, availH) * 0.82);
+        var originX = rightX0 + rightW * 0.5;
         var originY = h * 0.5;
         frame.style.position = 'absolute';
         frame.style.left = Math.round(originX - size * 0.5) + 'px';
@@ -573,25 +608,21 @@ QUARTZ_HEAD = """
     }
     function fitTorusMount() {
         var mount = document.querySelector('.quartz-torus-stage');
-        var bay = document.querySelector('.quartz-display-bay');
-        var ta = document.querySelector('.quartz-terminal textarea');
-        if (!mount || !ta) {
+        var tr = terminalOutputRect();
+        if (!mount || !tr) {
             if (mount) mount.style.display = 'none';
             return;
         }
-        var panel = bay || ta;
-        var pr = panel.getBoundingClientRect();
-        var tr = ta.getBoundingClientRect();
-        if (pr.width < 40 || tr.height < 40) {
+        if (tr.width < 40 || tr.height < 40) {
             mount.style.display = 'none';
             return;
         }
         mount.style.display = 'block';
         mount.style.position = 'fixed';
-        mount.style.top = tr.top + 'px';
-        mount.style.left = pr.left + 'px';
-        mount.style.width = pr.width + 'px';
-        mount.style.height = tr.height + 'px';
+        mount.style.top = Math.round(tr.top) + 'px';
+        mount.style.left = Math.round(tr.left) + 'px';
+        mount.style.width = Math.round(tr.width) + 'px';
+        mount.style.height = Math.round(tr.height) + 'px';
         mount.style.zIndex = '99999';
         mount.style.overflow = 'hidden';
         fitTorusFrame();
@@ -798,7 +829,10 @@ QUARTZ_HEAD = """
         bootQuartzTorus();
         fitPanel();
     });
-    window.addEventListener('resize', fitPanel);
+    window.addEventListener('resize', debouncedFitPanel);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', debouncedFitPanel);
+    }
     document.addEventListener('DOMContentLoaded', fitPanel);
     setTimeout(function() { whenBodyReady(fitPanel); }, 200);
     setTimeout(function() { whenBodyReady(fitPanel); }, 800);
@@ -837,7 +871,7 @@ QUARTZ_CSS = f"""
     --quartz-btn-bot: #181b20;
     --quartz-border: #121418;
     --quartz-border-hi: #3a3f47;
-    --quartz-inset: 0.2in;
+    --quartz-inset: clamp(0.25rem, 2vw, 0.2in);
     --quartz-grid-line: rgba(90, 96, 104, 0.55);
     --quartz-skin-case-top: #2e333b;
     --quartz-skin-case-mid: #1e2228;
@@ -853,23 +887,35 @@ QUARTZ_CSS = f"""
 }}
 html, body {{
     background: #000000 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
     height: var(--quartz-vh, 100dvh) !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
     margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
 }}
 .gradio-container {{
-    max-width: 100% !important;
+    width: 100% !important;
+    max-width: 100vw !important;
     height: var(--quartz-vh, 100dvh) !important;
     padding: 0.35rem 0.5rem !important;
     background: #000000 !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
     position: relative !important;
+    box-sizing: border-box !important;
 }}
 .gradio-container .quartz-root {{
     position: relative !important;
     z-index: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
     max-height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
 }}
 .gradio-container .quartz-grid-layer {{
     position: fixed !important;
@@ -911,7 +957,11 @@ html, body {{
     max-height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    box-sizing: border-box !important;
 }}
 .gradio-container .quartz-panel > .block.quartz-content-wrap,
 .gradio-container .quartz-panel > .block:not(.quartz-skin-mount),
@@ -928,7 +978,7 @@ html, body {{
     margin: 0 !important;
     background: transparent !important;
     border: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
 }}
 .gradio-container .quartz-skin-mount > .block,
 .gradio-container .quartz-skin-mount > .form {{
@@ -1090,8 +1140,9 @@ html, body {{
 .gradio-container .quartz-display-bay {{
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    min-width: 0 !important;
+    width: calc(100% - 2 * var(--quartz-inset)) !important;
+    max-width: calc(100% - 2 * var(--quartz-inset)) !important;
     margin: var(--quartz-inset) !important;
     box-sizing: border-box !important;
     display: flex !important;
@@ -1128,7 +1179,10 @@ html, body {{
     border-radius: 2px !important;
     padding: 0.22rem 0.26rem 0.18rem !important;
     box-shadow: none !important;
-    margin: 0.3rem !important;
+    margin: 0.2rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
     overflow-x: hidden !important;
     overflow-y: visible !important;
 }}
@@ -1151,8 +1205,12 @@ html, body {{
 .gradio-container .quartz-terminal {{
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
     overflow: hidden !important;
+    box-sizing: border-box !important;
 }}
 .gradio-container .quartz-terminal > .block,
 .gradio-container .quartz-terminal > div,
@@ -1203,6 +1261,7 @@ html, body {{
 .gradio-container .quartz-terminal textarea {{
     position: relative !important;
     z-index: 1 !important;
+    width: 100% !important;
     padding-right: 50% !important;
     background: var(--quartz-display) !important;
     background-color: var(--quartz-display) !important;
