@@ -520,10 +520,11 @@ QUARTZ_HEAD = """
         var frame = stage.querySelector('.quartz-torus-frame');
         if (frame) {
             frame.style.position = 'absolute';
-            frame.style.top = '4%';
-            frame.style.right = '2%';
-            frame.style.width = '46%';
-            frame.style.height = '92%';
+            frame.style.top = '50%';
+            frame.style.right = '5%';
+            frame.style.width = '34%';
+            frame.style.height = '62%';
+            frame.style.transform = 'translateY(-50%)';
             frame.style.display = 'flex';
             frame.style.alignItems = 'center';
             frame.style.justifyContent = 'center';
@@ -632,7 +633,7 @@ QUARTZ_HEAD = """
         var vSeg = 18;
         var cx = 110;
         var cy = 110;
-        var scale = 78;
+        var scale = 58;
 
         function rotatePoint(x, y, z) {
             var cx1 = Math.cos(state.rotX), sx1 = Math.sin(state.rotX);
@@ -1088,10 +1089,11 @@ html, body {{
 }}
 .quartz-torus-stage .quartz-torus-frame {{
     position: absolute !important;
-    top: 4% !important;
-    right: 2% !important;
-    width: 46% !important;
-    height: 92% !important;
+    top: 50% !important;
+    right: 5% !important;
+    width: 34% !important;
+    height: 62% !important;
+    transform: translateY(-50%) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -1121,7 +1123,7 @@ html, body {{
 .gradio-container .quartz-terminal textarea {{
     position: relative !important;
     z-index: 1 !important;
-    padding-right: 48% !important;
+    padding-right: 36% !important;
     background: var(--quartz-display) !important;
     background-color: var(--quartz-display) !important;
     color: var(--quartz-phosphor) !important;
