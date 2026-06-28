@@ -326,7 +326,7 @@ async () => {
             if (typeof window.quartzTryStartAttractMode === 'function') {
                 window.quartzTryStartAttractMode();
             }
-        }, 500);
+        }, 1200);
         return window.QUARTZ_HOME_MENU_TEXT;
     }
     await window.quartzRunStartupSequence(ta, { postDelay: 0, persistBoot: true });
@@ -335,7 +335,7 @@ async () => {
         if (typeof window.quartzTryStartAttractMode === 'function') {
             window.quartzTryStartAttractMode();
         }
-    }, 500);
+    }, 1200);
     return window.QUARTZ_HOME_MENU_TEXT;
 }
 """
@@ -1072,34 +1072,89 @@ def _quartz_games_js_block() -> str:
     function spriteFrames(type) {
         return SPRITES[type].map(spriteRows);
     }
+    function terminalDisplayRect() {
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (!ta) return null;
+        var tr = ta.getBoundingClientRect();
+        if (tr.width < 40 || tr.height < 40) return null;
+        return tr;
+    }
     function fitGameStage() {
         var stage = document.querySelector('.quartz-invaders-stage');
-        var ta = document.querySelector('.quartz-terminal textarea');
-        var col = document.querySelector('.quartz-terminal-col');
-        if (!stage || !ta || !col) return null;
-        var cr = col.getBoundingClientRect();
-        var tr = ta.getBoundingClientRect();
-        stage.style.top = (tr.top - cr.top) + 'px';
-        stage.style.left = (tr.left - cr.left) + 'px';
-        stage.style.width = tr.width + 'px';
-        stage.style.height = tr.height + 'px';
+        var tr = terminalDisplayRect();
+        if (!stage || !tr) return null;
+        stage.style.position = 'fixed';
+        stage.style.top = Math.round(tr.top) + 'px';
+        stage.style.left = Math.round(tr.left) + 'px';
+        stage.style.width = Math.round(tr.width) + 'px';
+        stage.style.height = Math.round(tr.height) + 'px';
+        stage.style.zIndex = '100001';
         return stage;
     }
     function resizeCanvas(g) {
         var stage = fitGameStage();
-        if (!stage) return;
+        if (!stage) return false;
         var canvas = stage.querySelector('.quartz-invaders-canvas');
-        if (!canvas) return;
+        if (!canvas) return false;
         var rect = stage.getBoundingClientRect();
         var w = Math.max(1, Math.floor(rect.width));
         var h = Math.max(1, Math.floor(rect.height));
+        if (w < 80 || h < 80) return false;
         canvas.width = w;
         canvas.height = h;
         g.width = w;
         g.height = h;
         g.scale = Math.max(2, Math.floor(Math.min(w / 56, h / 64)));
         g.ctx = canvas.getContext('2d');
+        if (!g.ctx) return false;
         g.ctx.imageSmoothingEnabled = false;
+        return true;
+    }
+    function activateGameOverlay(g) {
+        document.body.classList.add('quartz-game-on');
+        var torus = document.querySelector('.quartz-torus-stage');
+        if (torus) torus.style.display = 'none';
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (ta) ta.classList.add('quartz-game-active');
+        g.overlayReady = true;
+    }
+    function deactivateGameOverlay(g) {
+        if (g && g.overlayReady) {
+            document.body.classList.remove('quartz-game-on');
+            var ta = document.querySelector('.quartz-terminal textarea');
+            if (ta) ta.classList.remove('quartz-game-active');
+        }
+        var stage = document.querySelector('.quartz-invaders-stage');
+        if (stage) {
+            stage.style.position = '';
+            stage.style.top = '';
+            stage.style.left = '';
+            stage.style.width = '';
+            stage.style.height = '';
+            stage.style.zIndex = '';
+        }
+    }
+    function bootGameSurface(g, attempt, done) {
+        attempt = attempt || 0;
+        if (!g.running) return;
+        if (typeof fitPanel === 'function') fitPanel();
+        var sized = resizeCanvas(g);
+        if (sized) {
+            renderGame(g);
+            activateGameOverlay(g);
+            if (!g.loopId) {
+                g.loopId = setInterval(function() { tickGame(g); }, 33);
+            }
+            if (done) done(true);
+            return;
+        }
+        if (attempt >= 30) {
+            if (done) done(false);
+            return;
+        }
+        setTimeout(function() {
+            bootGameSurface(g, attempt + 1, done);
+        }, attempt < 8 ? 80 : 160);
     }
     function makeBunker(x, y, scale) {
         var pattern = [
@@ -1451,9 +1506,13 @@ def _quartz_games_js_block() -> str:
         renderGame(g);
     }
     window.quartzFitGameStage = fitGameStage;
+    window.quartzTerminalReady = function() {
+        return !!terminalDisplayRect();
+    };
     window.quartzTryStartAttractMode = function() {
         if (window.quartzAttractStarted) return;
         if (window.quartzGame && window.quartzGame.running) return;
+        if (!terminalDisplayRect()) return;
         window.quartzAttractStarted = true;
         window.quartzStartSpaceInvaders({ attract: true });
     };
@@ -1464,15 +1523,16 @@ def _quartz_games_js_block() -> str:
         if (typeof fitPanel === 'function') fitPanel();
         var cmd = document.querySelector('.quartz-cmd-input textarea');
         if (cmd) cmd.blur();
-        document.body.classList.add('quartz-game-on');
-        var torus = document.querySelector('.quartz-torus-stage');
-        if (torus) torus.style.display = 'none';
-        var ta = document.querySelector('.quartz-terminal textarea');
-        if (ta) ta.classList.add('quartz-game-active');
         var g = initGameState(opts);
+        g.overlayReady = false;
         window.quartzGame = g;
-        resizeCanvas(g);
-        renderGame(g);
+        bootGameSurface(g, 0, function(ok) {
+            if (ok || !g.running) return;
+            g.running = false;
+            window.quartzGame = null;
+            deactivateGameOverlay(g);
+            if (opts.attract) window.quartzAttractStarted = false;
+        });
         g.keyDown = function(e) {
             if (!g.running) return;
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Escape') {
@@ -1497,20 +1557,12 @@ def _quartz_games_js_block() -> str:
         };
         document.addEventListener('keydown', g.keyDown, true);
         document.addEventListener('keyup', g.keyUp, true);
-        g.loopId = setInterval(function() { tickGame(g); }, 33);
         g.resizeHandler = function() {
-            if (!g.running) return;
+            if (!g.running || !g.overlayReady) return;
             if (typeof fitPanel === 'function') fitPanel();
-            resizeCanvas(g);
-            renderGame(g);
+            if (resizeCanvas(g)) renderGame(g);
         };
         window.addEventListener('resize', g.resizeHandler);
-        requestAnimationFrame(function() {
-            if (!g.running) return;
-            if (typeof fitPanel === 'function') fitPanel();
-            resizeCanvas(g);
-            renderGame(g);
-        });
     };
     window.quartzStopSpaceInvaders = function() {
         var g = window.quartzGame;
@@ -1521,15 +1573,14 @@ def _quartz_games_js_block() -> str:
         document.removeEventListener('keydown', g.keyDown, true);
         document.removeEventListener('keyup', g.keyUp, true);
         if (g.resizeHandler) window.removeEventListener('resize', g.resizeHandler);
+        deactivateGameOverlay(g);
         window.quartzGame = null;
-        document.body.classList.remove('quartz-game-on');
         var torus = document.querySelector('.quartz-torus-stage');
         if (torus && window.quartzTorusPrefs && window.quartzTorusPrefs.visible) {
             torus.style.display = 'block';
         }
         var ta = document.querySelector('.quartz-terminal textarea');
         if (ta) {
-            ta.classList.remove('quartz-game-active');
             if (wasAttract && window.QUARTZ_HOME_MENU_TEXT) {
                 window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
             }
@@ -2243,12 +2294,22 @@ _QUARTZ_HEAD_TEMPLATE = """
         }, 100);
     }
     setInterval(watchGameStart, 200);
+    var attractBootAttempts = 0;
     var attractBootPoll = setInterval(function() {
         if (!window.quartzBootDone) return;
-        clearInterval(attractBootPoll);
+        if (window.quartzAttractStarted || (window.quartzGame && window.quartzGame.running)) {
+            clearInterval(attractBootPoll);
+            return;
+        }
+        if (typeof window.quartzTerminalReady === 'function' && !window.quartzTerminalReady()) {
+            attractBootAttempts += 1;
+            if (attractBootAttempts > 80) clearInterval(attractBootPoll);
+            return;
+        }
         if (typeof window.quartzTryStartAttractMode === 'function') {
             window.quartzTryStartAttractMode();
         }
+        if (window.quartzAttractStarted) clearInterval(attractBootPoll);
     }, 250);
     whenBodyReady(function() {
         initProgToggles();
@@ -2798,8 +2859,8 @@ html, body {{
     overflow: hidden !important;
 }}
 .gradio-container .quartz-invaders-stage {{
-    position: absolute !important;
-    z-index: 6 !important;
+    position: fixed !important;
+    z-index: 100001 !important;
     display: none !important;
     pointer-events: none !important;
     overflow: hidden !important;
@@ -2810,6 +2871,14 @@ html, body {{
 body.quartz-game-on .quartz-invaders-stage {{
     display: block !important;
     pointer-events: auto !important;
+}}
+body.quartz-game-on .quartz-terminal,
+body.quartz-game-on .quartz-terminal > .block,
+body.quartz-game-on .quartz-terminal > div,
+body.quartz-game-on .quartz-terminal .wrap {{
+    visibility: hidden !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
 }}
 .gradio-container .quartz-invaders-canvas {{
     position: absolute !important;
@@ -2850,6 +2919,9 @@ body.quartz-game-on .quartz-invaders-stage {{
 body.quartz-game-on .quartz-torus-stage {{
     display: none !important;
     pointer-events: none !important;
+}}
+body.quartz-game-on .quartz-display-backing {{
+    z-index: 100000 !important;
 }}
 body.quartz-game-on .quartz-terminal-col {{
     flex: 1 1 auto !important;
