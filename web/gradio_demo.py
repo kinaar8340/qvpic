@@ -54,19 +54,9 @@ DISPLAY_BACKING_HTML = """
 <div class="quartz-display-backing" aria-hidden="true"></div>
 """
 
-GEODESIC_TORUS_HTML = """
-<div class="quartz-torus-mount" aria-hidden="true">
-  <div class="quartz-torus-frame">
-    <svg class="quartz-torus-svg" viewBox="0 0 220 220" role="img" aria-label="Geodesic torus conduit">
-      <circle class="quartz-torus-orbit" cx="110" cy="110" r="102"></circle>
-      <g class="quartz-torus-mesh" id="quartz-torus-mesh"></g>
-      <rect class="quartz-torus-core" x="106" y="106" width="8" height="8"></rect>
-    </svg>
-  </div>
-</div>
-"""
-
-TORUS_STATE_BRIDGE_HTML = '<div id="quartz-torus-bridge" data-echo="0" data-nudge="0" hidden></div>'
+TORUS_STATE_BRIDGE_HTML = (
+    '<div class="quartz-torus-bridge" data-echo="0" data-nudge="0" hidden></div>'
+)
 
 PANEL_SKIN_HTML = """
 <div class="quartz-skin quartz-skin--quartz-default" data-skin="quartz-default" aria-hidden="true">
@@ -170,7 +160,7 @@ def _torus_bridge_html(state: dict) -> str:
     echo = float(state.get("torus_echo", 0.0))
     nudge = int(state.get("torus_nudge", 0))
     return (
-        f'<div id="quartz-torus-bridge" data-echo="{echo}" '
+        f'<div class="quartz-torus-bridge" data-echo="{echo}" '
         f'data-nudge="{nudge}" hidden></div>'
     )
 
@@ -503,10 +493,30 @@ QUARTZ_HEAD = """
         fitSkinMetrics();
         fitDisplayOverlay();
         fitDisplayBacking();
+        ensureTorusStage();
         fitTorusMount();
     }
+    function ensureTorusStage() {
+        var col = document.querySelector('.quartz-terminal-col');
+        if (!col) return null;
+        var stage = col.querySelector('.quartz-torus-stage');
+        if (!stage) {
+            stage = document.createElement('div');
+            stage.className = 'quartz-torus-stage';
+            stage.setAttribute('aria-hidden', 'true');
+            stage.innerHTML = ''
+                + '<div class="quartz-torus-frame">'
+                + '<svg class="quartz-torus-svg" viewBox="0 0 220 220" role="img" aria-label="Geodesic torus conduit">'
+                + '<circle class="quartz-torus-orbit" cx="110" cy="110" r="102"></circle>'
+                + '<g class="quartz-torus-mesh"></g>'
+                + '<rect class="quartz-torus-core" x="106" y="106" width="8" height="8"></rect>'
+                + '</svg></div>';
+            col.appendChild(stage);
+        }
+        return stage.querySelector('.quartz-torus-mesh');
+    }
     function fitTorusMount() {
-        var mount = document.querySelector('.quartz-torus-mount');
+        var mount = document.querySelector('.quartz-torus-stage');
         var ta = document.querySelector('.quartz-terminal textarea');
         var col = document.querySelector('.quartz-terminal-col');
         if (!mount || !ta || !col) return;
@@ -610,7 +620,7 @@ QUARTZ_HEAD = """
     });
     function bootQuartzTorus() {
         var PHI = 1.61803398875;
-        var mesh = document.getElementById('quartz-torus-mesh');
+        var mesh = ensureTorusStage();
         if (!mesh) {
             setTimeout(bootQuartzTorus, 220);
             return;
@@ -665,7 +675,7 @@ QUARTZ_HEAD = """
         function lineSvg(x1, y1, x2, y2, u, v) {
             var glow = echoIntensity(u, v);
             var width = 0.45 + glow * 0.85;
-            var opacity = 0.35 + glow * 0.6;
+            var opacity = 0.55 + glow * 0.4;
             var hue = 118 + glow * 18;
             return '<line x1="' + x1.toFixed(2) + '" y1="' + y1.toFixed(2)
                 + '" x2="' + x2.toFixed(2) + '" y2="' + y2.toFixed(2)
@@ -736,15 +746,13 @@ QUARTZ_HEAD = """
         }
 
         function watchBridge() {
-            var node = document.getElementById('quartz-torus-bridge');
+            var node = document.querySelector('.quartz-torus-bridge');
             if (!node) return;
             absorbBridge(node);
-            var obs = new MutationObserver(function() { absorbBridge(node); });
-            obs.observe(node, { attributes: true, childList: true, subtree: true });
         }
 
         watchBridge();
-        setInterval(watchBridge, 400);
+        setInterval(watchBridge, 350);
         tick();
         window.quartzTorus = {
             ready: true,
@@ -757,6 +765,8 @@ QUARTZ_HEAD = """
     document.addEventListener('DOMContentLoaded', fitPanel);
     setTimeout(fitPanel, 200);
     setTimeout(fitPanel, 800);
+    setTimeout(bootQuartzTorus, 300);
+    setTimeout(bootQuartzTorus, 1200);
 })();
 </script>
 """
@@ -1155,6 +1165,7 @@ html, body {{
     padding: 0.22rem 0.26rem 0.18rem !important;
     box-shadow: none !important;
     margin: 0.42rem !important;
+    overflow: visible !important;
 }}
 .gradio-container .quartz-grid-off .quartz-terminal-col {{
     background: transparent !important;
@@ -1171,20 +1182,11 @@ html, body {{
     min-height: 0 !important;
     margin: 0 !important;
 }}
-.gradio-container .quartz-torus-mount {{
+.gradio-container .quartz-torus-stage {{
     position: absolute !important;
-    z-index: 3 !important;
+    z-index: 25 !important;
     pointer-events: none !important;
-    overflow: hidden !important;
-}}
-.gradio-container .quartz-torus-mount > .block,
-.gradio-container .quartz-torus-mount > .form {{
-    position: absolute !important;
-    inset: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    border: none !important;
+    overflow: visible !important;
 }}
 .gradio-container .quartz-torus-frame {{
     position: absolute !important;
@@ -1201,8 +1203,11 @@ html, body {{
     height: 100% !important;
     max-width: 100% !important;
     max-height: 100% !important;
-    opacity: 0.92 !important;
-    filter: drop-shadow(0 0 6px rgba(0, 255, 65, 0.25)) !important;
+    opacity: 1 !important;
+    filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.45)) !important;
+}}
+.gradio-container .quartz-torus-mesh line {{
+    vector-effect: non-scaling-stroke !important;
 }}
 .gradio-container .quartz-torus-orbit {{
     fill: none !important;
@@ -1431,7 +1436,6 @@ def build_app() -> gr.Blocks:
                         with gr.Column(elem_classes=["quartz-display-shell", "quartz-aperture-zone"]):
                             with gr.Column(elem_classes=["quartz-terminal-col", "quartz-aperture-zone"]):
                                 gr.HTML(DISPLAY_BACKING_HTML)
-                                gr.HTML(GEODESIC_TORUS_HTML, elem_classes=["quartz-torus-mount"])
                                 terminal = gr.Textbox(
                                     value=INITIAL_TERMINAL,
                                     label="Terminal",
