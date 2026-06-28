@@ -1379,7 +1379,7 @@ def _quartz_games_js_block() -> str:
         g.stepDown = false;
         g.invaderTick = 0;
         g.enemyBullets = [];
-        g.playerBullet = null;
+        g.playerBullets = [];
         g.bunkers = initBunkers(g);
         g.invaderSpeed = g.attractMode
             ? Math.max(26, 34 - g.wave * 2)
@@ -1414,7 +1414,8 @@ def _quartz_games_js_block() -> str:
             invaderTick: 0,
             invaderSpeed: 20,
             animFrame: 0,
-            playerBullet: null,
+            playerBullets: [],
+            fireCooldown: 0,
             enemyBullets: [],
             bunkers: [],
             keys: {},
@@ -1434,7 +1435,7 @@ def _quartz_games_js_block() -> str:
         g.player.x = (g.gridW * 0.5) + Math.sin(g.attractTimer * 0.045) * 14;
         g.player.x = Math.max(6, Math.min(g.gridW - 6, g.player.x));
         g.attractShootTimer += 1;
-        if (g.attractShootTimer > 42 && !g.playerBullet) {
+        if (g.attractShootTimer > 42 && (!g.playerBullets || !g.playerBullets.length)) {
             firePlayerBullet(g);
             g.attractShootTimer = 0;
         }
@@ -1494,10 +1495,10 @@ def _quartz_games_js_block() -> str:
             drawSprite(ctx, frames[frame], inv.x, inv.y, scale, inv.type === 'squid');
         });
         g.bunkers.forEach(function(b) { drawBunker(ctx, b, scale); });
-        if (g.playerBullet) {
-            drawPixel(ctx, g.playerBullet.x, g.playerBullet.y, scale, true);
-            if (g.playerBullet.y > 0) drawPixel(ctx, g.playerBullet.x, g.playerBullet.y - 1, scale, true);
-        }
+        (g.playerBullets || []).forEach(function(bullet) {
+            drawPixel(ctx, bullet.x, bullet.y, scale, true);
+            if (bullet.y > 0) drawPixel(ctx, bullet.x, bullet.y - 1, scale, true);
+        });
         g.enemyBullets.forEach(function(b) {
             drawPixel(ctx, b.x, b.y, scale, false);
             drawPixel(ctx, b.x, b.y + 0.5, scale, false);
@@ -1558,8 +1559,13 @@ def _quartz_games_js_block() -> str:
         return hit;
     }
     function firePlayerBullet(g) {
-        if (g.playerBullet || g.gameOver) return;
-        g.playerBullet = { x: g.player.x, y: g.player.y - 1, vy: -1.4 };
+        if (g.gameOver) return;
+        if (!g.playerBullets) g.playerBullets = [];
+        if (g.fireCooldown > 0) return;
+        var maxBullets = 5;
+        if (g.playerBullets.length >= maxBullets) return;
+        g.playerBullets.push({ x: g.player.x, y: g.player.y - 1, vy: -1.5 });
+        g.fireCooldown = 4;
     }
     function fireEnemyBullet(g) {
         var alive = aliveInvaders(g);
@@ -1582,8 +1588,8 @@ def _quartz_games_js_block() -> str:
                 var speed = g.keys.ArrowLeft || g.keys.ArrowRight ? 0.85 : 0.55;
                 if (g.keys.ArrowLeft) g.player.x = Math.max(6, g.player.x - speed);
                 if (g.keys.ArrowRight) g.player.x = Math.min(g.gridW - 6, g.player.x + speed);
-                if (g.keys[' ']) firePlayerBullet(g);
             }
+            if (g.fireCooldown > 0) g.fireCooldown -= 1;
             g.invaderTick += 1;
             if (g.invaderTick >= g.invaderSpeed) {
                 g.invaderTick = 0;
@@ -1608,31 +1614,28 @@ def _quartz_games_js_block() -> str:
                 g.enemyShootCooldown -= 1;
             }
         }
-        if (g.playerBullet) {
-            g.playerBullet.y += g.playerBullet.vy;
-            var bx = g.playerBullet.x;
-            var by = g.playerBullet.y;
+        g.playerBullets = (g.playerBullets || []).filter(function(bullet) {
+            bullet.y += bullet.vy;
+            var bx = bullet.x;
+            var by = bullet.y;
+            if (by < 12) return false;
             var hit = false;
-            if (by < 12) {
-                g.playerBullet = null;
-            } else {
-                g.invaders.forEach(function(inv) {
-                    if (!inv.alive || hit) return;
-                    if (bx >= inv.x && bx <= inv.x + 11 && by >= inv.y && by <= inv.y + 8) {
-                        inv.alive = false;
-                        g.score += (3 - Math.min(2, Math.floor(inv.row / 3))) * 10 + 10;
-                        if (g.score > g.hiScore) {
-                            g.hiScore = g.score;
-                            localStorage.setItem('qvpic-invaders-hi', String(g.hiScore));
-                        }
-                        hit = true;
+            g.invaders.forEach(function(inv) {
+                if (!inv.alive || hit) return;
+                if (bx >= inv.x && bx <= inv.x + 11 && by >= inv.y && by <= inv.y + 8) {
+                    inv.alive = false;
+                    g.score += (3 - Math.min(2, Math.floor(inv.row / 3))) * 10 + 10;
+                    if (g.score > g.hiScore) {
+                        g.hiScore = g.score;
+                        localStorage.setItem('qvpic-invaders-hi', String(g.hiScore));
                     }
-                });
-                if (!hit && hitBunker(g, bx, by)) hit = true;
-                if (hit) g.playerBullet = null;
-                else if (by < 0) g.playerBullet = null;
-            }
-        }
+                    hit = true;
+                }
+            });
+            if (!hit && hitBunker(g, bx, by)) hit = true;
+            if (hit || by < 0) return false;
+            return true;
+        });
         g.enemyBullets = g.enemyBullets.filter(function(b) {
             b.y += b.vy;
             if (b.y > g.gridH) return false;
@@ -3053,6 +3056,7 @@ html, body {{
     visibility: hidden !important;
     pointer-events: none !important;
     overflow: hidden !important;
+    outline: none !important;
     border-radius: 3px / 5px !important;
     background: #000000 !important;
     box-shadow: inset 0 0 28px rgba(0, 212, 255, 0.08) !important;
