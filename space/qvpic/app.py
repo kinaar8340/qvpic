@@ -37,12 +37,9 @@ TAB_LABELS: dict[str, str] = {
     "tools": "TOOLS",
 }
 
-PROG_PROMPTS: dict[str, str] = {
-    "prog1": DEFAULT_QUERY_TEXT,
-    "prog2": "Explain the RubikCone identity conduit analogy",
-    "prog3": "Run benchmark on demo facts",
-    "prog4": "Show topology braiding and drift protection",
-}
+PROG_BANK_SIZE = 18
+PROG_ROW_1 = tuple(range(1, 9))
+PROG_ROW_2 = tuple(range(9, PROG_BANK_SIZE + 1))
 
 ACTIVE_SKIN = "quartz-default"
 
@@ -94,9 +91,9 @@ HELP_TEXT = "\n".join(
         "> SETTINGS: tune bake steps, bandwidth, drift samples",
         "> MEMORY: run full benchmark (bake → recall → drift)",
         "> TOOLS: repo links and CLI pointers",
-        "> SEND / Enter key: submit command · EXEC: run recall/benchmark",
-        "> PROG 1: toggle geodesic torus · PROG 2–4: load sample prompts",
-        "> CLEAR: wipe terminal · MODE: toggle VQCEnhanced flag",
+        "> SEND / Enter key: submit command",
+        "> PROG 1–18: maintained toggle keys (red LED = on) · Prog 1 = torus",
+        "> MEMORY tab: run benchmark · SETTINGS: tune conduit dials",
         f"> Repo: {GITHUB_URL}",
     ]
 )
@@ -190,18 +187,15 @@ def _metallic_btn(*extra: str) -> list[str]:
     return ["quartz-btn", *extra]
 
 
-def _prog_btn_classes(prog_id: str, state: dict | None = None) -> list[str]:
-    classes = _metallic_btn("quartz-prog", f"quartz-prog-{prog_id[-1]}")
-    if prog_id == "prog1" and state is not None and not state.get("torus_visible", True):
-        classes.append("quartz-prog-torus-off")
-    return classes
+def _prog_btn_classes(index: int) -> list[str]:
+    return _metallic_btn("quartz-prog", "quartz-prog-toggle", f"quartz-prog-id-{index}")
 
 
 def _simulate_chat_response(message: str) -> str:
     lower = message.lower().strip()
     if any(word in lower for word in ("hello", "hi", "hey")):
         return (
-            "> QVPIC: Conduit online. Try PROG 1 for a recall query, "
+            "> QVPIC: Conduit online. Toggle Prog keys below, "
             "MEMORY for benchmark, or ask about quaternion identity."
         )
     if "benchmark" in lower:
@@ -362,41 +356,6 @@ def _handle_nav(
     return terminal, cmd, state
 
 
-def _make_prog_handler(prog_id: str):
-    def handler(terminal: str, state: dict) -> tuple:
-        return _handle_prog(prog_id, terminal, state)
-
-    return handler
-
-
-def _handle_prog1_toggle(terminal: str, state: dict) -> tuple:
-    state = dict(state) if state else _default_ui_state()
-    visible = not bool(state.get("torus_visible", True))
-    state["torus_visible"] = visible
-    state = _touch_torus(state, 0.35)
-    label = "visible" if visible else "hidden"
-    terminal = _append_terminal(terminal, f"> TORUS: {label}")
-    return (
-        terminal,
-        "",
-        state,
-        gr.update(value=_torus_bridge_html(state)),
-        gr.update(elem_classes=_prog_btn_classes("prog1", state)),
-    )
-
-
-def _handle_prog(
-    prog_id: str,
-    terminal: str,
-    state: dict,
-) -> tuple:
-    prompt = PROG_PROMPTS.get(prog_id, "")
-    state = dict(state) if state else _default_ui_state()
-    state = _touch_torus(state, 0.45)
-    terminal = _append_terminal(terminal, "> PROG: loaded preset into input")
-    return terminal, prompt, state, gr.update(value=_torus_bridge_html(state))
-
-
 def _handle_clear(terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
     state = _touch_torus(state, 0.3)
@@ -537,7 +496,7 @@ QUARTZ_HEAD = """
         var gc = document.querySelector('.gradio-container');
         if (gc) { gc.style.height = h + 'px'; gc.style.overflow = 'hidden'; }
         var chrome = 0;
-        ['.quartz-top-tabs', '.quartz-prog-row', '.quartz-footer-wrap', '.quartz-settings'].forEach(function(sel) {
+        ['.quartz-top-tabs', '.quartz-prog-bank', '.quartz-footer-wrap', '.quartz-settings'].forEach(function(sel) {
             var el = document.querySelector(sel);
             if (el) chrome += el.offsetHeight;
         });
@@ -568,20 +527,71 @@ QUARTZ_HEAD = """
         try { localStorage.setItem(TORUS_STORE_KEY, JSON.stringify(prefs)); } catch (e) {}
     }
     window.quartzTorusPrefs = loadTorusPrefs();
-    function syncProg1Button(visible) {
-        document.querySelectorAll('button.quartz-prog-1').forEach(function(btn) {
-            btn.classList.toggle('quartz-prog-torus-off', !visible);
+    var PROG_STORE_KEY = 'qvpic-prog-states';
+    var PROG_BANK_SIZE = 18;
+    function defaultProgStates() {
+        var states = {};
+        var i;
+        for (i = 1; i <= PROG_BANK_SIZE; i++) states['prog' + i] = false;
+        return states;
+    }
+    function loadProgStates() {
+        try {
+            var raw = localStorage.getItem(PROG_STORE_KEY);
+            if (raw) {
+                return Object.assign(defaultProgStates(), JSON.parse(raw));
+            }
+        } catch (e) {}
+        return defaultProgStates();
+    }
+    function saveProgStates(states) {
+        try { localStorage.setItem(PROG_STORE_KEY, JSON.stringify(states)); } catch (e) {}
+    }
+    window.quartzProgStates = loadProgStates();
+    function applyProgStates(states) {
+        var i, pid, on;
+        for (i = 1; i <= PROG_BANK_SIZE; i++) {
+            pid = 'prog' + i;
+            on = !!states[pid];
+            document.querySelectorAll('button.quartz-prog-id-' + i).forEach(function(btn) {
+                btn.classList.toggle('quartz-prog-active', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+        if (states.prog1 !== undefined) {
+            applyTorusVisibility(!!states.prog1, false);
+        }
+    }
+    function toggleProg(index) {
+        var pid = 'prog' + index;
+        window.quartzProgStates[pid] = !window.quartzProgStates[pid];
+        saveProgStates(window.quartzProgStates);
+        applyProgStates(window.quartzProgStates);
+    }
+    function initProgToggles() {
+        applyProgStates(window.quartzProgStates);
+        document.querySelectorAll('.quartz-prog-bank').forEach(function(bank) {
+            if (bank._quartzProgInit) return;
+            bank._quartzProgInit = true;
+            bank.addEventListener('click', function(e) {
+                var btn = e.target && e.target.closest('button.quartz-prog-toggle');
+                if (!btn) return;
+                var m = btn.className.match(/quartz-prog-id-(\d+)/);
+                if (!m) return;
+                toggleProg(parseInt(m[1], 10));
+                clickPulse(btn);
+            });
         });
     }
-    function applyTorusVisibility(visible) {
+    function applyTorusVisibility(visible, savePrefs) {
+        if (savePrefs === undefined) savePrefs = true;
         var stage = document.querySelector('.quartz-torus-stage');
         window.quartzTorusPrefs.visible = !!visible;
         if (stage) {
             stage.style.display = visible ? 'block' : 'none';
             stage.classList.toggle('quartz-torus-hidden', !visible);
         }
-        syncProg1Button(visible);
-        saveTorusPrefs(window.quartzTorusPrefs);
+        if (savePrefs) saveTorusPrefs(window.quartzTorusPrefs);
     }
     function defaultTorusBox() {
         var tr = terminalOutputRect();
@@ -774,7 +784,7 @@ QUARTZ_HEAD = """
     }
     function fitSkinMetrics() {
         var tabs = document.querySelector('.quartz-top-tabs');
-        var prog = document.querySelector('.quartz-prog-row');
+        var prog = document.querySelector('.quartz-prog-bank');
         var footer = document.querySelector('.quartz-footer-wrap');
         var settings = document.querySelector('.quartz-settings');
         if (tabs) {
@@ -937,7 +947,14 @@ QUARTZ_HEAD = """
             if (nudge !== state.nudge) {
                 var visAttr = node.getAttribute('data-visible');
                 if (visAttr !== null) {
-                    applyTorusVisibility(visAttr !== '0');
+                    var torusOn = visAttr !== '0';
+                    applyTorusVisibility(torusOn, true);
+                    window.quartzProgStates.prog1 = torusOn;
+                    saveProgStates(window.quartzProgStates);
+                    document.querySelectorAll('button.quartz-prog-id-1').forEach(function(btn) {
+                        btn.classList.toggle('quartz-prog-active', torusOn);
+                        btn.setAttribute('aria-pressed', torusOn ? 'true' : 'false');
+                    });
                     if (!window.quartzTorusPrefs.custom) layoutTorusStage();
                 }
                 state.nudge = nudge;
@@ -964,7 +981,7 @@ QUARTZ_HEAD = """
         };
     }
     whenBodyReady(function() {
-        applyTorusVisibility(window.quartzTorusPrefs.visible !== false);
+        initProgToggles();
         bootQuartzTorus();
         fitPanel();
         initTorusDrag();
@@ -985,6 +1002,7 @@ QUARTZ_HEAD = """
         ensureTorusStage();
         layoutTorusStage();
         if (!window.quartzTorus || !window.quartzTorus.ready) bootQuartzTorus();
+        initProgToggles();
     }, 1500);
     whenBodyReady(function() {
         var ta = document.querySelector('.quartz-terminal textarea');
@@ -1543,45 +1561,50 @@ html, body {{
     filter: brightness(0.92) !important;
     box-shadow: inset 0 2px 6px rgba(0,0,0,0.35) !important;
 }}
-.gradio-container .quartz-prog-row {{
-    gap: 0.22rem !important;
-    margin: 0.32rem 0 0.22rem 0 !important;
+.gradio-container .quartz-prog-bank {{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.2rem !important;
+    margin: 0.3rem 0 0.2rem 0 !important;
     flex-shrink: 0 !important;
-    padding: 0.28rem 0.22rem !important;
+    padding: 0.24rem 0.2rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
     background: transparent !important;
     border: none !important;
     border-radius: 4px !important;
     box-shadow: none !important;
+    overflow-x: hidden !important;
+}}
+.gradio-container .quartz-prog-row {{
+    gap: 0.16rem !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
 }}
 .gradio-container button.quartz-prog {{
     flex: 1 1 0 !important;
     min-width: 0 !important;
-    min-height: clamp(1.35rem, 2.8vh, 1.7rem) !important;
-    font-size: clamp(0.48rem, 0.98vh, 0.6rem) !important;
-    letter-spacing: 0.05em !important;
-    padding: 0.12rem 0.08rem !important;
+    min-height: clamp(1.28rem, 2.6vh, 1.62rem) !important;
+    font-size: clamp(0.42rem, 0.9vh, 0.56rem) !important;
+    letter-spacing: 0.03em !important;
+    padding: 0.1rem 0.34rem 0.1rem 0.06rem !important;
     position: relative !important;
+    text-transform: none !important;
 }}
-.gradio-container button.quartz-prog-torus-off {{
-    opacity: 0.52 !important;
-    filter: brightness(0.82) !important;
-    color: var(--quartz-phosphor-dim) !important;
-    -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
-}}
-.gradio-container button.quartz-prog-torus-off span {{
-    color: var(--quartz-phosphor-dim) !important;
-    -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
-}}
-.gradio-container button.quartz-prog-led::after {{
+.gradio-container button.quartz-prog-active::after {{
     content: "" !important;
     position: absolute !important;
-    top: 0.18rem !important;
-    right: 0.18rem !important;
+    top: 0.16rem !important;
+    right: 0.14rem !important;
     width: 5px !important;
     height: 5px !important;
     border-radius: 50% !important;
     background: #ff2222 !important;
-    box-shadow: 0 0 6px rgba(255,40,40,0.8) !important;
+    box-shadow: 0 0 6px rgba(255, 40, 40, 0.85) !important;
 }}
 .gradio-container .quartz-footer-wrap {{
     flex-shrink: 0 !important;
@@ -1695,30 +1718,19 @@ def build_app() -> gr.Blocks:
                             )
                             use_vqc = gr.Checkbox(label="VQCEnhanced", value=_DEFAULTS["use_vqc"])
 
-                    with gr.Row(elem_classes=["quartz-prog-row"]):
-                        prog_btns = {}
-                        for index in range(1, 5):
-                            prog_id = f"prog{index}"
-                            prog_btns[prog_id] = gr.Button(
-                                f"PROG {index}",
-                                elem_classes=_prog_btn_classes(prog_id, _default_ui_state()),
-                            )
-                        exec_btn = gr.Button(
-                            "EXEC",
-                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                        )
-                        clear_btn = gr.Button(
-                            "CLEAR",
-                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                        )
-                        mode_btn = gr.Button(
-                            "MODE",
-                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                        )
-                        help_btn = gr.Button(
-                            "HELP",
-                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                        )
+                    with gr.Column(elem_classes=["quartz-prog-bank"]):
+                        with gr.Row(elem_classes=["quartz-prog-row", "quartz-prog-row-1"]):
+                            for index in PROG_ROW_1:
+                                gr.Button(
+                                    f"Prog {index}",
+                                    elem_classes=_prog_btn_classes(index),
+                                )
+                        with gr.Row(elem_classes=["quartz-prog-row", "quartz-prog-row-2"]):
+                            for index in PROG_ROW_2:
+                                gr.Button(
+                                    f"Prog {index}",
+                                    elem_classes=_prog_btn_classes(index),
+                                )
 
                     gr.HTML(
                         '<div class="quartz-footer-wrap"><span class="quartz-footer">'
@@ -1759,39 +1771,6 @@ def build_app() -> gr.Blocks:
 
         send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
         cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
-
-        prog_btns["prog1"].click(
-            _handle_prog1_toggle,
-            inputs=[terminal, ui_state],
-            outputs=[terminal, cmd_input, ui_state, torus_bridge, prog_btns["prog1"]],
-        )
-        for prog_id in ("prog2", "prog3", "prog4"):
-            prog_btns[prog_id].click(
-                _make_prog_handler(prog_id),
-                inputs=[terminal, ui_state],
-                outputs=[terminal, cmd_input, ui_state, torus_bridge],
-            )
-
-        clear_btn.click(
-            _handle_clear,
-            inputs=[terminal, ui_state],
-            outputs=[terminal, ui_state, torus_bridge],
-        )
-        help_btn.click(
-            _handle_help,
-            inputs=[terminal, ui_state],
-            outputs=[terminal, ui_state, torus_bridge],
-        )
-        mode_btn.click(
-            _handle_mode,
-            inputs=[terminal, ui_state, use_vqc],
-            outputs=[terminal, ui_state, torus_bridge],
-        )
-        exec_btn.click(
-            _handle_exec,
-            inputs=[cmd_input, terminal, ui_state, *tune_inputs],
-            outputs=[terminal, cmd_input, ui_state, torus_bridge],
-        )
 
     return demo
 
