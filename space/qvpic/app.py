@@ -42,7 +42,7 @@ STARTUP_STRING = "TEST EVERYTHING, HOLD FAST WHAT IS GOOD AND KNOW YOUR GOD"
 STARTUP_DISPLAY_STRING = STARTUP_STRING + "....."
 STARTUP_CHAR_DELAY_MS = 200
 STARTUP_POST_DELAY_MS = 2000
-PROG_DIAG_HOLD_MS = 500
+PROG_DIAG_HOLD_MS = 1000
 
 # (label, action_key) — max 9 entries per page; overflow uses next/prev page slots.
 HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
@@ -67,7 +67,16 @@ HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
 )
 
 PROG_BANK_SIZE = 16
-QUICK_DIAG_PROG_INDICES: tuple[int, ...] = tuple(range(2, 9)) + tuple(range(10, PROG_BANK_SIZE + 1))
+QUICK_DIAG_PROG_INDICES: tuple[int, ...] = tuple(range(1, PROG_BANK_SIZE + 1))
+
+
+def _default_prog_states() -> dict[str, bool]:
+    states = {f"prog{i}": False for i in range(1, PROG_BANK_SIZE + 1)}
+    states["prog1"] = True
+    return states
+
+
+DEFAULT_PROG_STATES = _default_prog_states()
 PROG_ROW_1 = tuple(range(1, 9))
 PROG_ROW_2 = tuple(range(9, PROG_BANK_SIZE + 1))
 
@@ -263,6 +272,7 @@ def _handle_startup_replay_done(state: dict) -> tuple:
     state["home_active"] = True
     state["active_tab"] = "home"
     state["menu_page"] = 0
+    state["torus_visible"] = True
     return (
         _home_menu_text(0),
         state,
@@ -390,7 +400,7 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
         state["pending_startup_replay"] = True
         state["home_active"] = False
         state["menu_page"] = 0
-        terminal = _append_terminal(terminal, "> QUICK DIAGNOSTIC: startup + Prog LED sweep…")
+        terminal = _append_terminal(terminal, "> QUICK DIAGNOSTIC: startup + Prog 1–16 state sweep…")
         return terminal, state, "home", False
     if action == "topology":
         terminal = _append_terminal(
@@ -515,7 +525,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
         terminal = _append_terminal(
             terminal,
             f"> SELECT: {index} — {title}",
-            "> QUICK DIAGNOSTIC: Prog 2–8, 10–16 LED sweep during startup…",
+            "> QUICK DIAGNOSTIC: Prog 1–16 state sweep (1s) during startup…",
         )
         grid_on = bool(state.get("grid_view", True))
         return (
@@ -804,6 +814,7 @@ window.QUARTZ_MENU_POST_DELAY = {STARTUP_POST_DELAY_MS};
 window.QUARTZ_PROG_DIAG_HOLD = {PROG_DIAG_HOLD_MS};
 window.QUARTZ_PROG_BANK_SIZE = {PROG_BANK_SIZE};
 window.QUARTZ_DIAG_PROG_INDICES = {json.dumps(list(QUICK_DIAG_PROG_INDICES))};
+window.QUARTZ_DEFAULT_PROG_STATES = {json.dumps(DEFAULT_PROG_STATES)};
 window.quartzWaitForTerminal = async function(attempts) {{
     attempts = attempts || 0;
     var ta = document.querySelector('.quartz-terminal textarea');
@@ -855,23 +866,57 @@ window.quartzClearProgLeds = function() {{
     var i;
     for (i = 1; i <= window.QUARTZ_PROG_BANK_SIZE; i++) window.quartzSetProgLed(i, false);
 }};
+window.quartzResetAllProgStates = function(active) {{
+    var bankSize = window.QUARTZ_PROG_BANK_SIZE || 16;
+    var i;
+    if (!window.quartzProgStates) window.quartzProgStates = {{}};
+    for (i = 1; i <= bankSize; i++) window.quartzProgStates['prog' + i] = !!active;
+    if (typeof window.quartzApplyProgStates === 'function') {{
+        window.quartzApplyProgStates(window.quartzProgStates);
+    }}
+    if (typeof window.quartzSaveProgStates === 'function') {{
+        window.quartzSaveProgStates(window.quartzProgStates);
+    }}
+}};
+window.quartzApplyDefaultProgStates = function() {{
+    var bankSize = window.QUARTZ_PROG_BANK_SIZE || 16;
+    var i;
+    if (!window.quartzProgStates) window.quartzProgStates = {{}};
+    if (window.QUARTZ_DEFAULT_PROG_STATES) {{
+        Object.assign(window.quartzProgStates, window.QUARTZ_DEFAULT_PROG_STATES);
+    }} else {{
+        for (i = 1; i <= bankSize; i++) window.quartzProgStates['prog' + i] = false;
+        window.quartzProgStates.prog1 = true;
+    }}
+    if (typeof window.quartzApplyProgStates === 'function') {{
+        window.quartzApplyProgStates(window.quartzProgStates);
+    }}
+    if (typeof window.quartzSaveProgStates === 'function') {{
+        window.quartzSaveProgStates(window.quartzProgStates);
+    }}
+}};
 window.quartzRunProgDiagnosticLoop = async function(stopSignal) {{
-    var holdMs = window.QUARTZ_PROG_DIAG_HOLD || 500;
-    var indices = window.QUARTZ_DIAG_PROG_INDICES || [2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16];
+    var holdMs = window.QUARTZ_PROG_DIAG_HOLD || 1000;
+    var bankSize = window.QUARTZ_PROG_BANK_SIZE || 16;
+    var indices = window.QUARTZ_DIAG_PROG_INDICES;
     var pos = 0;
-    var saved = JSON.parse(JSON.stringify(window.quartzProgStates || {{}}));
-    window.quartzClearProgLeds();
+    var i;
+    if (!indices || !indices.length) {{
+        indices = [];
+        for (i = 1; i <= bankSize; i++) indices.push(i);
+    }}
+    window.quartzResetAllProgStates(false);
     while (!stopSignal.done) {{
-        window.quartzClearProgLeds();
-        window.quartzSetProgLed(indices[pos], true);
+        for (i = 1; i <= bankSize; i++) window.quartzProgStates['prog' + i] = false;
+        window.quartzProgStates['prog' + indices[pos]] = true;
+        if (typeof window.quartzApplyProgStates === 'function') {{
+            window.quartzApplyProgStates(window.quartzProgStates);
+        }}
         await new Promise(function(resolve) {{ setTimeout(resolve, holdMs); }});
         if (stopSignal.done) break;
         pos = (pos + 1) % indices.length;
     }}
-    window.quartzClearProgLeds();
-    if (typeof window.quartzApplyProgStates === 'function') {{
-        window.quartzApplyProgStates(saved);
-    }}
+    window.quartzApplyDefaultProgStates();
 }};
 window.quartzRunStartupSequence = async function(ta, options) {{
     options = options || {{}};
@@ -1019,6 +1064,7 @@ _QUARTZ_HEAD_TEMPLATE = """
         var states = {};
         var i;
         for (i = 1; i <= PROG_BANK_SIZE; i++) states['prog' + i] = false;
+        states.prog1 = true;
         return states;
     }
     function loadProgStates() {
@@ -1073,6 +1119,7 @@ _QUARTZ_HEAD_TEMPLATE = """
         applyProgStates(window.quartzProgStates);
     }
     window.quartzApplyProgStates = applyProgStates;
+    window.quartzSaveProgStates = saveProgStates;
     function initProgToggles() {
         applyProgStates(window.quartzProgStates);
         document.querySelectorAll('.quartz-prog-bank').forEach(function(bank) {
