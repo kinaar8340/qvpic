@@ -94,11 +94,20 @@ OPTICS_LOGO_HTML = """
 
 DEMO_LINKS_HTML = f"""
 <div class="vqc-demo-links" role="navigation" aria-label="Repository links">
-  <span class="vqc-source-label">Fine details →</span>
+  <span class="vqc-hud-telemetry">SYS</span>
+  <span class="vqc-source-label">depth →</span>
   <a href="{GITHUB_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">GitHub</a>
   <a href="{VQC_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">vqc_proto</a>
   <a href="{HFB_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">hfb</a>
   <a href="{GITHUB_URL}/blob/main/scripts/ui.py" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">local UI</a>
+</div>
+"""
+
+COCKPIT_TITLE_HTML = """
+<div class="vqc-cockpit-title">
+  <span class="vqc-hud-status-dot" aria-hidden="true"></span>
+  <span class="vqc-hud-title-main">QVPIC · IDENTITY CONDUIT</span>
+  <span class="vqc-hud-title-tag">AR VISOR · ONLINE</span>
 </div>
 """
 
@@ -937,11 +946,14 @@ HFB_CSS = f"""
     color-scheme: dark;
 }}
 html {{
-    background-color: #0a0818 !important;
+    background-color: #020408 !important;
 }}
 body {{
-    background: transparent !important;
-    background-color: transparent !important;
+    background:
+        radial-gradient(ellipse 120% 80% at 50% 42%, rgba(0, 48, 28, 0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 90% 70% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.88) 100%),
+        #020408 !important;
+    background-color: #020408 !important;
     color: #e8e0f8 !important;
     width: 100% !important;
     height: var(--vqc-vh, 100dvh) !important;
@@ -995,12 +1007,40 @@ body {{
     padding: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    background: rgba(0, 0, 0, 0.55) !important;
-    border: 1px solid rgba(51, 255, 102, 0.42) !important;
-    box-shadow: inset 0 0 24px rgba(51, 255, 102, 0.06) !important;
+    background:
+        linear-gradient(180deg, rgba(0, 255, 140, 0.04) 0%, transparent 12%),
+        linear-gradient(0deg, rgba(234, 88, 12, 0.05) 0%, transparent 10%),
+        rgba(0, 4, 8, 0.72) !important;
+    border: 1px solid rgba(0, 255, 160, 0.28) !important;
+    box-shadow:
+        inset 0 0 80px rgba(0, 255, 120, 0.04),
+        inset 0 1px 0 rgba(0, 255, 160, 0.35),
+        0 0 24px rgba(0, 255, 100, 0.06) !important;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     min-height: 0 !important;
+}}
+.gradio-container .vqc-cockpit::before {{
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 2px,
+            rgba(0, 255, 120, 0.018) 2px,
+            rgba(0, 255, 120, 0.018) 3px
+        ) !important;
+    opacity: 0.65 !important;
+}}
+.gradio-container .vqc-cockpit > fieldset > * {{
+    position: relative !important;
+    z-index: 1 !important;
 }}
 .gradio-container .vqc-cockpit > .block,
 .gradio-container .vqc-cockpit .block {{
@@ -1014,8 +1054,9 @@ body {{
     align-items: center !important;
     gap: 0.5rem !important;
     width: 100% !important;
-    padding: 0.35rem 0.55rem !important;
-    border-bottom: 1px solid rgba(51, 255, 102, 0.28) !important;
+    padding: 0.4rem 0.65rem 0.35rem !important;
+    border-bottom: 1px solid rgba(0, 255, 160, 0.22) !important;
+    background: linear-gradient(90deg, rgba(0, 255, 120, 0.06), transparent 40%, rgba(234, 88, 12, 0.04)) !important;
     flex-shrink: 0 !important;
     box-sizing: border-box !important;
 }}
@@ -1041,24 +1082,39 @@ body {{
     margin: 0 !important;
 }}
 .gradio-container button.vqc-hud-btn {{
-    width: clamp(1.55rem, 3.2vh, 2rem) !important;
-    height: clamp(1.55rem, 3.2vh, 2rem) !important;
-    min-width: clamp(1.55rem, 3.2vh, 2rem) !important;
-    max-width: clamp(1.55rem, 3.2vh, 2rem) !important;
-    min-height: clamp(1.55rem, 3.2vh, 2rem) !important;
-    max-height: clamp(1.55rem, 3.2vh, 2rem) !important;
+    width: clamp(1.45rem, 2.8vh, 1.85rem) !important;
+    height: clamp(1.45rem, 2.8vh, 1.85rem) !important;
+    min-width: clamp(1.45rem, 2.8vh, 1.85rem) !important;
+    max-width: clamp(1.45rem, 2.8vh, 1.85rem) !important;
+    min-height: clamp(1.45rem, 2.8vh, 1.85rem) !important;
+    max-height: clamp(1.45rem, 2.8vh, 1.85rem) !important;
     padding: 0 !important;
     margin: 0 auto !important;
-    border: 1px solid rgba(51, 255, 102, 0.55) !important;
-    border-radius: 3px !important;
-    background: rgba(0, 0, 0, 0.35) !important;
-    box-shadow: inset 0 0 8px rgba(51, 255, 102, 0.12) !important;
+    border: 1px solid rgba(0, 255, 170, 0.5) !important;
+    border-radius: 2px !important;
+    background: rgba(0, 0, 0, 0.55) !important;
+    box-shadow:
+        inset 0 0 10px rgba(0, 255, 140, 0.1),
+        0 0 6px rgba(0, 255, 120, 0.12) !important;
     position: relative !important;
     color: transparent !important;
     -webkit-text-fill-color: transparent !important;
     font-size: 0 !important;
     line-height: 0 !important;
     cursor: pointer !important;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease !important;
+}}
+.gradio-container button.vqc-hud-btn:hover {{
+    border-color: rgba(0, 255, 200, 0.75) !important;
+    box-shadow:
+        inset 0 0 12px rgba(0, 255, 160, 0.18),
+        0 0 10px rgba(0, 255, 140, 0.25) !important;
+}}
+.gradio-container button.vqc-hud-btn.hu-active {{
+    border-color: rgba(255, 60, 40, 0.85) !important;
+    box-shadow:
+        inset 0 0 14px rgba(255, 0, 0, 0.2),
+        0 0 12px rgba(255, 40, 20, 0.45) !important;
 }}
 .gradio-container button.vqc-hud-btn span {{
     display: none !important;
@@ -1088,9 +1144,45 @@ body {{
     width: 100% !important;
     min-height: 0 !important;
     max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 420px)) !important;
-    padding: 0.25rem 0.45rem !important;
+    padding: 0.35rem 0.55rem 0.25rem !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
+    position: relative !important;
+}}
+.gradio-container .vqc-hud-display::before {{
+    content: "◢ HUD DISPLAY ◣" !important;
+    position: absolute !important;
+    top: 0.42rem !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.28em !important;
+    color: rgba(0, 255, 160, 0.45) !important;
+    text-shadow: 0 0 6px rgba(0, 255, 140, 0.35) !important;
+    pointer-events: none !important;
+    z-index: 3 !important;
+}}
+.gradio-container .vqc-hud-display::after {{
+    content: "" !important;
+    position: absolute !important;
+    inset: 0.28rem 0.42rem 0.18rem !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+    border: 1px solid rgba(234, 88, 12, 0.42) !important;
+    border-radius: 3px !important;
+    box-shadow:
+        inset 0 0 24px rgba(0, 255, 120, 0.04),
+        inset 0 1px 0 rgba(234, 88, 12, 0.25),
+        0 0 14px rgba(0, 255, 140, 0.06) !important;
+    background:
+        linear-gradient(135deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) top left,
+        linear-gradient(225deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) top right,
+        linear-gradient(45deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) bottom left,
+        linear-gradient(315deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) bottom right !important;
+    background-size: 14px 14px !important;
+    background-repeat: no-repeat !important;
 }}
 .gradio-container .vqc-hud-display > .block,
 .gradio-container .vqc-hud-display > .form {{
@@ -1102,33 +1194,93 @@ body {{
 .gradio-container .vqc-cockpit-tools {{
     flex-shrink: 0 !important;
     width: 100% !important;
-    padding: 0 0.45rem !important;
-    border-top: 1px solid rgba(51, 255, 102, 0.18) !important;
+    padding: 0.2rem 0.5rem 0.15rem !important;
+    border-top: 1px solid rgba(0, 255, 160, 0.15) !important;
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.35)) !important;
 }}
 .gradio-container .vqc-cockpit-keypad {{
     flex-shrink: 0 !important;
     width: 100% !important;
     margin-top: auto !important;
-    padding: 0 0.35rem 0.35rem !important;
-    border-top: 1px solid rgba(51, 255, 102, 0.28) !important;
-    background: rgba(0, 0, 0, 0.45) !important;
+    padding: 0.22rem 0.38rem 0.26rem !important;
+    border-top: 1px solid rgba(234, 88, 12, 0.42) !important;
+    background:
+        linear-gradient(180deg, rgba(0, 255, 120, 0.05), transparent 28%),
+        rgba(0, 0, 0, 0.68) !important;
+    box-shadow: inset 0 1px 0 rgba(0, 255, 140, 0.14) !important;
+    position: relative !important;
+}}
+.gradio-container .vqc-cockpit-keypad::before {{
+    content: "◢ KEYPAD DECK ◣" !important;
+    display: block !important;
+    text-align: center !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: clamp(0.44rem, 0.88vh, 0.52rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.24em !important;
+    color: rgba(234, 88, 12, 0.55) !important;
+    text-shadow: 0 0 6px rgba(234, 88, 12, 0.25) !important;
+    margin: 0 0 0.12rem 0 !important;
+    padding: 0 !important;
 }}
 .gradio-container .vqc-cockpit-title {{
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
     color: {_VQC_MATRIX_GREEN} !important;
+    font-family: "Courier New", Courier, monospace !important;
     font-weight: 700 !important;
-    font-size: clamp(0.58rem, 1.2vh, 0.68rem) !important;
-    letter-spacing: 0.14em !important;
+    font-size: clamp(0.52rem, 1.05vh, 0.62rem) !important;
+    letter-spacing: 0.18em !important;
     text-transform: uppercase !important;
-    padding: 0.2rem 0.55rem 0 !important;
-    text-shadow: 0 0 6px rgba(51, 255, 102, 0.35) !important;
+    padding: 0.24rem 0.55rem 0.16rem !important;
+    text-shadow: 0 0 8px rgba(0, 255, 140, 0.4) !important;
+    border-bottom: 1px solid rgba(0, 255, 160, 0.12) !important;
+    flex-shrink: 0 !important;
+}}
+.gradio-container .vqc-hud-status-dot {{
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: {_VQC_MATRIX_GREEN} !important;
+    box-shadow: 0 0 8px rgba(0, 255, 140, 0.8) !important;
+    animation: vqc-hud-pulse 2.2s ease-in-out infinite !important;
+    flex-shrink: 0 !important;
+}}
+.gradio-container .vqc-hud-title-main {{
+    flex: 1 1 auto !important;
+}}
+.gradio-container .vqc-hud-title-tag {{
+    color: rgba(0, 255, 180, 0.65) !important;
+    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
+    letter-spacing: 0.22em !important;
+    padding: 0.1rem 0.35rem !important;
+    border: 1px solid rgba(0, 255, 160, 0.25) !important;
+    border-radius: 2px !important;
+    background: rgba(0, 0, 0, 0.35) !important;
+}}
+.gradio-container .vqc-hud-telemetry {{
+    color: rgba(0, 255, 160, 0.5) !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.2em !important;
+    padding: 0.05rem 0.25rem !important;
+    border: 1px solid rgba(0, 255, 140, 0.2) !important;
+    border-radius: 2px !important;
 }}
 .gradio-container .vqc-demo-links {{
     display: flex !important;
     flex-wrap: wrap !important;
     align-items: center !important;
-    gap: 0.35rem 0.75rem !important;
+    gap: 0.3rem 0.55rem !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0.15rem 0.55rem 0.2rem !important;
+    font-size: clamp(0.5rem, 1vh, 0.58rem) !important;
+}}
+@keyframes vqc-hud-pulse {{
+    0%, 100% {{ opacity: 1; transform: scale(1); }}
+    50% {{ opacity: 0.45; transform: scale(0.85); }}
 }}
 .gradio-container .vqc-terminal-stage {{
     width: 100% !important;
@@ -1170,15 +1322,100 @@ body {{
     align-items: stretch !important;
 }}
 .gradio-container .vqc-action-row button {{
-    min-height: clamp(1.45rem, 3.2vh, 1.9rem) !important;
-    max-height: clamp(1.45rem, 3.2vh, 1.9rem) !important;
-    font-size: clamp(0.68rem, 1.45vh, 0.82rem) !important;
-    padding: 0.15rem 0.35rem !important;
+    min-height: clamp(1.35rem, 2.9vh, 1.75rem) !important;
+    max-height: clamp(1.35rem, 2.9vh, 1.75rem) !important;
+    font-size: clamp(0.58rem, 1.25vh, 0.68rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    padding: 0.12rem 0.3rem !important;
+    border-radius: 3px !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-action-row button.primary {{
+    background: rgba(0, 0, 0, 0.55) !important;
+    border: 1px solid rgba(0, 255, 160, 0.55) !important;
+    color: {_VQC_MATRIX_GREEN} !important;
+    -webkit-text-fill-color: {_VQC_MATRIX_GREEN} !important;
+    box-shadow:
+        inset 0 0 10px rgba(0, 255, 120, 0.12),
+        0 0 8px rgba(0, 255, 140, 0.15) !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-action-row button.primary:hover {{
+    border-color: rgba(0, 255, 200, 0.75) !important;
+    box-shadow:
+        inset 0 0 14px rgba(0, 255, 160, 0.2),
+        0 0 12px rgba(0, 255, 140, 0.3) !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-action-row button.secondary {{
+    background: rgba(0, 0, 0, 0.45) !important;
+    border: 1px solid rgba(234, 88, 12, 0.45) !important;
+    color: #fdba74 !important;
+    -webkit-text-fill-color: #fdba74 !important;
+    box-shadow: inset 0 0 8px rgba(234, 88, 12, 0.1) !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-action-row button.secondary:hover {{
+    border-color: rgba(234, 88, 12, 0.7) !important;
+    box-shadow:
+        inset 0 0 12px rgba(234, 88, 12, 0.18),
+        0 0 10px rgba(234, 88, 12, 0.2) !important;
 }}
 .gradio-container .vqc-query-inline .wrap input {{
-    min-height: clamp(1.45rem, 3.2vh, 1.9rem) !important;
-    font-size: clamp(0.62rem, 1.3vh, 0.72rem) !important;
-    padding: 0.2rem 0.35rem !important;
+    min-height: clamp(1.35rem, 2.9vh, 1.75rem) !important;
+    font-size: clamp(0.56rem, 1.15vh, 0.66rem) !important;
+    padding: 0.18rem 0.32rem !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    border: 1px solid rgba(0, 255, 140, 0.28) !important;
+    color: {_VQC_MATRIX_GREEN} !important;
+    -webkit-text-fill-color: {_VQC_MATRIX_GREEN} !important;
+    font-family: "Courier New", Courier, monospace !important;
+    border-radius: 3px !important;
+    box-shadow: inset 0 0 10px rgba(0, 40, 12, 0.45) !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-check-row label span {{
+    color: rgba(0, 255, 180, 0.75) !important;
+    letter-spacing: 0.06em !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-tune-accordion {{
+    background: rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid rgba(0, 255, 140, 0.18) !important;
+    border-radius: 4px !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-tune-accordion summary,
+.gradio-container .vqc-cockpit-tools .vqc-tune-accordion .label-wrap span {{
+    color: rgba(0, 255, 160, 0.6) !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-optics-dial-wrap {{
+    background: rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid rgba(0, 255, 140, 0.2) !important;
+    border-radius: 4px !important;
+    padding: 0.25rem 0.35rem !important;
+}}
+.gradio-container .vqc-cockpit-tools .vqc-optics-dial-wrap .label-wrap span {{
+    color: rgba(0, 255, 160, 0.55) !important;
+    font-size: clamp(0.48rem, 1vh, 0.56rem) !important;
+}}
+.gradio-container .vqc-cockpit-tools input[type="range"] {{
+    height: 4px !important;
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.6), rgba(0, 255, 120, 0.25), rgba(0, 0, 0, 0.6)) !important;
+    border: 1px solid rgba(0, 255, 140, 0.25) !important;
+}}
+.gradio-container .vqc-cockpit-tools input[type="range"]::-webkit-slider-thumb {{
+    -webkit-appearance: none !important;
+    width: 14px !important;
+    height: 14px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 32% 28%, #7dff9a 0%, {_VQC_MATRIX_GREEN} 55%, #0a2818 100%) !important;
+    border: 1px solid rgba(0, 255, 160, 0.5) !important;
+    box-shadow: 0 0 6px rgba(0, 255, 140, 0.4) !important;
+}}
+.gradio-container .vqc-demo-links .vqc-source-label {{
+    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
+    color: rgba(0, 255, 160, 0.45) !important;
+    font-weight: 600 !important;
+}}
+.gradio-container .vqc-demo-links .vqc-source-tab {{
+    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
+    font-weight: 600 !important;
 }}
 .gradio-container .vqc-check-row {{
     gap: 0.35rem !important;
@@ -1643,11 +1880,20 @@ footer {{
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-terminal-wrap,
 .gradio-container .vqc-hud-display .vqc-optics-terminal-wrap {{
-    background: rgba(0, 0, 0, 0.18) !important;
-    border: 1px solid rgba(51, 255, 102, 0.32) !important;
-    border-radius: 4px !important;
-    padding: 0.3rem 0.4rem !important;
-    margin: 0 !important;
+    background: rgba(0, 0, 0, 0.42) !important;
+    border: none !important;
+    border-top: 2px solid rgba(234, 88, 12, 0.5) !important;
+    border-radius: 2px !important;
+    padding: 0.55rem 0.45rem 0.35rem !important;
+    margin: 0.15rem 0.1rem 0.1rem !important;
+    position: relative !important;
+    z-index: 1 !important;
+    box-shadow:
+        inset 0 0 32px rgba(0, 255, 120, 0.05),
+        inset 0 2px 12px rgba(0, 0, 0, 0.55) !important;
+}}
+.gradio-container .vqc-hud-display .vqc-optics-terminal .label-wrap {{
+    display: none !important;
 }}
 .gradio-container .vqc-animations-nav-row {{
     margin: 0.35rem 0 0.65rem 0 !important;
@@ -1661,9 +1907,13 @@ footer {{
     overflow-x: hidden !important;
     overflow-y: auto !important;
     resize: none !important;
-    font-size: clamp(0.68rem, 1.45vh, 0.78rem) !important;
-    line-height: 1.35 !important;
+    font-size: clamp(0.62rem, 1.32vh, 0.72rem) !important;
+    line-height: 1.32 !important;
     box-sizing: border-box !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0.15rem 0.1rem !important;
 }}
 .gradio-container .vqc-oam-helix-scan {{
     position: relative !important;
@@ -1760,6 +2010,13 @@ footer {{
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
 }}
+.gradio-container .vqc-cockpit-keypad.vqc-optics-keypad {{
+    background: rgba(0, 0, 0, 0.42) !important;
+    border: 1px solid rgba(0, 255, 140, 0.22) !important;
+    border-radius: 4px !important;
+    padding: 0.12rem 0.14rem 0.14rem !important;
+    box-shadow: inset 0 0 16px rgba(0, 255, 120, 0.04) !important;
+}}
 .gradio-container .vqc-optics-keypad > .block,
 .gradio-container .vqc-optics-keypad .block {{
     background: transparent !important;
@@ -1802,6 +2059,71 @@ footer {{
     letter-spacing: 0.03em !important;
     padding: 0.28rem 0.1rem !important;
     box-shadow: none !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key,
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key span {{
+    font-size: clamp(0.58rem, 1.35vh, 0.72rem) !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key {{
+    min-height: clamp(1.1rem, 2.5vh, 1.45rem) !important;
+    height: clamp(1.1rem, 2.5vh, 1.45rem) !important;
+    max-height: clamp(1.1rem, 2.5vh, 1.45rem) !important;
+    border: 1px solid rgba(0, 255, 140, 0.18) !important;
+    border-radius: 3px !important;
+    padding: 0.18rem 0.08rem !important;
+    background: rgba(0, 0, 0, 0.72) !important;
+}}
+.gradio-container .vqc-cockpit-keypad .vqc-optics-dpad-row,
+.gradio-container .vqc-cockpit-keypad .vqc-optics-prog-row {{
+    gap: 0.1rem !important;
+    margin: 0 0 0.08rem 0 !important;
+}}
+.gradio-container .vqc-cockpit-keypad .vqc-optics-dpad-row button.vqc-optics-key-dpad,
+.gradio-container .vqc-cockpit-keypad .vqc-optics-dpad-row button.vqc-optics-key-dpad span {{
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
+    font-size: clamp(0.95rem, 2.1vh, 1.2rem) !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key-home,
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key-home span {{
+    color: {_VQC_MATRIX_GREEN} !important;
+    -webkit-text-fill-color: {_VQC_MATRIX_GREEN} !important;
+    text-shadow: 0 0 6px rgba(51, 255, 102, 0.35) !important;
+    font-size: clamp(0.58rem, 1.35vh, 0.72rem) !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key-defined:not(.active),
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key-defined:not(.active) span {{
+    color: {_VQC_MATRIX_GREEN} !important;
+    -webkit-text-fill-color: {_VQC_MATRIX_GREEN} !important;
+    text-shadow: 0 0 6px rgba(51, 255, 102, 0.35) !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key-defined:not(.active):hover,
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key-defined:not(.active):hover span {{
+    color: #7dff9a !important;
+    -webkit-text-fill-color: #7dff9a !important;
+    background: rgba(0, 255, 120, 0.08) !important;
+    border-color: rgba(0, 255, 160, 0.35) !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key:not(.active):not(.vqc-optics-key-home):not(.vqc-optics-key-defined):hover {{
+    background: rgba(0, 255, 120, 0.06) !important;
+    border-color: rgba(0, 255, 140, 0.28) !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key.active,
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key.active:hover {{
+    background: {_VQC_MATRIX_GREEN} !important;
+    border-color: {_VQC_MATRIX_GREEN} !important;
+    box-shadow: 0 0 10px rgba(51, 255, 102, 0.4) !important;
+}}
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key.active,
+.gradio-container .vqc-cockpit-keypad button.vqc-optics-key.active span {{
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    text-shadow: none !important;
+}}
+.gradio-container .vqc-cockpit-keypad .vqc-optics-dpad-row button.vqc-optics-key-dpad:active,
+.gradio-container .vqc-cockpit-keypad .vqc-optics-dpad-row button.vqc-optics-key-dpad:active span {{
+    background: {_VQC_MATRIX_GREEN} !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-dpad-row button.vqc-optics-key-dpad,
 .gradio-container .vqc-optics-panel .vqc-optics-dpad-row button.vqc-optics-key-dpad span {{
@@ -2187,9 +2509,7 @@ def build_app() -> gr.Blocks:
     ) as demo:
         with gr.Column(elem_classes=["vqc-fullscreen-shell"]):
             with gr.Group(elem_classes=["vqc-cockpit"]):
-                gr.HTML(
-                    '<div class="vqc-cockpit-title">QVPIC · IDENTITY CONDUIT · HUD COCKPIT</div>'
-                )
+                gr.HTML(COCKPIT_TITLE_HTML)
                 hud_state = gr.State(_default_hud_state())
                 hud_all_btns: dict[str, gr.Button] = {}
                 with gr.Row(elem_classes=["vqc-hud-bar"]):
