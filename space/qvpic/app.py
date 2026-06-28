@@ -800,11 +800,37 @@ def _build_vqc_theme() -> gr.themes.Base:
     )
 
 
-# Full-viewport shell — solid backdrop so the control panel owns the page.
+# Viewport-fit shell — JS sets --vqc-vh/--vqc-vw from detected display (HF iframe-safe).
 WALLPAPER_HEAD = """
 <style id="vqc-fullscreen-style">
 html, body { background-color: #0a0818 !important; }
 </style>
+<script>
+(function() {
+    function applyViewportFit() {
+        var h = window.innerHeight || document.documentElement.clientHeight || 0;
+        var w = window.innerWidth || document.documentElement.clientWidth || 0;
+        if (h < 1) return;
+        var root = document.documentElement;
+        root.style.setProperty('--vqc-vh', h + 'px');
+        root.style.setProperty('--vqc-vw', w + 'px');
+        root.style.setProperty('--vqc-vh-num', String(h));
+        document.body.style.height = h + 'px';
+        document.body.style.maxHeight = h + 'px';
+        document.body.style.overflow = 'hidden';
+    }
+    applyViewportFit();
+    window.addEventListener('resize', applyViewportFit);
+    window.addEventListener('orientationchange', applyViewportFit);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', applyViewportFit);
+    }
+    document.addEventListener('DOMContentLoaded', applyViewportFit);
+    window.addEventListener('load', applyViewportFit);
+    setTimeout(applyViewportFit, 250);
+    setTimeout(applyViewportFit, 1000);
+})();
+</script>
 """
 
 HFB_CSS = f"""
@@ -827,45 +853,66 @@ HFB_CSS = f"""
 }}
 html {{
     background-color: #0a0818 !important;
-    min-height: 100% !important;
+    height: var(--vqc-vh, 100dvh) !important;
+    max-height: var(--vqc-vh, 100dvh) !important;
+    overflow: hidden !important;
 }}
 body {{
     background: transparent !important;
     background-color: transparent !important;
     color: #e8e0f8 !important;
-    min-height: 100vh !important;
+    height: var(--vqc-vh, 100dvh) !important;
+    max-height: var(--vqc-vh, 100dvh) !important;
     width: 100% !important;
-    overflow-x: hidden !important;
+    overflow: hidden !important;
     position: relative !important;
+    margin: 0 !important;
 }}
 #root, .app {{
     background: #0a0818 !important;
     background-color: #0a0818 !important;
-    min-height: 100vh !important;
-    height: 100% !important;
+    height: var(--vqc-vh, 100dvh) !important;
+    max-height: var(--vqc-vh, 100dvh) !important;
     width: 100% !important;
+    overflow: hidden !important;
 }}
 .gradio-container {{
     position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 100vh !important;
-    height: 100% !important;
+    height: var(--vqc-vh, 100dvh) !important;
+    max-height: var(--vqc-vh, 100dvh) !important;
     padding: 0 !important;
     margin: 0 !important;
     background: #0a0818 !important;
     background-color: #0a0818 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
 }}
-.gradio-container .vqc-fullscreen-shell {{
+.gradio-container .main,
+.gradio-container .wrap,
+.gradio-container .contain {{
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}}
+.gradio-container .vqc-fullscreen-shell,
+.gradio-container .vqc-fullscreen-shell > .block,
+.gradio-container .vqc-fullscreen-shell > .form,
+.gradio-container .vqc-fullscreen-shell > .column {{
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 100vh !important;
-    height: 100vh !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
+    flex: 1 1 auto !important;
 }}
 .gradio-container .vqc-demo-links {{
     display: flex !important;
@@ -891,17 +938,24 @@ body {{
 }}
 .gradio-container .vqc-lattice-compact {{
     flex: 0 0 auto !important;
-    max-height: min(22vh, 220px) !important;
-    margin: 0.35rem 0 0.45rem 0 !important;
+    max-height: clamp(72px, 12vh, 140px) !important;
+    margin: 0.2rem 0 0.25rem 0 !important;
 }}
 .gradio-container .vqc-lattice-compact .image-container,
 .gradio-container .vqc-lattice-compact img {{
-    max-height: min(22vh, 220px) !important;
+    max-height: clamp(72px, 12vh, 140px) !important;
     object-fit: contain !important;
 }}
+.gradio-container .vqc-controls-stack {{
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}}
 .gradio-container .vqc-action-row {{
-    gap: 0.55rem !important;
-    margin: 0.35rem 0 0.45rem 0 !important;
+    gap: 0.45rem !important;
+    margin: 0.2rem 0 0.25rem 0 !important;
+    flex-shrink: 0 !important;
 }}
 footer {{
     background: transparent !important;
@@ -1168,7 +1222,10 @@ footer {{
     display: block !important;
     background: rgba(10, 8, 24, 0.35) !important;
 }}
-.gradio-container .vqc-optics-panel {{
+.gradio-container .vqc-optics-panel,
+.gradio-container .vqc-optics-panel > fieldset,
+.gradio-container .vqc-optics-panel > .form,
+.gradio-container .vqc-optics-panel > .block {{
     background: linear-gradient(165deg, #2a1810 0%, #1a1008 38%, #120c06 100%) !important;
     border: none !important;
     border-top: 3px solid #6b4f1d !important;
@@ -1176,17 +1233,19 @@ footer {{
     box-shadow:
         inset 0 2px 8px rgba(255, 220, 150, 0.08),
         inset 0 -4px 14px rgba(0, 0, 0, 0.55) !important;
-    padding: 0 0.85rem 0.75rem !important;
+    padding: 0 clamp(0.45rem, 1.2vw, 0.85rem) clamp(0.35rem, 1vh, 0.65rem) !important;
     margin: 0 !important;
     gap: 0 !important;
     flex: 1 1 auto !important;
-    min-height: 100vh !important;
+    min-height: 0 !important;
     height: 100% !important;
+    max-height: 100% !important;
     width: 100% !important;
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
 }}
 .gradio-container .vqc-optics-panel > .gap {{
     display: none !important;
@@ -1204,16 +1263,18 @@ footer {{
     display: flex !important;
     flex-wrap: wrap !important;
     align-items: center !important;
-    gap: 0.75rem 1.1rem !important;
+    gap: 0.45rem 0.75rem !important;
     margin: 0 0 0 0 !important;
-    padding: 0.7rem 0.85rem 1.35rem !important;
+    padding: clamp(0.35rem, 1.1vh, 0.65rem) clamp(0.45rem, 1.2vw, 0.85rem) !important;
     border: none !important;
     border-bottom: 1px solid rgba(74, 56, 24, 0.65) !important;
     border-radius: 10px 10px 0 0 !important;
     background: linear-gradient(180deg, #1f140a 0%, #0f0a06 100%) !important;
     box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.65) !important;
     width: 100% !important;
-    min-height: 5.25rem !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
 }}
 .gradio-container .vqc-optics-panel-header > .block,
 .gradio-container .vqc-optics-panel-header > .form,
@@ -1360,30 +1421,36 @@ footer {{
     background: rgba(2, 10, 4, 0.1) !important;
     border: 1px solid #1a4d2a !important;
     border-radius: 10px !important;
-    padding: 0.5rem 0.6rem 0.45rem !important;
-    margin: 0.55rem 0 0.55rem 0 !important;
+    padding: 0.35rem 0.45rem 0.3rem !important;
+    margin: 0.25rem 0 0.3rem 0 !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
 }}
 .gradio-container .vqc-animations-nav-row {{
     margin: 0.35rem 0 0.65rem 0 !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-terminal textarea {{
-    min-height: calc(100vh - 24rem) !important;
+    min-height: 0 !important;
     height: 100% !important;
+    max-height: 100% !important;
     flex: 1 1 auto !important;
     white-space: pre !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-}}
-.gradio-container .vqc-optics-panel .vqc-optics-terminal-wrap {{
-    flex: 1 1 auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: calc(100vh - 24rem) !important;
+    resize: none !important;
+    font-size: clamp(0.68rem, 1.45vh, 0.78rem) !important;
+    line-height: 1.35 !important;
 }}
 .gradio-container .vqc-oam-helix-scan {{
     position: relative !important;
     width: 100% !important;
-    min-height: 14rem !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
     margin: 0.55rem 0 !important;
     padding: 0.65rem 0.75rem !important;
     background: rgba(10, 8, 24, 0.55) !important;
@@ -1467,9 +1534,11 @@ footer {{
     background: linear-gradient(180deg, #16120c 0%, #0a0806 100%) !important;
     border: 2px inset #3d3020 !important;
     border-radius: 10px !important;
-    padding: 0.42rem 0.38rem 0.48rem !important;
-    margin: 0 0 0.65rem 0 !important;
+    padding: 0.28rem 0.3rem 0.32rem !important;
+    margin: 0 !important;
     box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.55) !important;
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
 }}
 .gradio-container .vqc-optics-keypad > .block,
 .gradio-container .vqc-optics-keypad .block {{
@@ -1493,7 +1562,7 @@ footer {{
 .gradio-container .vqc-optics-keypad button.vqc-optics-key,
 .gradio-container .vqc-optics-keypad button.vqc-optics-key span {{
     font-family: "Courier New", Courier, monospace !important;
-    font-size: 1.44rem !important;
+    font-size: clamp(0.95rem, 2.2vh, 1.35rem) !important;
     font-weight: 700 !important;
     line-height: 1.1 !important;
 }}
@@ -1501,9 +1570,9 @@ footer {{
     flex: 1 1 0 !important;
     min-width: 0 !important;
     max-width: none !important;
-    min-height: 3rem !important;
-    height: 3rem !important;
-    max-height: 3rem !important;
+    min-height: clamp(1.75rem, 4.8vh, 2.55rem) !important;
+    height: clamp(1.75rem, 4.8vh, 2.55rem) !important;
+    max-height: clamp(1.75rem, 4.8vh, 2.55rem) !important;
     aspect-ratio: auto !important;
     background: #000000 !important;
     border: none !important;
@@ -1644,12 +1713,13 @@ footer {{
     background: rgba(0, 0, 0, 0.22) !important;
     border: 1px solid #4a3818 !important;
     border-radius: 10px !important;
-    padding: 0.55rem 0.65rem 0.45rem !important;
+    padding: 0.35rem 0.45rem 0.3rem !important;
     margin: 0 !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-tune-row {{
-    gap: 0.65rem !important;
-    margin-bottom: 0.55rem !important;
+    gap: 0.45rem !important;
+    margin-bottom: 0.25rem !important;
+    flex-shrink: 0 !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-dial-row {{
     gap: 0.65rem !important;
@@ -1729,20 +1799,7 @@ footer {{
 .gradio-container .vqc-full-width {{
     width: 100% !important;
 }}
-.gradio-container .main,
-.gradio-container .wrap {{
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: 0 !important;
-    height: auto !important;
-}}
-.gradio-container .contain {{
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 auto !important;
-    min-height: 0 !important;
-    height: auto !important;
-}}
+
 .gradio-container .vqc-animation-panel,
 .gradio-container .vqc-figure-panel,
 .gradio-container .vqc-plot3d-panel {{
@@ -1942,60 +1999,60 @@ def build_app() -> gr.Blocks:
                     "clear": "clear",
                 }
 
-                with gr.Row(elem_classes=["vqc-action-row"]):
-                    benchmark_btn = gr.Button("Run benchmark", variant="primary", scale=1)
-                    query_btn = gr.Button("Run query recall", variant="secondary", scale=1)
-
-                with gr.Row(elem_classes=["vqc-optics-tune-row"]):
-                    bake_steps = gr.Slider(
-                        10,
-                        150,
-                        value=_DEFAULTS["bake_steps"],
-                        step=5,
-                        label="Bake steps / fact",
-                        elem_classes=["vqc-optics-dial-wrap"],
-                    )
-                    bandwidth = gr.Slider(
-                        0.1,
-                        1.0,
-                        value=_DEFAULTS["bandwidth"],
-                        step=0.05,
-                        label="Read bandwidth",
-                        elem_classes=["vqc-optics-dial-wrap"],
-                    )
-                    drift_samples = gr.Slider(
-                        10,
-                        80,
-                        value=_DEFAULTS["drift_samples"],
-                        step=5,
-                        label="Drift samples",
-                        elem_classes=["vqc-optics-dial-wrap"],
-                    )
-                    max_facts = gr.Slider(
-                        3,
-                        12,
-                        value=_DEFAULTS["max_facts"],
-                        step=1,
-                        label="Max demo facts",
-                        elem_classes=["vqc-optics-dial-wrap"],
-                    )
-                with gr.Row(elem_classes=["vqc-optics-tune-row"]):
-                    query_text = gr.Textbox(
-                        label="Query recall text",
-                        value=_DEFAULTS["query_text"],
-                        elem_classes=["vqc-optics-dial-wrap"],
-                    )
-                    use_vqc = gr.Checkbox(
-                        label="VQCEnhanced conduit (experimental)",
-                        value=_DEFAULTS["use_vqc"],
-                        elem_classes=["vqc-optics-dial-wrap"],
-                    )
-                    include_lattice = gr.Checkbox(
-                        label="Include braided lattice PNG",
-                        value=True,
-                        info=lattice_info,
-                        elem_classes=["vqc-optics-dial-wrap"],
-                    )
+                with gr.Column(elem_classes=["vqc-controls-stack"]):
+                    with gr.Row(elem_classes=["vqc-action-row"]):
+                        benchmark_btn = gr.Button("Run benchmark", variant="primary", scale=1)
+                        query_btn = gr.Button("Run query recall", variant="secondary", scale=1)
+                    with gr.Row(elem_classes=["vqc-optics-tune-row"]):
+                        bake_steps = gr.Slider(
+                            10,
+                            150,
+                            value=_DEFAULTS["bake_steps"],
+                            step=5,
+                            label="Bake steps / fact",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        bandwidth = gr.Slider(
+                            0.1,
+                            1.0,
+                            value=_DEFAULTS["bandwidth"],
+                            step=0.05,
+                            label="Read bandwidth",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        drift_samples = gr.Slider(
+                            10,
+                            80,
+                            value=_DEFAULTS["drift_samples"],
+                            step=5,
+                            label="Drift samples",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        max_facts = gr.Slider(
+                            3,
+                            12,
+                            value=_DEFAULTS["max_facts"],
+                            step=1,
+                            label="Max demo facts",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                    with gr.Row(elem_classes=["vqc-optics-tune-row"]):
+                        query_text = gr.Textbox(
+                            label="Query recall text",
+                            value=_DEFAULTS["query_text"],
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        use_vqc = gr.Checkbox(
+                            label="VQCEnhanced conduit (experimental)",
+                            value=_DEFAULTS["use_vqc"],
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        include_lattice = gr.Checkbox(
+                            label="Include braided lattice PNG",
+                            value=True,
+                            info=lattice_info,
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
 
                 with gr.Column(elem_classes=["vqc-optics-keypad"]):
                     with gr.Row(elem_classes=["vqc-optics-dpad-row"], equal_height=True):
