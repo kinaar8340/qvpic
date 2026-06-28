@@ -513,6 +513,20 @@ QUARTZ_HEAD = """
         }
         return stage.querySelector('.quartz-torus-mesh');
     }
+    function lockTerminalOverflowX() {
+        [
+            '.quartz-display-bay',
+            '.quartz-terminal-col',
+            '.quartz-terminal',
+            '.quartz-terminal .wrap',
+            '.quartz-terminal textarea'
+        ].forEach(function(sel) {
+            document.querySelectorAll(sel).forEach(function(el) {
+                el.style.overflowX = 'hidden';
+                el.style.maxWidth = '100%';
+            });
+        });
+    }
     function syncTerminalOverflow(viewportH) {
         var ta = document.querySelector('.quartz-terminal textarea');
         if (!ta) return;
@@ -523,6 +537,7 @@ QUARTZ_HEAD = """
         ta.style.maxHeight = th + 'px';
         ta.style.overflowX = 'hidden';
         ta.style.overflowY = ta.scrollHeight > ta.clientHeight + 2 ? 'auto' : 'hidden';
+        lockTerminalOverflowX();
     }
     function fitTorusFrame() {
         var mount = document.querySelector('.quartz-torus-stage');
@@ -535,7 +550,7 @@ QUARTZ_HEAD = """
         var halfLeft = w * 0.5;
         var halfW = w * 0.5 - pad;
         var availH = h - pad * 2;
-        var size = Math.floor(Math.min(halfW, availH) * 0.85);
+        var size = Math.floor(Math.min(halfW, availH) * 0.78);
         var originX = halfLeft + halfW * 0.5;
         var originY = h * 0.5;
         frame.style.position = 'absolute';
@@ -554,25 +569,28 @@ QUARTZ_HEAD = """
         if (!frame) return 58;
         var side = Math.min(frame.clientWidth, frame.clientHeight);
         if (side < 1) return 58;
-        return Math.max(40, Math.min(83, side * 0.306));
+        return Math.max(38, Math.min(76, side * 0.28));
     }
     function fitTorusMount() {
         var mount = document.querySelector('.quartz-torus-stage');
+        var bay = document.querySelector('.quartz-display-bay');
         var ta = document.querySelector('.quartz-terminal textarea');
         if (!mount || !ta) {
             if (mount) mount.style.display = 'none';
             return;
         }
+        var panel = bay || ta;
+        var pr = panel.getBoundingClientRect();
         var tr = ta.getBoundingClientRect();
-        if (tr.width < 40 || tr.height < 40) {
+        if (pr.width < 40 || tr.height < 40) {
             mount.style.display = 'none';
             return;
         }
         mount.style.display = 'block';
         mount.style.position = 'fixed';
         mount.style.top = tr.top + 'px';
-        mount.style.left = tr.left + 'px';
-        mount.style.width = tr.width + 'px';
+        mount.style.left = pr.left + 'px';
+        mount.style.width = pr.width + 'px';
         mount.style.height = tr.height + 'px';
         mount.style.zIndex = '99999';
         mount.style.overflow = 'hidden';
@@ -1009,7 +1027,10 @@ html, body {{
     flex-direction: column !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     height: 100% !important;
+    overflow-x: hidden !important;
 }}
 .gradio-container .quartz-top-tabs {{
     gap: 0.28rem !important;
@@ -1070,13 +1091,21 @@ html, body {{
     flex: 1 1 auto !important;
     min-height: 0 !important;
     width: 100% !important;
+    max-width: 100% !important;
     margin: var(--quartz-inset) !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
     position: relative !important;
     z-index: 5 !important;
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+}}
+.gradio-container .quartz-display-bay > .block,
+.gradio-container .quartz-display-bay > .form {{
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
 }}
 .gradio-container .quartz-display-backing {{
     position: absolute !important;
@@ -1100,7 +1129,14 @@ html, body {{
     padding: 0.22rem 0.26rem 0.18rem !important;
     box-shadow: none !important;
     margin: 0.3rem !important;
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+}}
+.gradio-container .quartz-terminal-col > .block,
+.gradio-container .quartz-terminal-col > .form {{
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
 }}
 .gradio-container .quartz-grid-off .quartz-terminal-col {{
     background: transparent !important;
@@ -1183,11 +1219,19 @@ html, body {{
     overflow-x: hidden !important;
     overflow-y: hidden !important;
     box-sizing: border-box !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
     scrollbar-width: thin !important;
     scrollbar-color: rgba(0, 255, 65, 0.22) transparent !important;
 }}
 .gradio-container .quartz-terminal textarea::-webkit-scrollbar {{
     width: 5px !important;
+    height: 0 !important;
+}}
+.gradio-container .quartz-terminal textarea::-webkit-scrollbar:horizontal {{
+    display: none !important;
+    height: 0 !important;
 }}
 .gradio-container .quartz-terminal textarea::-webkit-scrollbar-track {{
     background: transparent !important;
