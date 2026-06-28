@@ -460,6 +460,19 @@ QUARTZ_HEAD = """
         alignGridWindow();
         fitSkinMetrics();
         fitDisplayOverlay();
+        fitDisplayBacking();
+    }
+    function fitDisplayBacking() {
+        var backing = document.querySelector('.quartz-display-backing');
+        var ta = document.querySelector('.quartz-terminal textarea');
+        var col = document.querySelector('.quartz-terminal-col');
+        if (!backing || !ta || !col) return;
+        var cr = col.getBoundingClientRect();
+        var tr = ta.getBoundingClientRect();
+        backing.style.top = (tr.top - cr.top) + 'px';
+        backing.style.left = (tr.left - cr.left) + 'px';
+        backing.style.width = tr.width + 'px';
+        backing.style.height = tr.height + 'px';
     }
     function fitDisplayOverlay() {
         var panel = document.querySelector('.quartz-panel');
@@ -555,7 +568,7 @@ QUARTZ_CSS = f"""
     --quartz-phosphor-dim: #00cc34;
     --quartz-phosphor-bright: #33ff66;
     --quartz-panel: {_PANEL_BG};
-    --quartz-display: #0d0d0d;
+    --quartz-display: #0a0a0a;
     --quartz-btn-top: #3d424a;
     --quartz-btn-mid: #2a2e35;
     --quartz-btn-bot: #181b20;
@@ -622,15 +635,10 @@ html, body {{
     border: none !important;
     overflow: visible !important;
 }}
-.gradio-container .quartz-grid-off .quartz-display-backing {{
+.gradio-container .quartz-display-backing {{
     background: var(--quartz-display) !important;
     opacity: 1 !important;
-}}
-.gradio-container .quartz-grid-on .quartz-display-backing {{
-    background: transparent !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    display: none !important;
+    visibility: visible !important;
 }}
 .gradio-container .quartz-grid-on .quartz-skin {{
     clip-path: var(--quartz-skin-clip, none) !important;
@@ -643,14 +651,26 @@ html, body {{
 .gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal > .block,
 .gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal > .form,
 .gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal .wrap,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal textarea,
 .gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal [data-testid="textbox"],
 .gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal label,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal .input-container,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-display-backing {{
+.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal .input-container {{
     background: transparent !important;
     background-color: transparent !important;
     box-shadow: none !important;
+}}
+.gradio-container .quartz-aperture-zone .quartz-display-backing,
+.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-display-backing {{
+    background: var(--quartz-display) !important;
+    background-color: var(--quartz-display) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}}
+.gradio-container .quartz-aperture-zone .quartz-terminal textarea,
+.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal textarea {{
+    background: var(--quartz-display) !important;
+    background-color: var(--quartz-display) !important;
+    border: 1px solid #1a3a1a !important;
+    box-shadow: inset 0 0 10px rgba(0,255,65,0.08) !important;
 }}
 .gradio-container .quartz-grid-on .quartz-display-bay,
 .gradio-container .quartz-grid-on .quartz-display-bay > .block,
@@ -912,12 +932,11 @@ html, body {{
 }}
 .gradio-container .quartz-display-backing {{
     position: absolute !important;
-    inset: 0.42rem 0.42rem auto 0.42rem !important;
-    bottom: 0 !important;
     z-index: 0 !important;
     pointer-events: none !important;
     border-radius: 2px !important;
-    transition: opacity 0.15s ease !important;
+    border: 1px solid #1a3a1a !important;
+    box-shadow: inset 0 0 10px rgba(0,255,65,0.08) !important;
 }}
 .gradio-container .quartz-terminal-col {{
     position: relative !important;
@@ -950,27 +969,23 @@ html, body {{
     margin: 0 !important;
 }}
 .gradio-container .quartz-terminal textarea {{
-    background: transparent !important;
+    position: relative !important;
+    z-index: 1 !important;
+    background: var(--quartz-display) !important;
+    background-color: var(--quartz-display) !important;
     color: var(--quartz-phosphor) !important;
     -webkit-text-fill-color: var(--quartz-phosphor) !important;
     font-family: "Courier New", Courier, monospace !important;
     font-size: clamp(0.7rem, 1.44vh, 0.86rem) !important;
     line-height: 1.38 !important;
-    border: none !important;
+    border: 1px solid #1a3a1a !important;
     border-radius: 2px !important;
-    box-shadow: inset 0 0 24px rgba(0,255,65,0.06) !important;
+    box-shadow: inset 0 0 10px rgba(0,255,65,0.08) !important;
     text-shadow: 0 0 6px rgba(0,255,65,0.35) !important;
     resize: none !important;
     overflow-y: auto !important;
     height: calc(var(--quartz-vh, 100dvh) - var(--quartz-chrome, 220px) - 52px) !important;
     max-height: calc(var(--quartz-vh, 100dvh) - var(--quartz-chrome, 220px) - 52px) !important;
-}}
-.gradio-container .quartz-grid-on .quartz-terminal textarea {{
-    background: transparent !important;
-    box-shadow: none !important;
-}}
-.gradio-container .quartz-grid-off .quartz-terminal textarea {{
-    background: transparent !important;
 }}
 .gradio-container .quartz-terminal-col::after {{
     content: none !important;
