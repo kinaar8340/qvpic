@@ -10,7 +10,9 @@
 **Geometric deep-learning memory architecture for drift-resistant persistent identity in AI agents**  
 **Software embodiment of the Vortex Quaternion Conduit (VQC) patent**
 
-**Current date context: April 2026**
+**Current date context: June 2026**
+
+**Try it now (no install):** [QUARTZ AI SYNTHESIZER HF Space](https://huggingface.co/spaces/kinaar111/qvpic) — HOME → page 2 → **Guided Tour (Onboarding)**
 
 ## Abstract
 
@@ -128,14 +130,91 @@ The patent abstract and full specification are included in the repository as `do
 
 ## Architecture Overview
 
-- **Continuous backbone**: `TwistedHelicalConduit` (Clifford-torus projection + quaternion Frenet spine).
-- **Discrete layer**: `RingConeChain` (24→3 ring double-cone) + `ShellCube` radial differential.
-- **Higher-order reasoning**: Minimal Copresheaf `TnnLayer` (sheaf diffusion on edge_index and ring polarities — the new 2026 cutting-edge addition).
-- **Encoder/Decoder**: `RubikEncoder` / `RubikDecoder` with vortex-polarized message passing.
-- **Read/Write**: `recover_depth` + `read` (soft-weighted, safe_cosine enforced) or RingCone recall.
-- **Topological monitoring**: `monitor_topological_winding()` reports invariants at every step.
+```mermaid
+flowchart TB
+    subgraph input
+        ID[identity/*.md + facts/*.json]
+        EM[SentenceTransformer embed]
+    end
+    subgraph conduit["QVPIC Conduit"]
+        RC[RubikConeConduit / RingConeChain]
+        SC[ShellCube radial differential]
+        TN[TnnLayer copresheaf diffusion]
+        INV[winding · braiding_phase]
+    end
+    subgraph io
+        W[write / bake]
+        R[read / primal recall]
+        D[drift recovery]
+    end
+    subgraph agent
+        MAIN[scripts/main.py]
+        HB[heartbeat checkpoints]
+    end
+    ID --> EM --> W --> RC --> SC --> TN
+    RC --> INV
+    R --> RC
+    D --> INV
+    MAIN --> W
+    MAIN --> R
+    HB --> RC
+```
+
+| Component | Purpose |
+|-----------|---------|
+| **Continuous backbone** | `TwistedHelicalConduit` — Clifford-torus projection + quaternion Frenet spine |
+| **Discrete layer** | `RingConeChain` (24→3 ring double-cone) + `ShellCube` radial differential |
+| **Higher-order reasoning** | Minimal Copresheaf `TnnLayer` — sheaf diffusion on ring polarities |
+| **Encoder/Decoder** | `RubikEncoder` / `RubikDecoder` with vortex-polarized message passing |
+| **Read/Write** | `recover_depth` + `read` (safe_cosine) or RingCone primal recall |
+| **Topological monitoring** | `monitor_topological_winding()` — invariants at every step |
 
 All cosine operations use the enforced pattern `safe_cosine(dim=-1 + .unsqueeze(0))`.
+
+### Topology in plain language
+
+Facts are not rows in a vector index. Each fact is **baked into a cube** on a RingConeChain with quaternion orientation and depth coordinate `s`. Global invariants (**winding**, **braiding_phase**) act as a consistency shield — if noise or agent drift corrupts memory, recovery is measured against a naive flat-cosine baseline. See [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) for diagrams and a 60-second HF Space tour.
+
+## Agent use-cases
+
+| Scenario | How QVPIC helps |
+|----------|-----------------|
+| Personal AI assistant | Identity shards in `identity/user/` persist across `--no-reset` sessions |
+| Long-horizon coding agent | `/self-eval` benchmark gates self-improvement proposals |
+| Research / notebook agent | Bake notes; recall by primal cosine on braided lattice |
+| Ops / support bot | Heartbeat checkpoints + append-only `facts/*.json` |
+| Browser validation | HF Space bake → recall → drift without local LLM |
+
+**Integration example:** [`examples/agent_memory_integration.py`](examples/agent_memory_integration.py)  
+**Full guide:** [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md)
+
+## Benchmarks vs flat memory
+
+Internal protocol on demo facts (`web/demo_public_facts.json`): embed → bake → recall → perturb depth + vector noise → measure recovery.
+
+| Approach | Typical recall cosine | Drift protection | Topology lock |
+|----------|----------------------|------------------|---------------|
+| **QVPIC RubikCone** | 0.98 – 1.00 | **~5.7×** | yes |
+| Naive flat cosine | degrades | 1.0× baseline | no |
+| Vector-store RAG | degrades | ~1.0× | no |
+
+```bash
+# Full local benchmark
+python scripts/qvpic_test.py --no-viz
+
+# Minimal integration smoke test
+python examples/agent_memory_integration.py
+```
+
+## Community & validation
+
+External feedback is welcome — especially from **geometric deep learning**, **topological ML**, and **quaternion / sheaf NN** communities.
+
+1. Reproduce metrics in the [HF Space](https://huggingface.co/spaces/kinaar111/qvpic) (Guided Tour → `benchmark`).
+2. Compare against your vector DB on the same facts JSON using the drift protocol in `demo_core._drift_test`.
+3. Share results via HF Community, GitHub Issues/Discussions, or your lab channel.
+
+Contact: kinaar0@protonmail.com · X: @kinaar8340
 
 ## Project Structure
 
@@ -179,11 +258,15 @@ qvpic/
 │
 ├── checkpoints/                    
 ├── logs/                           
+├── examples/
+│   └── agent_memory_integration.py # Minimal bake → recall → drift demo
 ├── outputs/                        
 ├── images/                         
 ├── requirements.txt                
 ├── README.md                       
 └── docs/
+    ├── INTEGRATIONS.md             # Agent use-cases, benchmarks, framework hooks
+    ├── HF_SPACE_README.md          # Guided onboarding for HF Space
     ├── non_technical_QVPIC_Whitepaper.md
     ├── QVPIC_Whitepaper.md
     └── VQC_NonProvisional_Patent_Application.md
