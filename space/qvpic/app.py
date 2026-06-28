@@ -352,13 +352,16 @@ function() {
         return ta.value.indexOf('SPACE INVADERS') >= 0
             || (ta.value.indexOf('Games') >= 0 && ta.value.indexOf('SELECT:') >= 0);
     }
+    function gameBooted() {
+        return !!(window.quartzGame && window.quartzGame.running && window.quartzGame.overlayReady);
+    }
     function tryStart(attempt) {
-        if (window.quartzGame && window.quartzGame.running) return;
+        if (gameBooted()) return;
         if (!shouldStartGame()) return;
         if (typeof window.quartzStartPlayerGame === 'function') {
             window.quartzStartPlayerGame();
         }
-        if (attempt < 6 && !(window.quartzGame && window.quartzGame.running)) {
+        if (attempt < 12 && !gameBooted()) {
             setTimeout(function() { tryStart(attempt + 1); }, 200);
         }
     }
@@ -1172,6 +1175,12 @@ def _quartz_games_js_block() -> str:
         stage.style.pointerEvents = 'none';
         stage.style.visibility = 'hidden';
     }
+    function showInvadersStage(stage) {
+        if (!stage) return;
+        stage.style.display = 'block';
+        stage.style.visibility = 'visible';
+        stage.style.pointerEvents = 'auto';
+    }
     function fitGameStage() {
         var stage = ensureInvadersStage();
         var tr = displayApertureRect();
@@ -1185,14 +1194,14 @@ def _quartz_games_js_block() -> str:
         return stage;
     }
     function resizeCanvas(g) {
+        var tr = displayApertureRect();
+        if (!tr || tr.width < 48 || tr.height < 48) return false;
         var stage = fitGameStage();
         if (!stage) return false;
         var canvas = stage.querySelector('.quartz-invaders-canvas');
         if (!canvas) return false;
-        var rect = stage.getBoundingClientRect();
-        var w = Math.max(1, Math.floor(rect.width));
-        var h = Math.max(1, Math.floor(rect.height));
-        if (w < 48 || h < 48) return false;
+        var w = Math.max(48, Math.floor(tr.width));
+        var h = Math.max(48, Math.floor(tr.height));
         canvas.width = w;
         canvas.height = h;
         g.width = w;
@@ -1217,7 +1226,7 @@ def _quartz_games_js_block() -> str:
     }
     function activateGameOverlay(g) {
         var stage = ensureInvadersStage();
-        if (stage) stage.style.display = 'block';
+        showInvadersStage(stage);
         document.body.classList.add('quartz-game-on');
         var torus = document.querySelector('.quartz-torus-stage');
         if (torus) torus.style.display = 'none';
@@ -1636,6 +1645,7 @@ def _quartz_games_js_block() -> str:
     }
     window.quartzStartPlayerGame = function() {
         if (window.quartzGame && window.quartzGame.running && window.quartzGame.overlayReady) return;
+        if (window.quartzGame && window.quartzGame.running && !window.quartzGame.overlayReady) return;
         if (window.quartzGame) abortGameAttempt();
         window.quartzStartSpaceInvaders({ attract: false });
     };
