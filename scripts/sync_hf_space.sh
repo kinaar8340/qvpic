@@ -6,7 +6,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DST="$ROOT/space/qvpic"
 
 mkdir -p "$DST"
-rm -rf "$DST/src"
+rm -rf "$DST/src" "$DST/__pycache__"
+find "$DST" -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+find "$DST" -name '*.pyc' -delete 2>/dev/null || true
 
 COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo local)"
 UPDATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -29,6 +31,16 @@ cp "$ROOT/web/demo_public_facts.json" "$DST/facts/demo_public_facts.json"
 cp "$ROOT/web/demo_core.py" "$DST/"
 cp "$ROOT/web/build_info.py" "$DST/"
 cp "$ROOT/web/gradio_demo.py" "$DST/app.py"
+
+cat > "$DST/.gitignore" <<'EOF'
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.cache/
+EOF
 
 cat > "$DST/requirements.txt" <<'EOF'
 --extra-index-url https://download.pytorch.org/whl/cpu

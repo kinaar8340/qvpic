@@ -37,14 +37,18 @@ if ! git clone git@hf.co:spaces/kinaar111/qvpic "$HF_DIR" 2>/dev/null; then
   exit 1
 fi
 
-rsync -av --delete \
+rsync -av --delete --delete-excluded \
   --exclude='.git' \
   --exclude='.venv' \
   --exclude='__pycache__' \
   --exclude='*.pyc' \
   --exclude='*.egg-info' \
+  --exclude='.cache' \
   "$ROOT/space/qvpic/" "$HF_DIR/"
 cd "$HF_DIR"
+find . -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+find . -name '*.pyc' -delete 2>/dev/null || true
+git rm -r --cached -f __pycache__ 2>/dev/null || true
 git add -A
 git status --short
 if git diff --cached --quiet; then
