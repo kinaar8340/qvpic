@@ -1228,9 +1228,9 @@ def _quartz_games_js_block() -> str:
         canvas.height = h;
         g.width = w;
         g.height = h;
-        g.scale = Math.max(2, Math.min(Math.floor(w / 72), Math.floor(h / 56)));
-        g.gridW = Math.max(56, Math.floor(w / g.scale));
-        g.gridH = Math.max(48, Math.floor(h / g.scale));
+        g.scale = Math.max(1, Math.min(Math.floor(w / 144), Math.floor(h / 112)));
+        g.gridW = Math.max(72, Math.floor(w / g.scale));
+        g.gridH = Math.max(56, Math.floor(h / g.scale));
         g.offsetX = Math.max(0, Math.floor((w - g.gridW * g.scale) / 2));
         g.offsetY = Math.max(0, Math.floor((h - g.gridH * g.scale) / 2));
         g.player.x = Math.floor(g.gridW / 2);
@@ -1247,13 +1247,19 @@ def _quartz_games_js_block() -> str:
         return true;
     }
     function activateGameOverlay(g) {
-        var stage = ensureInvadersStage();
+        var stage = mountInvadersStageToBody();
         showInvadersStage(stage);
+        if (stage) {
+            stage.setAttribute('tabindex', '-1');
+            try { stage.focus({ preventScroll: true }); } catch (e) { stage.focus(); }
+        }
         document.body.classList.add('quartz-game-on');
         var torus = document.querySelector('.quartz-torus-stage');
         if (torus) torus.style.display = 'none';
         var ta = document.querySelector('.quartz-terminal textarea');
         if (ta) ta.classList.add('quartz-game-active');
+        var cmd = document.querySelector('.quartz-cmd-input textarea');
+        if (cmd && typeof cmd.blur === 'function') cmd.blur();
         g.overlayReady = true;
     }
     function deactivateGameOverlay(g) {
@@ -1343,11 +1349,15 @@ def _quartz_games_js_block() -> str:
         var invaders = [];
         var cols = 11;
         var rows = ROW_TYPES.length;
-        var spacingX = 14;
-        var spacingY = 10;
-        var totalW = cols * spacingX;
-        var startX = Math.floor((g.gridW - totalW) / 2);
-        var startY = Math.floor(g.gridH * 0.22);
+        var spriteH = 8;
+        var playerLane = g.gridH - 10;
+        var spacingY = Math.max(3, Math.floor((g.gridH * 0.38) / rows));
+        var spacingX = Math.max(6, Math.min(12, Math.floor((g.gridW - 12) / cols)));
+        var totalW = (cols - 1) * spacingX + 11;
+        var startX = Math.max(4, Math.floor((g.gridW - totalW) / 2));
+        var startY = Math.max(6, Math.floor(g.gridH * 0.1));
+        var maxStartY = playerLane - spriteH - (rows - 1) * spacingY - 8;
+        if (maxStartY < startY) startY = Math.max(6, maxStartY);
         var r, c, type;
         for (r = 0; r < rows; r++) {
             type = ROW_TYPES[r];
@@ -1414,7 +1424,7 @@ def _quartz_games_js_block() -> str:
             attractTimer: 0,
             attractShootTimer: 0,
             attractResetTimer: 0,
-            warmupTicks: opts.attract ? 120 : 30
+            warmupTicks: opts.attract ? 120 : 12
         };
         return g;
     }
@@ -1640,7 +1650,7 @@ def _quartz_games_js_block() -> str:
         });
         if (!g.gameOver) {
             var bounds = invaderBounds(g);
-            if (bounds && bounds.maxY >= g.player.y - 2) {
+            if (bounds && bounds.maxY >= g.player.y - 2 && bounds.minY < g.player.y) {
                 if (g.attractMode) {
                     resetWave(g);
                 } else {
@@ -1664,8 +1674,14 @@ def _quartz_games_js_block() -> str:
         if (!g) return;
         g.running = false;
         if (g.loopId) clearInterval(g.loopId);
-        if (g.keyDown) document.removeEventListener('keydown', g.keyDown, true);
-        if (g.keyUp) document.removeEventListener('keyup', g.keyUp, true);
+        if (g.keyDown) {
+            window.removeEventListener('keydown', g.keyDown, true);
+            document.removeEventListener('keydown', g.keyDown, true);
+        }
+        if (g.keyUp) {
+            window.removeEventListener('keyup', g.keyUp, true);
+            document.removeEventListener('keyup', g.keyUp, true);
+        }
         if (g.resizeHandler) window.removeEventListener('resize', g.resizeHandler);
         deactivateGameOverlay(g);
         window.quartzGame = null;
@@ -1695,30 +1711,42 @@ def _quartz_games_js_block() -> str:
                 window.quartzClickGameQuit();
             }
         });
-        g.keyDown = function(e) {
+        function gameKeyDown(e) {
             if (!g.running) return;
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Escape') {
+            var left = e.key === 'ArrowLeft' || e.code === 'ArrowLeft';
+            var right = e.key === 'ArrowRight' || e.code === 'ArrowRight';
+            var fire = e.key === ' ' || e.code === 'Space';
+            var quit = e.key === 'Escape' || e.code === 'Escape';
+            if (left || right || fire || quit) {
                 e.preventDefault();
                 e.stopPropagation();
+                if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
             }
-            if (g.attractMode && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ')) {
+            if (g.attractMode && (left || right || fire)) {
                 leaveAttractMode(g);
             }
-            if (e.key === ' ') {
+            if (fire) {
                 g.keys[' '] = true;
-                firePlayerBullet(g);
-            } else if (e.key === 'Escape') {
+                if (!g.gameOver) firePlayerBullet(g);
+            } else if (quit) {
                 window.quartzStopSpaceInvaders();
-            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                g.keys[e.key] = true;
+            } else if (left) {
+                g.keys.ArrowLeft = true;
+            } else if (right) {
+                g.keys.ArrowRight = true;
             }
-        };
-        g.keyUp = function(e) {
-            if (e.key === ' ') g.keys[' '] = false;
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') g.keys[e.key] = false;
-        };
-        document.addEventListener('keydown', g.keyDown, true);
-        document.addEventListener('keyup', g.keyUp, true);
+        }
+        function gameKeyUp(e) {
+            if (e.key === ' ' || e.code === 'Space') g.keys[' '] = false;
+            if (e.key === 'ArrowLeft' || e.code === 'ArrowLeft') g.keys.ArrowLeft = false;
+            if (e.key === 'ArrowRight' || e.code === 'ArrowRight') g.keys.ArrowRight = false;
+        }
+        g.keyDown = gameKeyDown;
+        g.keyUp = gameKeyUp;
+        window.addEventListener('keydown', gameKeyDown, true);
+        window.addEventListener('keyup', gameKeyUp, true);
+        document.addEventListener('keydown', gameKeyDown, true);
+        document.addEventListener('keyup', gameKeyUp, true);
         g.resizeHandler = function() {
             if (!g.running || !g.overlayReady) return;
             if (typeof fitPanel === 'function') fitPanel();
@@ -1731,8 +1759,14 @@ def _quartz_games_js_block() -> str:
         if (!g) return;
         g.running = false;
         if (g.loopId) clearInterval(g.loopId);
-        document.removeEventListener('keydown', g.keyDown, true);
-        document.removeEventListener('keyup', g.keyUp, true);
+        if (g.keyDown) {
+            window.removeEventListener('keydown', g.keyDown, true);
+            document.removeEventListener('keydown', g.keyDown, true);
+        }
+        if (g.keyUp) {
+            window.removeEventListener('keyup', g.keyUp, true);
+            document.removeEventListener('keyup', g.keyUp, true);
+        }
         if (g.resizeHandler) window.removeEventListener('resize', g.resizeHandler);
         deactivateGameOverlay(g);
         window.quartzGame = null;
