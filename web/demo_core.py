@@ -144,6 +144,103 @@ def default_run_params() -> dict[str, Any]:
     }
 
 
+def terminal_agent_use_cases() -> str:
+    return "\n".join(
+        [
+            "Agent use-cases (local scripts/main.py + QVPIC memory):",
+            "",
+            "  1. Personal assistant — upublic/uprivate identity shards survive",
+            "     session resets; agent recalls preferences without flat-RAG drift.",
+            "  2. Long-horizon coding agent — facts baked into RingConeChain;",
+            "     /self-eval benchmark gates self-improvement proposals.",
+            "  3. Research notebook agent — journal + facts JSON append;",
+            "     topology invariants detect memory corruption early.",
+            "  4. Multi-session support bot — same identity conduit across",
+            "     heartbeat checkpoints (scripts/heartbeat.py).",
+            "  5. HF Space smoke test — bake → recall → drift without local LLM.",
+            "",
+            "Integration entry points:",
+            "  · examples/agent_memory_integration.py",
+            "  · run_benchmark_demo() / run_query_recall() in demo_core.py",
+            "  · RubikConeConduit.write / read / recover_depth in src/conduit.py",
+        ]
+    )
+
+
+def terminal_benchmark_comparison() -> str:
+    return "\n".join(
+        [
+            "Memory benchmark comparison (same drift protocol, demo facts):",
+            "",
+            "  System              Recall cos   Protection   Topology lock",
+            "  ─────────────────── ────────── ──────────── ───────────────",
+            "  QVPIC RubikCone       0.98–1.00      ~5.7x     winding+braid",
+            "  Naive flat cosine     degrades       1.0x      none",
+            "  Vector store RAG      degrades       ~1.0x     none",
+            "",
+            "Drift test: depth s + embedding noise → measure recovery vs baseline.",
+            "Run MEMORY tab → type 'benchmark' → SEND to reproduce on this Space.",
+            "Full sweep: python scripts/qvpic_test.py --no-viz",
+        ]
+    )
+
+
+def terminal_community_validation() -> str:
+    return "\n".join(
+        [
+            "Visibility & external validation:",
+            "",
+            "  · HF Space Community tab — post recall metrics + lattice PNG",
+            "  · GitHub Issues / Discussions — integration feedback welcome",
+            "  · Share with: geometric DL, topological ML, quaternion NN circles",
+            "  · Compare against your vector DB baseline using same facts JSON",
+            "",
+            f"  Repo:  {GITHUB_URL}",
+            f"  Space: {HF_SPACE_URL}",
+            f"  VQC:   {VQC_URL}",
+            "",
+            "Request: cite protection factor + topology block when reporting.",
+        ]
+    )
+
+
+def terminal_guided_onboarding() -> str:
+    return "\n".join(
+        [
+            "╔══════════════════════════════════════════════════════╗",
+            "║  QVPIC GUIDED ONBOARDING — 60 second tour            ║",
+            "╚══════════════════════════════════════════════════════╝",
+            "",
+            "STEP 1 — Think geometry, not flat vectors",
+            "  Facts bake into RingConeChain cubes (orientation × depth s).",
+            "  Recall = primal cosine on braided ShellCube lattice.",
+            "",
+            "STEP 2 — Run the benchmark (30s on HF)",
+            "  HOME → 6 Bake → Recall Benchmark  OR  MEMORY tab",
+            "  Type: benchmark → SEND",
+            "  Read: avg recall cosine · protection factor · braiding_phase",
+            "",
+            "STEP 3 — Query recall",
+            "  MEMORY tab → Run query recall (or type your query + SEND)",
+            "",
+            "STEP 4 — Tune & explore",
+            "  SETTINGS: bake_steps · bandwidth · VQCEnhanced toggle",
+            "  TOOLS: GitHub · vqc_proto · full agent (scripts/main.py)",
+            "",
+            "── Agent use-cases ──",
+            *terminal_agent_use_cases().split("\n")[2:8],
+            "",
+            "── vs flat memory ──",
+            *terminal_benchmark_comparison().split("\n")[2:7],
+            "",
+            "── Share & validate ──",
+            *terminal_community_validation().split("\n")[2:6],
+            "",
+            "Press HOME anytime to return to the selection menu.",
+        ]
+    )
+
+
 def terminal_keypad_map() -> str:
     lines = ["Assigned prog keys (01–12):", ""]
     for index in sorted(TERM_KEY_ACTIONS):

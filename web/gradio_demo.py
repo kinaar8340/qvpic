@@ -21,6 +21,7 @@ from demo_core import (
     run_benchmark_demo,
     run_query_recall,
     terminal_conduit_analogy,
+    terminal_guided_onboarding,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
         ("Next page", "next_page"),
     ),
     (
+        ("Guided Tour (Onboarding)", "guided_tour"),
         ("Command History", "history"),
         ("Grid View Toggle", "grid_toggle"),
         ("About / Credits", "about"),
@@ -242,6 +244,7 @@ def _home_menu_text(page: int = 0) -> str:
         f">  PAGE {page + 1}/{len(HOME_MENU_PAGES)}",
         "> ═══════════════════════════════════════════════════════",
         ">  Enter index number and press SEND:",
+        ">  Tip: page 2 → Guided Tour for first-time onboarding",
         "> ",
     ]
     for index, (title, _action) in enumerate(items, start=1):
@@ -456,6 +459,17 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
             "> _",
         )
         return terminal, state, "tools", False
+    if action == "guided_tour":
+        tour = terminal_guided_onboarding().replace("\n", "\n> ")
+        terminal = _append_terminal(
+            terminal,
+            "> MENU: Guided Tour (Onboarding)",
+            "> " + tour,
+            "> ",
+            "> NEXT: MEMORY tab → type benchmark → SEND",
+            "> _",
+        )
+        return terminal, state, "memory", False
     if action == "history":
         hist = state.get("history") or []
         if hist:
