@@ -73,6 +73,14 @@ _VQC_TAB_ORANGE_BORDER = "#ea580c"
 _VQC_TAB_ORANGE_TEXT = "#fdba74"
 _VQC_MATRIX_GREEN = "#33ff66"
 _VQC_LOGO_GOLD = "#c9a227"
+_VQC_NEON_CYAN = "#00e8ff"
+_VQC_NEON_MAGENTA = "#ff2bd6"
+_VQC_NEON_GREEN = "#39ff14"
+_VQC_NEON_ORANGE = "#ff6b1a"
+_VQC_TUNER_BG = "#000000"
+_VQC_TUNER_PANEL = "#0c0c10"
+_VQC_TUNER_BEZEL = "#18181f"
+_VQC_TUNER_DISPLAY = "#030306"
 _VQC_HOME_KEY_BG = "#000000"
 HU_BUTTON_BASE_COLOR = "#000000"
 HU_BUTTON_ACTIVE_COLOR = "#ff0000"
@@ -92,47 +100,34 @@ OPTICS_LOGO_HTML = """
 </div>
 """
 
-DEMO_LINKS_HTML = f"""
-<div class="vqc-demo-links" role="navigation" aria-label="Repository links">
-  <span class="vqc-hud-telemetry">SYS</span>
-  <span class="vqc-source-label">depth →</span>
-  <a href="{GITHUB_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">GitHub</a>
-  <a href="{VQC_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">vqc_proto</a>
-  <a href="{HFB_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">hfb</a>
-  <a href="{GITHUB_URL}/blob/main/scripts/ui.py" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">local UI</a>
+TUNER_FOOTER_HTML = f"""
+<div class="vqc-tuner-footer" role="contentinfo">
+  <span class="vqc-tuner-footer-title">QVPIC IDENTITY CONDUIT</span>
+  <nav class="vqc-tuner-footer-links" aria-label="Repository links">
+    <a href="{GITHUB_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">GitHub</a>
+    <a href="{VQC_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">vqc</a>
+    <a href="{HFB_URL}" class="vqc-source-tab" target="_blank" rel="noopener noreferrer">hfb</a>
+  </nav>
 </div>
 """
 
-COCKPIT_TITLE_HTML = """
-<div class="vqc-cockpit-title">
-  <span class="vqc-hud-title-main">QVPIC</span>
-  <span class="vqc-hud-title-tag">CONDUIT</span>
+TUNER_DISPLAY_DECOR_HTML = """
+<div class="vqc-tuner-display-decor" aria-hidden="true">
+  <span class="vqc-tuner-segment-ghost">RECALL</span>
 </div>
 """
 
-DEVICE_SCREEN_DECOR_HTML = """
-<div class="vqc-device-wave" aria-hidden="true">
-  <svg class="vqc-device-wave-svg" viewBox="0 0 800 120" preserveAspectRatio="none">
-    <line class="vqc-wave-baseline" x1="0" y1="60" x2="800" y2="60"/>
-    <path class="vqc-wave-path" d="M0,60 C40,20 80,100 120,60 S200,20 240,60 S320,100 360,60 S440,20 480,60 S560,100 600,60 S680,20 720,60 S760,100 800,60"/>
-  </svg>
-  <span class="vqc-bracket vqc-bracket-tl"></span>
-  <span class="vqc-bracket vqc-bracket-tr"></span>
-  <span class="vqc-bracket vqc-bracket-bl"></span>
-  <span class="vqc-bracket vqc-bracket-br"></span>
-  <span class="vqc-wave-tick vqc-wave-tick-top"></span>
-  <span class="vqc-wave-tick vqc-wave-tick-bottom"></span>
-</div>
-"""
-
-DEVICE_DIAL_HTML = """
-<div class="vqc-device-dial" role="img" aria-label="Tune dial">
-  <div class="vqc-dial-outer">
-    <div class="vqc-dial-ticks" aria-hidden="true"></div>
-    <div class="vqc-dial-inner"></div>
+TUNER_KNOB_HTML = """
+<div class="vqc-tuner-knob" role="img" aria-label="Main tuning knob">
+  <div class="vqc-tuner-knob-ribs" aria-hidden="true"></div>
+  <div class="vqc-tuner-knob-face">
+    <div class="vqc-tuner-knob-ticks" aria-hidden="true"></div>
+    <div class="vqc-tuner-knob-cap"></div>
   </div>
 </div>
 """
+
+TUNER_PRESET_COUNT = 8
 
 # Client-side CSS VQC conduit helix drift — distinct from Mystery phosphor scan (HF-safe).
 CONDUIT_HELIX_SCANNER_HTML = f"""
@@ -231,7 +226,7 @@ TERM_NAV_DEFINED: dict[str, str] = {
     "dpad_right": "Right — next menu item",
     "clear": "Clear — blank display",
 }
-TERM_KEYPAD_CONTROL_ORDER: tuple[str, ...] = TERM_NAV_KEYS
+TERM_KEYPAD_CONTROL_ORDER: tuple[str, ...] = ()
 
 
 def _optics_terminal_home() -> str:
@@ -883,7 +878,7 @@ def _build_vqc_theme() -> gr.themes.Base:
 # Viewport-fit shell — JS sets --vqc-vh/--vqc-vw from detected display (HF iframe-safe).
 WALLPAPER_HEAD = """
 <style id="vqc-fullscreen-style">
-html, body { background-color: #0b1520 !important; }
+html, body { background-color: #000000 !important; }
 </style>
 <script>
 (function() {
@@ -914,12 +909,13 @@ html, body { background-color: #0b1520 !important; }
             gc.style.overflow = 'hidden';
         }
         var chrome = 0;
-        var hud = document.querySelector('.vqc-hud-display');
+        var hud = document.querySelector('.vqc-tuner-display') ||
+            document.querySelector('.vqc-hud-display');
         [
-            '.vqc-cockpit-title',
-            '.vqc-demo-links',
-            '.vqc-cockpit-tools',
+            '.vqc-tuner-strip',
             '.vqc-cockpit-prompt',
+            '.vqc-tuner-footer',
+            '.vqc-tuner-tune',
         ].forEach(function(sel) {
             var el = document.querySelector(sel);
             if (el) chrome += el.offsetHeight;
@@ -949,8 +945,8 @@ html, body { background-color: #0b1520 !important; }
     setTimeout(applyViewportFit, 450);
     setTimeout(applyViewportFit, 1200);
     function bindDeckTune() {
-        var btn = document.querySelector('button.vqc-deck-tune');
-        var details = document.querySelector('.vqc-device-tune details');
+        var btn = document.querySelector('button.vqc-strip-tune');
+        var details = document.querySelector('.vqc-tuner-tune details');
         if (btn && details && !btn._vqcTuneBound) {
             btn._vqcTuneBound = true;
             btn.addEventListener('click', function() {
@@ -992,11 +988,11 @@ HFB_CSS = f"""
     color-scheme: dark;
 }}
 html {{
-    background-color: #0b1520 !important;
+    background-color: {_VQC_TUNER_BG} !important;
 }}
 body {{
-    background: #0b1520 !important;
-    background-color: #0b1520 !important;
+    background: {_VQC_TUNER_BG} !important;
+    background-color: {_VQC_TUNER_BG} !important;
     color: #e8e0f8 !important;
     width: 100% !important;
     height: var(--vqc-vh, 100dvh) !important;
@@ -1005,8 +1001,8 @@ body {{
     margin: 0 !important;
 }}
 #root, .app {{
-    background: #0b1520 !important;
-    background-color: #0b1520 !important;
+    background: {_VQC_TUNER_BG} !important;
+    background-color: {_VQC_TUNER_BG} !important;
     width: 100% !important;
 }}
 .gradio-container {{
@@ -1017,8 +1013,8 @@ body {{
     max-height: var(--vqc-vh, 100dvh) !important;
     padding: 0 !important;
     margin: 0 !important;
-    background: #0b1520 !important;
-    background-color: #0b1520 !important;
+    background: {_VQC_TUNER_BG} !important;
+    background-color: {_VQC_TUNER_BG} !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
 }}
@@ -1040,23 +1036,311 @@ body {{
     overflow: hidden !important;
 }}
 .gradio-container .vqc-cockpit,
-.gradio-container .vqc-cockpit > fieldset {{
+.gradio-container .vqc-cockpit > fieldset,
+.gradio-container .vqc-tuner-panel,
+.gradio-container .vqc-tuner-panel > fieldset {{
     position: relative !important;
-    width: calc(100% - 1.2rem) !important;
-    max-width: calc(100% - 1.2rem) !important;
-    height: calc(var(--vqc-vh, 100dvh) - 0.6rem) !important;
-    max-height: calc(var(--vqc-vh, 100dvh) - 0.6rem) !important;
-    margin: 0.3rem auto !important;
-    padding: 0.35rem 0.45rem 0.3rem !important;
+    width: calc(100% - 1rem) !important;
+    max-width: calc(100% - 1rem) !important;
+    height: calc(var(--vqc-vh, 100dvh) - 0.5rem) !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - 0.5rem) !important;
+    margin: 0.25rem auto !important;
+    padding: 0.45rem 0.55rem 0.35rem !important;
     display: flex !important;
     flex-direction: column !important;
-    background: transparent !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
-    border-radius: 14px !important;
-    box-shadow: none !important;
+    background: linear-gradient(180deg, {_VQC_TUNER_PANEL} 0%, #060608 100%) !important;
+    border: 2px solid {_VQC_TUNER_BEZEL} !important;
+    border-radius: 10px !important;
+    box-shadow:
+        0 0 20px rgba(0, 232, 255, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     min-height: 0 !important;
+}}
+.gradio-container .vqc-tuner-main {{
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    align-items: stretch !important;
+    gap: 0.35rem !important;
+}}
+.gradio-container .vqc-tuner-left {{
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 0.55rem !important;
+    padding: 0.35rem 0.15rem 0 !important;
+}}
+.gradio-container .vqc-tuner-left-knob {{
+    margin: 0 !important;
+    padding: 0 !important;
+}}
+.gradio-container .vqc-tuner-left-knob label {{
+    display: flex !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}}
+.gradio-container .vqc-tuner-left-knob input[type="checkbox"] {{
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    border: 2px solid {_VQC_NEON_CYAN} !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    box-shadow: 0 0 8px rgba(0, 232, 255, 0.25) !important;
+}}
+.gradio-container .vqc-tuner-knob-sm input[type="checkbox"] {{
+    width: clamp(1.35rem, 2.8vh, 1.65rem) !important;
+    height: clamp(1.35rem, 2.8vh, 1.65rem) !important;
+}}
+.gradio-container .vqc-tuner-knob-lg input[type="checkbox"] {{
+    width: clamp(1.65rem, 3.4vh, 2rem) !important;
+    height: clamp(1.65rem, 3.4vh, 2rem) !important;
+    border-color: {_VQC_NEON_MAGENTA} !important;
+    box-shadow: 0 0 8px rgba(255, 43, 214, 0.25) !important;
+}}
+.gradio-container .vqc-tuner-left-knob input[type="checkbox"]:checked {{
+    background: radial-gradient(circle, rgba(0, 232, 255, 0.45) 0%, transparent 70%) !important;
+}}
+.gradio-container .vqc-tuner-knob-lg input[type="checkbox"]:checked {{
+    background: radial-gradient(circle, rgba(255, 43, 214, 0.45) 0%, transparent 70%) !important;
+}}
+.gradio-container .vqc-tuner-center {{
+    min-width: 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+}}
+.gradio-container .vqc-tuner-display {{
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    position: relative !important;
+    background: {_VQC_TUNER_DISPLAY} !important;
+    border: 2px solid #0f0f14 !important;
+    border-radius: 4px !important;
+    box-shadow:
+        inset 0 0 24px rgba(0, 0, 0, 0.85),
+        0 0 12px rgba(0, 232, 255, 0.08) !important;
+    padding: 0.2rem 0.28rem 0.18rem !important;
+    overflow: hidden !important;
+}}
+.gradio-container .vqc-tuner-display-header {{
+    align-items: center !important;
+    gap: 0.35rem !important;
+    margin: 0 0 0.12rem 0 !important;
+    flex-shrink: 0 !important;
+}}
+.gradio-container .vqc-tuner-header-labels,
+.gradio-container .vqc-tuner-header-status {{
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: clamp(0.42rem, 0.88vh, 0.52rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+}}
+.gradio-container .vqc-neon-cyan {{ color: {_VQC_NEON_CYAN} !important; text-shadow: 0 0 8px rgba(0, 232, 255, 0.55) !important; }}
+.gradio-container .vqc-neon-magenta {{ color: {_VQC_NEON_MAGENTA} !important; text-shadow: 0 0 8px rgba(255, 43, 214, 0.5) !important; }}
+.gradio-container .vqc-neon-green {{ color: {_VQC_NEON_GREEN} !important; text-shadow: 0 0 8px rgba(57, 255, 20, 0.45) !important; }}
+.gradio-container .vqc-neon-orange {{ color: {_VQC_NEON_ORANGE} !important; text-shadow: 0 0 8px rgba(255, 107, 26, 0.45) !important; }}
+.gradio-container .vqc-neon-dim {{ color: rgba(255, 255, 255, 0.32) !important; }}
+.gradio-container .vqc-tuner-header-hu {{
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+    gap: 0.28rem !important;
+    margin: 0 !important;
+}}
+.gradio-container .vqc-tuner-header-status {{
+    margin-left: auto !important;
+}}
+.gradio-container .vqc-tuner-display-decor {{
+    position: absolute !important;
+    inset: 1.4rem 0.5rem 0.35rem 0.5rem !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}}
+.gradio-container .vqc-tuner-segment-ghost {{
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: clamp(1.8rem, 5vh, 3.2rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.22em !important;
+    color: rgba(57, 255, 20, 0.07) !important;
+    text-shadow: 0 0 20px rgba(57, 255, 20, 0.08) !important;
+}}
+.gradio-container .vqc-tuner-strip > .block,
+.gradio-container .vqc-tuner-strip > .form {{
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+.gradio-container .vqc-tuner-strip {{
+    flex-shrink: 0 !important;
+    align-items: stretch !important;
+    gap: 0.22rem !important;
+    margin: 0.32rem 0 0 0 !important;
+    padding: 0.28rem 0.22rem !important;
+    background: linear-gradient(180deg, #1e1e24 0%, #121216 100%) !important;
+    border: 1px solid #2a2a32 !important;
+    border-radius: 4px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}}
+.gradio-container button.vqc-strip-btn {{
+    min-height: clamp(1.35rem, 2.8vh, 1.7rem) !important;
+    max-height: clamp(1.35rem, 2.8vh, 1.7rem) !important;
+    padding: 0.1rem 0.2rem !important;
+    border: 1px solid #3a3a44 !important;
+    border-radius: 3px !important;
+    background: linear-gradient(180deg, #2a2a30 0%, #18181c 100%) !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.55) !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: clamp(0.44rem, 0.9vh, 0.52rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}}
+.gradio-container button.vqc-strip-btn:hover {{
+    border-color: {_VQC_NEON_CYAN} !important;
+    color: {_VQC_NEON_CYAN} !important;
+    -webkit-text-fill-color: {_VQC_NEON_CYAN} !important;
+    box-shadow: 0 0 10px rgba(0, 232, 255, 0.2) !important;
+}}
+.gradio-container button.vqc-strip-memory {{
+    flex: 0 0 clamp(3.2rem, 7vw, 4.2rem) !important;
+    min-width: clamp(3.2rem, 7vw, 4.2rem) !important;
+}}
+.gradio-container button.vqc-strip-preset {{
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: clamp(1.6rem, 3.5vw, 2.1rem) !important;
+}}
+.gradio-container button.vqc-strip-side {{
+    flex: 0 0 clamp(2.4rem, 5.5vw, 3.2rem) !important;
+    min-width: clamp(2.4rem, 5.5vw, 3.2rem) !important;
+    font-size: clamp(0.38rem, 0.78vh, 0.46rem) !important;
+}}
+.gradio-container .vqc-tuner-knob-col {{
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.15rem 0.1rem 0 !important;
+}}
+.gradio-container .vqc-tuner-knob {{
+    width: clamp(4.5rem, 11vh, 7rem) !important;
+    height: clamp(4.5rem, 11vh, 7rem) !important;
+    position: relative !important;
+}}
+.gradio-container .vqc-tuner-knob-ribs {{
+    position: absolute !important;
+    inset: -3px !important;
+    border-radius: 50% !important;
+    background: repeating-conic-gradient(
+        from 0deg,
+        #2a2a32 0deg 4deg,
+        #1a1a20 4deg 8deg
+    ) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important;
+}}
+.gradio-container .vqc-tuner-knob-face {{
+    position: absolute !important;
+    inset: 8% !important;
+    border-radius: 50% !important;
+    background: linear-gradient(145deg, #222228 0%, #101014 100%) !important;
+    border: 2px solid {_VQC_NEON_CYAN} !important;
+    box-shadow:
+        0 0 16px rgba(0, 232, 255, 0.2),
+        inset 0 2px 6px rgba(255, 255, 255, 0.08) !important;
+}}
+.gradio-container .vqc-tuner-knob-ticks {{
+    position: absolute !important;
+    inset: 6px !important;
+    border-radius: 50% !important;
+    background: repeating-conic-gradient(
+        from -90deg,
+        rgba(0, 232, 255, 0.75) 0deg 2deg,
+        transparent 2deg 22.5deg
+    ) !important;
+    opacity: 0.7 !important;
+}}
+.gradio-container .vqc-tuner-knob-cap {{
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 34% !important;
+    height: 34% !important;
+    border-radius: 50% !important;
+    border: 2px solid rgba(0, 232, 255, 0.55) !important;
+    background: #0a0a0e !important;
+}}
+.gradio-container .vqc-tuner-footer {{
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    margin-top: 0.2rem !important;
+    padding: 0.32rem 0.45rem !important;
+    background: #000000 !important;
+    border-top: 1px solid #1a1a20 !important;
+    border-radius: 0 0 6px 6px !important;
+    flex-shrink: 0 !important;
+}}
+.gradio-container .vqc-tuner-footer-title {{
+    color: rgba(255, 255, 255, 0.42) !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: clamp(0.42rem, 0.85vh, 0.5rem) !important;
+    letter-spacing: 0.18em !important;
+    text-transform: uppercase !important;
+}}
+.gradio-container .vqc-tuner-footer-links {{
+    display: flex !important;
+    gap: 0.55rem !important;
+}}
+.gradio-container .vqc-tuner-footer-links a {{
+    color: rgba(0, 232, 255, 0.45) !important;
+    font-size: clamp(0.4rem, 0.8vh, 0.48rem) !important;
+    text-decoration: none !important;
+}}
+.gradio-container .vqc-tuner-footer-links a:hover {{
+    color: {_VQC_NEON_CYAN} !important;
+    text-shadow: 0 0 8px rgba(0, 232, 255, 0.45) !important;
+}}
+.gradio-container .vqc-tuner-tune {{
+    margin: 0.15rem 0 0 0 !important;
+    border: 1px solid rgba(0, 232, 255, 0.15) !important;
+    border-radius: 4px !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+}}
+.gradio-container .vqc-tuner-tune > .label-wrap,
+.gradio-container .vqc-tuner-tune summary {{
+    display: none !important;
+}}
+.gradio-container .vqc-tuner-display .vqc-optics-terminal textarea {{
+    color: {_VQC_NEON_GREEN} !important;
+    -webkit-text-fill-color: {_VQC_NEON_GREEN} !important;
+    text-shadow: 0 0 6px rgba(57, 255, 20, 0.35) !important;
+}}
+.gradio-container .vqc-tuner-header-hu button.vqc-hud-btn {{
+    border-color: rgba(0, 232, 255, 0.45) !important;
+    box-shadow: 0 0 6px rgba(0, 232, 255, 0.15) !important;
+}}
+.gradio-container .vqc-tuner-header-hu button.vqc-hud-btn.hu-active {{
+    background: rgba(255, 43, 214, 0.25) !important;
+    border-color: {_VQC_NEON_MAGENTA} !important;
+    box-shadow: 0 0 10px rgba(255, 43, 214, 0.35) !important;
 }}
 .gradio-container .vqc-cockpit::before {{
     content: none !important;
@@ -1154,7 +1438,7 @@ body {{
     margin: 0 0 0.28rem auto !important;
     display: block !important;
 }}
-.gradio-container .vqc-hud-display,
+.gradio-container .vqc-hud-display:not(.vqc-tuner-display),
 .gradio-container .vqc-device-screen {{
     flex: 1 1 auto !important;
     width: 100% !important;
@@ -1166,9 +1450,9 @@ body {{
     position: relative !important;
     display: flex !important;
     flex-direction: column !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
-    border-radius: 6px !important;
-    background: transparent !important;
+}}
+.gradio-container .vqc-tuner-display.vqc-hud-display {{
+    max-height: none !important;
 }}
 .gradio-container .vqc-device-screen > .block:first-child,
 .gradio-container .vqc-device-screen > .form:first-child {{
@@ -1377,10 +1661,13 @@ body {{
     padding: 0 !important;
     margin: 0 !important;
 }}
+.gradio-container .vqc-tuner-prompt {{
+    padding: 0.18rem 0 0.08rem 0 !important;
+}}
 .gradio-container .vqc-grok-prompt textarea,
 .gradio-container .vqc-grok-prompt input {{
-    background: transparent !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    border: 1px solid rgba(0, 232, 255, 0.28) !important;
     border-radius: 1.1rem !important;
     color: rgba(255, 255, 255, 0.88) !important;
     -webkit-text-fill-color: rgba(255, 255, 255, 0.88) !important;
@@ -2775,190 +3062,168 @@ def build_app() -> gr.Blocks:
         fill_width=True,
     ) as demo:
         with gr.Column(elem_classes=["vqc-fullscreen-shell"]):
-            with gr.Group(elem_classes=["vqc-cockpit", "vqc-device-panel"]):
-                gr.HTML(COCKPIT_TITLE_HTML)
-                gr.HTML(DEMO_LINKS_HTML)
+            with gr.Group(elem_classes=["vqc-cockpit", "vqc-tuner-panel"]):
                 hud_state = gr.State(_default_hud_state())
                 hud_all_btns: dict[str, gr.Button] = {}
                 term_active_key = gr.State("")
                 term_ui_state = gr.State(_default_term_ui_state())
                 term_all_btns: dict[str, gr.Button] = {}
-                with gr.Row(elem_classes=["vqc-device-body", "vqc-hud-stage"]):
+                strip_btns: dict[str, gr.Button] = {}
+
+                with gr.Row(elem_classes=["vqc-tuner-main"]):
                     with gr.Column(
-                        elem_classes=["vqc-hud-display", "vqc-device-screen"],
-                        scale=3,
+                        elem_classes=["vqc-tuner-left"],
+                        scale=0,
+                        min_width=52,
                     ):
-                        gr.HTML(DEVICE_SCREEN_DECOR_HTML)
-                        with gr.Column(elem_classes=["vqc-hud-terminal-col"]):
-                            optics_terminal = gr.Textbox(
-                                label="HUD",
-                                value="",
-                                lines=1,
-                                max_lines=80,
-                                show_label=False,
-                                interactive=False,
+                        use_vqc = gr.Checkbox(
+                            label="",
+                            value=_DEFAULTS["use_vqc"],
+                            elem_classes=["vqc-tuner-left-knob", "vqc-tuner-knob-sm"],
+                        )
+                        include_lattice = gr.Checkbox(
+                            label="",
+                            value=True,
+                            elem_classes=["vqc-tuner-left-knob", "vqc-tuner-knob-lg"],
+                        )
+
+                    with gr.Column(elem_classes=["vqc-tuner-center"], scale=1):
+                        with gr.Column(
+                            elem_classes=[
+                                "vqc-tuner-display",
+                                "vqc-hud-display",
+                            ]
+                        ):
+                            with gr.Row(elem_classes=["vqc-tuner-display-header"]):
+                                gr.HTML(
+                                    '<div class="vqc-tuner-header-labels">'
+                                    '<span class="vqc-neon-cyan">FM</span>'
+                                    '<span class="vqc-neon-dim">RECALL</span>'
+                                    '<span class="vqc-neon-magenta">MHz</span>'
+                                    "</div>"
+                                )
+                                with gr.Row(elem_classes=["vqc-tuner-header-hu"]):
+                                    for hu_id in HUD_ALL_IDS:
+                                        hud_all_btns[hu_id] = gr.Button(
+                                            "",
+                                            elem_classes=_hu_btn_classes(
+                                                hu_id, _default_hud_state()
+                                            ),
+                                            variant="secondary",
+                                        )
+                                gr.HTML(
+                                    '<div class="vqc-tuner-header-status">'
+                                    '<span class="vqc-neon-green">STEREO</span>'
+                                    '<span class="vqc-neon-orange">TUNED</span>'
+                                    "</div>"
+                                )
+                            gr.HTML(TUNER_DISPLAY_DECOR_HTML)
+                            with gr.Column(elem_classes=["vqc-hud-terminal-col"]):
+                                optics_terminal = gr.Textbox(
+                                    label="HUD",
+                                    value="",
+                                    lines=1,
+                                    max_lines=80,
+                                    show_label=False,
+                                    interactive=False,
+                                    elem_classes=[
+                                        "vqc-optics-terminal-wrap",
+                                        "vqc-optics-terminal",
+                                    ],
+                                )
+                                term_conduit_helix_scan = gr.HTML(
+                                    CONDUIT_HELIX_SCANNER_HTML,
+                                    visible=False,
+                                    elem_classes=["vqc-oam-helix-host"],
+                                )
+                                lattice_figure = gr.Image(
+                                    label="Braided lattice",
+                                    type="filepath",
+                                    visible=False,
+                                    show_label=False,
+                                    elem_classes=["vqc-lattice-compact"],
+                                )
+
+                        with gr.Row(elem_classes=["vqc-tuner-strip"]):
+                            strip_btns["memory"] = gr.Button(
+                                "MEMORY",
+                                variant="secondary",
+                                elem_classes=["vqc-strip-btn", "vqc-strip-memory"],
+                            )
+                            for index in range(1, TUNER_PRESET_COUNT + 1):
+                                key = f"preset{index:02d}"
+                                strip_btns[key] = gr.Button(
+                                    str(index),
+                                    variant="secondary",
+                                    elem_classes=["vqc-strip-btn", "vqc-strip-preset"],
+                                )
+                            strip_btns["band"] = gr.Button(
+                                "BAND",
+                                variant="secondary",
                                 elem_classes=[
-                                    "vqc-optics-terminal-wrap",
-                                    "vqc-optics-terminal",
+                                    "vqc-strip-btn",
+                                    "vqc-strip-side",
+                                    "vqc-strip-tune",
                                 ],
                             )
-                            term_conduit_helix_scan = gr.HTML(
-                                CONDUIT_HELIX_SCANNER_HTML,
-                                visible=False,
-                                elem_classes=["vqc-oam-helix-host"],
+                            strip_btns["auto"] = gr.Button(
+                                "AUTO",
+                                variant="secondary",
+                                elem_classes=["vqc-strip-btn", "vqc-strip-side"],
                             )
-                            lattice_figure = gr.Image(
-                                label="Braided lattice",
-                                type="filepath",
-                                visible=False,
-                                show_label=False,
-                                elem_classes=["vqc-lattice-compact"],
+                            strip_btns["tuning"] = gr.Button(
+                                "TUNING",
+                                variant="secondary",
+                                elem_classes=["vqc-strip-btn", "vqc-strip-side"],
                             )
+
                     with gr.Column(
-                        elem_classes=["vqc-hud-dpad-rail", "vqc-device-rail"],
+                        elem_classes=["vqc-tuner-knob-col"],
                         scale=0,
-                        min_width=88,
+                        min_width=108,
                     ):
-                        with gr.Row(elem_classes=["vqc-rail-hu-squares"]):
-                            for hu_id in HUD_BUTTON_IDS[:3]:
-                                hud_all_btns[hu_id] = gr.Button(
-                                    "",
-                                    elem_classes=_hu_btn_classes(
-                                        hu_id, _default_hud_state()
-                                    ),
-                                    variant="secondary",
-                                )
-                        hud_all_btns[HUD_HEADSUP_ID] = gr.Button(
-                            "",
-                            elem_classes=_hu_btn_classes(
-                                HUD_HEADSUP_ID, _default_hud_state()
-                            ),
-                            variant="secondary",
-                        )
-                        hud_all_btns[HUD_BUTTON_IDS[3]] = gr.Button(
-                            "",
-                            elem_classes=_hu_btn_classes(
-                                HUD_BUTTON_IDS[3], _default_hud_state()
-                            ),
-                            variant="secondary",
-                        )
-                        with gr.Column(elem_classes=["vqc-hud-dpad-stack"]):
-                            term_all_btns["dpad_select"] = gr.Button(
-                                "",
-                                elem_classes=_term_key_btn_classes(
-                                    "dpad_select", ""
-                                ),
-                                variant="secondary",
-                            )
-                            term_all_btns["dpad_up"] = gr.Button(
-                                "",
-                                elem_classes=_term_key_btn_classes("dpad_up", ""),
-                                variant="secondary",
-                            )
-                            with gr.Row(elem_classes=["vqc-hud-dpad-mid"]):
-                                term_all_btns["dpad_left"] = gr.Button(
-                                    "",
-                                    elem_classes=_term_key_btn_classes(
-                                        "dpad_left", ""
-                                    ),
-                                    variant="secondary",
-                                )
-                                term_all_btns["dpad_right"] = gr.Button(
-                                    "",
-                                    elem_classes=_term_key_btn_classes(
-                                        "dpad_right", ""
-                                    ),
-                                    variant="secondary",
-                                )
-                            term_all_btns["dpad_down"] = gr.Button(
-                                "",
-                                elem_classes=_term_key_btn_classes("dpad_down", ""),
-                                variant="secondary",
-                            )
-                            term_all_btns["clear"] = gr.Button(
-                                "",
-                                elem_classes=_term_key_btn_classes("clear", ""),
-                                variant="secondary",
-                            )
+                        gr.HTML(TUNER_KNOB_HTML)
 
-                with gr.Column(elem_classes=["vqc-cockpit-tools", "vqc-device-deck"]):
-                    with gr.Row(elem_classes=["vqc-deck-row"]):
-                        with gr.Column(elem_classes=["vqc-deck-circles"], scale=0):
-                            use_vqc = gr.Checkbox(
-                                label="VQC",
-                                value=_DEFAULTS["use_vqc"],
-                                scale=1,
-                                elem_classes=["vqc-deck-toggle"],
-                            )
-                            include_lattice = gr.Checkbox(
-                                label="Lattice",
-                                value=True,
-                                scale=1,
-                                elem_classes=["vqc-deck-toggle"],
-                            )
-                        with gr.Column(elem_classes=["vqc-deck-actions"], scale=1):
-                            with gr.Row(elem_classes=["vqc-action-row", "vqc-deck-bars"]):
-                                benchmark_btn = gr.Button(
-                                    "",
-                                    variant="secondary",
-                                    scale=1,
-                                    elem_classes=["vqc-deck-rect"],
-                                )
-                                query_btn = gr.Button(
-                                    "",
-                                    variant="secondary",
-                                    scale=1,
-                                    elem_classes=["vqc-deck-rect"],
-                                )
-                                tune_toggle = gr.Button(
-                                    "",
-                                    variant="secondary",
-                                    scale=1,
-                                    elem_classes=["vqc-deck-rect", "vqc-deck-tune"],
-                                )
-                        with gr.Column(elem_classes=["vqc-deck-dial"], scale=0):
-                            gr.HTML(DEVICE_DIAL_HTML)
-                    with gr.Accordion(
-                        "Tune",
-                        open=False,
-                        elem_classes=["vqc-tune-accordion", "vqc-device-tune"],
-                        visible=True,
-                    ):
-                        with gr.Row(elem_classes=["vqc-optics-tune-row"]):
-                            bake_steps = gr.Slider(
-                                10,
-                                150,
-                                value=_DEFAULTS["bake_steps"],
-                                step=5,
-                                label="Bake steps",
-                                elem_classes=["vqc-optics-dial-wrap"],
-                            )
-                            bandwidth = gr.Slider(
-                                0.1,
-                                1.0,
-                                value=_DEFAULTS["bandwidth"],
-                                step=0.05,
-                                label="Bandwidth",
-                                elem_classes=["vqc-optics-dial-wrap"],
-                            )
-                            drift_samples = gr.Slider(
-                                10,
-                                80,
-                                value=_DEFAULTS["drift_samples"],
-                                step=5,
-                                label="Drift samples",
-                                elem_classes=["vqc-optics-dial-wrap"],
-                            )
-                            max_facts = gr.Slider(
-                                3,
-                                12,
-                                value=_DEFAULTS["max_facts"],
-                                step=1,
-                                label="Max facts",
-                                elem_classes=["vqc-optics-dial-wrap"],
-                            )
+                with gr.Accordion(
+                    "Tune",
+                    open=False,
+                    elem_classes=["vqc-tune-accordion", "vqc-tuner-tune"],
+                ):
+                    with gr.Row(elem_classes=["vqc-optics-tune-row"]):
+                        bake_steps = gr.Slider(
+                            10,
+                            150,
+                            value=_DEFAULTS["bake_steps"],
+                            step=5,
+                            label="Bake steps",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        bandwidth = gr.Slider(
+                            0.1,
+                            1.0,
+                            value=_DEFAULTS["bandwidth"],
+                            step=0.05,
+                            label="Bandwidth",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        drift_samples = gr.Slider(
+                            10,
+                            80,
+                            value=_DEFAULTS["drift_samples"],
+                            step=5,
+                            label="Drift samples",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
+                        max_facts = gr.Slider(
+                            3,
+                            12,
+                            value=_DEFAULTS["max_facts"],
+                            step=1,
+                            label="Max facts",
+                            elem_classes=["vqc-optics-dial-wrap"],
+                        )
 
-                with gr.Column(elem_classes=["vqc-cockpit-prompt"]):
+                with gr.Column(elem_classes=["vqc-cockpit-prompt", "vqc-tuner-prompt"]):
                     query_text = gr.Textbox(
                         label="Prompt",
                         value=_DEFAULTS["query_text"],
@@ -2968,6 +3233,11 @@ def build_app() -> gr.Blocks:
                         max_lines=4,
                         elem_classes=["vqc-grok-prompt"],
                     )
+
+                gr.HTML(TUNER_FOOTER_HTML)
+
+                benchmark_btn = strip_btns["memory"]
+                query_btn = strip_btns["tuning"]
                 term_keypad_outputs = [
                     optics_terminal,
                     term_conduit_helix_scan,
@@ -2993,18 +3263,6 @@ def build_app() -> gr.Blocks:
                     _make_hud_toggle_click(btn_id),
                     inputs=[hud_state],
                     outputs=hud_outputs,
-                )
-
-            _bind_term_event(
-                term_all_btns["clear"],
-                _make_term_clear_click("clear"),
-                inputs=[optics_terminal, term_ui_state],
-            )
-            for hold_key in TERM_DPAD_HOLD_KEYS:
-                _bind_term_event(
-                    term_all_btns[hold_key],
-                    _make_term_dpad_click(hold_key),
-                    inputs=[optics_terminal, term_ui_state],
                 )
 
             tune_inputs = [bake_steps, bandwidth, use_vqc, drift_samples, max_facts]
