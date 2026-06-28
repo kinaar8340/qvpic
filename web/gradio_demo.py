@@ -311,10 +311,12 @@ def _handle_startup_replay_done(state: dict) -> tuple:
 
 
 def _sync_boot_state(state: dict) -> tuple:
-    state = dict(state) if state else _default_ui_state()
+    state = dict(state) if isinstance(state, dict) else _default_ui_state()
     state["home_active"] = True
     state["active_tab"] = "home"
     state["menu_page"] = 0
+    state["game_active"] = False
+    state["pending_game_start"] = False
     return (
         _home_menu_text(0),
         state,
@@ -738,7 +740,7 @@ def _handle_send(
     terminal: str,
     state: dict,
 ) -> tuple:
-    state = dict(state) if state else _default_ui_state()
+    state = dict(state) if isinstance(state, dict) else _default_ui_state()
     cmd = (cmd or "").strip()
     if not cmd:
         return (
@@ -3470,7 +3472,7 @@ def build_app() -> gr.Blocks:
         boot_evt.then(
             _sync_boot_state,
             inputs=[ui_state],
-            outputs=[ui_state, home_btn],
+            outputs=[terminal, ui_state, home_btn],
         )
 
     return demo
