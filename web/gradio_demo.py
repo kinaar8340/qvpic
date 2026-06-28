@@ -226,7 +226,7 @@ def _home_menu_text(page: int = 0) -> str:
         ">  QVPIC //@ SELECTION MENU",
         f">  PAGE {page + 1}/{len(HOME_MENU_PAGES)}",
         "> ═══════════════════════════════════════════════════════",
-        ">  Enter index number to select:",
+        ">  Enter index number and press SEND:",
         "> ",
     ]
     for index, (title, _action) in enumerate(items, start=1):
@@ -236,6 +236,85 @@ def _home_menu_text(page: int = 0) -> str:
 
 
 HOME_MENU_TEXT = _home_menu_text(0)
+
+
+def _effective_terminal(terminal: str, state: dict) -> str:
+    """Use server menu text when the TUI was painted client-side only."""
+    text = (terminal or "").rstrip()
+    if state.get("home_active"):
+        page = int(state.get("menu_page", 0))
+        menu = _home_menu_text(page)
+        if not text or "SELECTION MENU" in text:
+            return menu
+    return text
+
+
+def _sync_boot_state(state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    state["home_active"] = True
+    state["active_tab"] = "home"
+    state["menu_page"] = 0
+    return (
+        _home_menu_text(0),
+        state,
+        gr.update(elem_classes=_home_btn_classes(True)),
+    )
+
+
+def _build_startup_load_js() -> str:
+    return f"""
+async () => {{
+    const STARTUP_STRING = {json.dumps(STARTUP_STRING)};
+    const HOME_MENU_TEXT = {json.dumps(HOME_MENU_TEXT)};
+    const BOOT_KEY = 'qvpic-boot-complete';
+    const BOOT_DELAY = 200;
+    async function waitForTerminal(attempts) {{
+        attempts = attempts || 0;
+        const ta = document.querySelector('.quartz-terminal textarea');
+        if (ta) return ta;
+        if (attempts > 120) return null;
+        await new Promise(function(resolve) {{ setTimeout(resolve, 100); }});
+        return waitForTerminal(attempts + 1);
+    }}
+    function setHomeLed(on) {{
+        document.querySelectorAll('button.quartz-home-btn').forEach(function(btn) {{
+            btn.classList.toggle('quartz-home-active', !!on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }});
+    }}
+    function paint(ta, text) {{
+        if (!ta) return;
+        ta.value = text;
+        ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    }}
+    const ta = await waitForTerminal(0);
+    if (sessionStorage.getItem(BOOT_KEY)) {{
+        paint(ta, HOME_MENU_TEXT);
+        setHomeLed(true);
+        window.quartzBootDone = true;
+        return HOME_MENU_TEXT;
+    }}
+    var text = '> ';
+    paint(ta, text);
+    var i;
+    for (i = 0; i < STARTUP_STRING.length; i++) {{
+        await new Promise(function(resolve) {{ setTimeout(resolve, BOOT_DELAY); }});
+        text += STARTUP_STRING.charAt(i);
+        paint(ta, text);
+    }}
+    for (i = 0; i < 5; i++) {{
+        await new Promise(function(resolve) {{ setTimeout(resolve, BOOT_DELAY); }});
+        text += '.';
+        paint(ta, text);
+    }}
+    await new Promise(function(resolve) {{ setTimeout(resolve, BOOT_DELAY); }});
+    sessionStorage.setItem(BOOT_KEY, '1');
+    paint(ta, HOME_MENU_TEXT);
+    setHomeLed(true);
+    window.quartzBootDone = true;
+    return HOME_MENU_TEXT;
+}}
+"""
 
 
 def _metallic_btn(*extra: str) -> list[str]:
@@ -403,6 +482,7 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
 
 def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
+    terminal = _effective_terminal(terminal, state)
     page = int(state.get("menu_page", 0))
     page = max(0, min(page, len(HOME_MENU_PAGES) - 1))
     items = HOME_MENU_PAGES[page]
@@ -412,7 +492,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
     except ValueError:
         terminal = _append_terminal(
             terminal,
-            f"> SELECT: enter a number 1–{len(items)}",
+            f"> SELECT: enter a number 1–{len(items)} and press SEND",
             "> _",
         )
         grid_on = bool(state.get("grid_view", True))
@@ -443,9 +523,13 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
             *_tab_updates("home"),
             gr.update(elem_classes=_root_classes(grid_on)),
         )
-    _title, action = items[index - 1]
+    title, action = items[index - 1]
     state = _touch_torus(state, 0.4)
-    terminal, state, active_tab, show_settings = _route_menu_action(action, terminal, state)
+    if action in {"next_page", "prev_page"}:
+        terminal, state, active_tab, show_settings = _route_menu_action(action, terminal, state)
+    else:
+        terminal = _append_terminal(terminal, f"> SELECT: {index} — {title}")
+        terminal, state, active_tab, show_settings = _route_menu_action(action, terminal, state)
     state["active_tab"] = active_tab
     grid_on = bool(state.get("grid_view", True))
     home_on = bool(state.get("home_active", False))
@@ -565,7 +649,7 @@ def _handle_send(
             gr.update(),
         )
     if state.get("home_active"):
-        return _handle_menu_selection(cmd, terminal, state)
+        return _handle_menu_selection(cmd, _effective_terminal(terminal, state), state)
     state = _push_history(state, cmd)
     state = _touch_torus(state, 1.0)
     terminal = _append_terminal(terminal, f"> USER: {cmd}", _simulate_chat_response(cmd), "> _")
@@ -1356,61 +1440,7 @@ _QUARTZ_HEAD_TEMPLATE = """
             pulse: function() { state.pulseUntil = Date.now() + 1200; }
         };
     }
-    var STARTUP_STRING = __STARTUP_STRING__;
-    var HOME_MENU_TEXT = __HOME_MENU_TEXT__;
-    var BOOT_KEY = 'qvpic-boot-complete';
-    var BOOT_DELAY = 200;
-    function setHomeButtonActive(on) {
-        document.querySelectorAll('button.quartz-home-btn').forEach(function(btn) {
-            btn.classList.toggle('quartz-home-active', !!on);
-            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        });
-    }
-    function showHomeMenuInTerminal() {
-        var ta = document.querySelector('.quartz-terminal textarea');
-        if (!ta) return;
-        ta.value = HOME_MENU_TEXT;
-        ta.dispatchEvent(new Event('input', { bubbles: true }));
-        setHomeButtonActive(true);
-        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (vh > 0) syncTerminalOverflow(vh);
-    }
-    function runStartupScript() {
-        var ta = document.querySelector('.quartz-terminal textarea');
-        if (!ta) {
-            setTimeout(runStartupScript, 120);
-            return;
-        }
-        if (sessionStorage.getItem(BOOT_KEY)) {
-            showHomeMenuInTerminal();
-            return;
-        }
-        ta.value = '> ';
-        var i = 0;
-        function typeChar() {
-            if (i < STARTUP_STRING.length) {
-                ta.value += STARTUP_STRING.charAt(i);
-                i += 1;
-                ta.dispatchEvent(new Event('input', { bubbles: true }));
-                setTimeout(typeChar, BOOT_DELAY);
-                return;
-            }
-            typeDots(0);
-        }
-        function typeDots(count) {
-            if (count < 5) {
-                ta.value += '.';
-                ta.dispatchEvent(new Event('input', { bubbles: true }));
-                setTimeout(function() { typeDots(count + 1); }, BOOT_DELAY);
-                return;
-            }
-            sessionStorage.setItem(BOOT_KEY, '1');
-            setTimeout(showHomeMenuInTerminal, BOOT_DELAY);
-        }
-        setTimeout(typeChar, BOOT_DELAY);
-    }
     whenBodyReady(function() {
-        runStartupScript();
         initProgToggles();
         syncTorusInteractionMode();
         bootQuartzTorus();
@@ -1448,11 +1478,7 @@ _QUARTZ_HEAD_TEMPLATE = """
 </script>
 """
 
-QUARTZ_HEAD = (
-    _QUARTZ_HEAD_TEMPLATE.replace("__STARTUP_STRING__", json.dumps(STARTUP_STRING)).replace(
-        "__HOME_MENU_TEXT__", json.dumps(HOME_MENU_TEXT)
-    )
-)
+QUARTZ_HEAD = _QUARTZ_HEAD_TEMPLATE
 
 QUARTZ_CSS = f"""
 :root {{
@@ -2335,6 +2361,13 @@ def build_app() -> gr.Blocks:
 
         send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
         cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
+
+        boot_evt = demo.load(None, None, terminal, js=_build_startup_load_js())
+        boot_evt.then(
+            _sync_boot_state,
+            inputs=[ui_state],
+            outputs=[ui_state, home_btn],
+        )
 
     return demo
 
