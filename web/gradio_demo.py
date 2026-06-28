@@ -85,6 +85,10 @@ GRID_LAYER_HTML = """
 
 DISPLAY_BACKING_HTML = """
 <div class="quartz-display-backing" aria-hidden="true"></div>
+<div class="quartz-invaders-stage" aria-hidden="true">
+  <canvas class="quartz-invaders-canvas"></canvas>
+  <div class="quartz-invaders-crt" aria-hidden="true"></div>
+</div>
 """
 
 TORUS_STATE_BRIDGE_HTML = (
@@ -318,10 +322,20 @@ async () => {
         window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
         window.quartzSetHomeLed(true);
         window.quartzBootDone = true;
+        setTimeout(function() {
+            if (typeof window.quartzTryStartAttractMode === 'function') {
+                window.quartzTryStartAttractMode();
+            }
+        }, 500);
         return window.QUARTZ_HOME_MENU_TEXT;
     }
     await window.quartzRunStartupSequence(ta, { postDelay: 0, persistBoot: true });
     window.quartzBootDone = true;
+    setTimeout(function() {
+        if (typeof window.quartzTryStartAttractMode === 'function') {
+            window.quartzTryStartAttractMode();
+        }
+    }, 500);
     return window.QUARTZ_HOME_MENU_TEXT;
 }
 """
@@ -578,7 +592,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
             terminal,
             f"> SELECT: {index} — {title}",
             "> SPACE INVADERS loading…",
-            "> Side-scroll: you <-  invaders ->  · Space shoot · Esc quit",
+            "> Arrows move · Space shoot · Esc quit",
         )
         grid_on = bool(state.get("grid_view", True))
         return (
@@ -1029,285 +1043,507 @@ window.quartzClickStartupDone = function() {{
 def _quartz_games_js_block() -> str:
     return """
 <script>
-window.quartzMeasureCharCell = function(ta) {
-    var style = window.getComputedStyle(ta);
-    var fontSize = parseFloat(style.fontSize) || 12;
-    var lineHeight = parseFloat(style.lineHeight);
-    if (!lineHeight || isNaN(lineHeight)) lineHeight = fontSize * 1.12;
-    var charW = Math.max(4.2, fontSize * 0.52);
-    try {
-        var canvas = document.createElement('canvas');
-        var ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.font = (style.fontWeight || '400') + ' ' + fontSize + 'px ' + (style.fontFamily || 'monospace');
-            charW = Math.max(4.2, ctx.measureText('M').width || charW);
-        }
-    } catch (e) {}
-    return { charW: charW, lineHeight: lineHeight };
-};
-window.quartzProbeGameCols = function(ta) {
-    var style = window.getComputedStyle(ta);
-    var padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-    var innerW = Math.max(1, ta.clientWidth - padX);
-    var cell = window.quartzMeasureCharCell(ta);
-    var cols = Math.max(48, Math.floor(innerW / cell.charW));
-    var probe = document.createElement('div');
-    probe.style.cssText = 'position:fixed;left:-9999px;top:0;white-space:pre;margin:0;padding:0;border:0;visibility:hidden;pointer-events:none;font-family:' +
-        (style.fontFamily || 'monospace') + ';font-size:' + style.fontSize + ';font-weight:' +
-        (style.fontWeight || '400') + ';letter-spacing:' + (style.letterSpacing || 'normal') + ';line-height:' +
-        (style.lineHeight || 'normal') + ';';
-    document.body.appendChild(probe);
-    function lineWidth(n) {
-        probe.textContent = new Array(n + 1).join('.');
-        return probe.offsetWidth;
-    }
-    while (cols > 48 && lineWidth(cols) > innerW) cols -= 1;
-    while (cols < 400 && lineWidth(cols + 1) <= innerW) cols += 1;
-    document.body.removeChild(probe);
-    return cols;
-};
-window.quartzMeasureGameGrid = function(ta) {
-    var style = window.getComputedStyle(ta);
-    var padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
-    var cell = window.quartzMeasureCharCell(ta);
-    var innerH = Math.max(1, ta.clientHeight - padY);
-    var cols = window.quartzProbeGameCols(ta);
-    var rows = Math.max(18, Math.min(52, Math.floor(innerH / cell.lineHeight)));
-    return { cols: cols, rows: rows, midLine: Math.floor(cols / 2) };
-};
-window.quartzInitStarField = function(cols, rows) {
-    var stars = [];
-    var count = Math.max(12, Math.floor((cols * rows) / 200));
-    var i, yBand;
-    for (i = 0; i < count; i++) {
-        yBand = Math.max(1, rows - 2);
-        stars.push({
-            y: 1 + ((i * 11 + (i % 7) * 5) % yBand),
-            x: (i * 31 + (i % 13) * 19) % (cols * 2 + 24)
+(function() {
+    var PHOSPHOR = '#00D4FF';
+    var PHOSPHOR_BRIGHT = '#80EEFF';
+    var PHOSPHOR_DIM = '#00A8CC';
+    var SPRITES = {
+        squid: [
+            ['00100000100','00010001000','00111111100','01101110110','11111111111','10111111101','10100000101','01101111010'],
+            ['00100000100','00010001000','10111111101','11101110111','11111111111','00111111100','10100000101','01011111010']
+        ],
+        crab: [
+            ['00010001000','00100000100','00011111000','01101111110','11111111111','10111111101','10100000101','00110110010'],
+            ['00010001000','00100000100','10011111001','11101111111','11111111111','00111111100','10010001001','01100110100']
+        ],
+        octopus: [
+            ['00001110000','00011111000','01111111110','11101110111','11111111111','00100100100','10100000101','01000000010'],
+            ['00001110000','00011111000','01111111110','11101110111','11111111111','00100100100','00100000100','10000000001']
+        ],
+        player: ['00011000000','00111100100','01111111110','11111111111','11111111111','11111111111','11111111111','00000000000'],
+        life: ['00011000000','00111100100','01111111110','11111111111']
+    };
+    var ROW_TYPES = ['squid', 'squid', 'crab', 'crab', 'octopus', 'octopus', 'octopus', 'octopus', 'octopus'];
+    function spriteRows(bits) {
+        return bits.map(function(row) {
+            return row.split('').map(function(ch) { return ch === '1' ? 1 : 0; });
         });
     }
-    return stars;
-};
-window.quartzInitInvaders = function(cols, rows, wave, midLine) {
-    var invaders = [];
-    var zoneW = Math.max(12, cols - midLine - 2);
-    var invCols = Math.min(18, Math.max(10, Math.floor(zoneW / 2)));
-    var invRows = Math.max(6, Math.min(rows - 2, Math.floor(rows * 0.72)));
-    var spacingX = 2;
-    var spacingY = Math.max(1, Math.floor((rows - 2) / invRows));
-    var startX = cols - 2;
-    var topY = 1;
-    var r, c;
-    for (r = 0; r < invRows; r++) {
-        for (c = 0; c < invCols; c++) {
-            invaders.push({
-                x: startX - c * spacingX,
-                y: Math.min(rows - 2, topY + Math.floor(r * spacingY)),
-                alive: true
-            });
-        }
+    function spriteFrames(type) {
+        return SPRITES[type].map(spriteRows);
     }
-    return invaders;
-};
-window.quartzFireBullet = function(g) {
-    if (g.bullets.length >= 28) return;
-    g.bullets.push({ x: g.player.x + 1, y: g.player.y });
-};
-window.quartzRenderSpaceInvaders = function(ta, g) {
-    var grid = [];
-    var r, c, row, sx;
-    for (r = 0; r < g.rows; r++) {
-        row = new Array(g.cols);
-        for (c = 0; c < g.cols; c++) row[c] = ' ';
-        grid[r] = row;
+    function fitGameStage() {
+        var stage = document.querySelector('.quartz-invaders-stage');
+        var ta = document.querySelector('.quartz-terminal textarea');
+        var col = document.querySelector('.quartz-terminal-col');
+        if (!stage || !ta || !col) return null;
+        var cr = col.getBoundingClientRect();
+        var tr = ta.getBoundingClientRect();
+        stage.style.top = (tr.top - cr.top) + 'px';
+        stage.style.left = (tr.left - cr.left) + 'px';
+        stage.style.width = tr.width + 'px';
+        stage.style.height = tr.height + 'px';
+        return stage;
     }
-    g.starScroll = (g.starScroll + 1) % (g.cols * 4 + 48);
-    g.stars.forEach(function(s) {
-        sx = s.x - g.starScroll;
-        while (sx < -4) sx += g.cols + 16;
-        while (sx >= g.cols) sx -= g.cols + 16;
-        if (s.y >= 0 && s.y < g.rows && sx >= 0 && sx < g.cols && grid[s.y][sx] === ' ') {
-            grid[s.y][sx] = '.';
-        }
-    });
-    for (r = 0; r < g.rows; r++) {
-        if (r % 4 === 0 && g.midLine >= 0 && g.midLine < g.cols && grid[r][g.midLine] === ' ') {
-            grid[r][g.midLine] = '|';
-        }
+    function resizeCanvas(g) {
+        var stage = fitGameStage();
+        if (!stage) return;
+        var canvas = stage.querySelector('.quartz-invaders-canvas');
+        if (!canvas) return;
+        var rect = stage.getBoundingClientRect();
+        var w = Math.max(1, Math.floor(rect.width));
+        var h = Math.max(1, Math.floor(rect.height));
+        canvas.width = w;
+        canvas.height = h;
+        g.width = w;
+        g.height = h;
+        g.scale = Math.max(2, Math.floor(Math.min(w / 56, h / 64)));
+        g.ctx = canvas.getContext('2d');
+        g.ctx.imageSmoothingEnabled = false;
     }
-    g.invaders.forEach(function(inv) {
-        if (!inv.alive) return;
-        if (inv.y >= 0 && inv.y < g.rows && inv.x >= 0 && inv.x < g.cols) grid[inv.y][inv.x] = 'W';
-    });
-    g.bullets.forEach(function(b) {
-        if (b.y >= 0 && b.y < g.rows && b.x >= 0 && b.x < g.cols) grid[b.y][b.x] = '=';
-    });
-    if (g.player.y >= 0 && g.player.y < g.rows && g.player.x >= 0 && g.player.x < g.cols) {
-        grid[g.player.y][g.player.x] = '>';
-        if (g.player.x > 0 && grid[g.player.y][g.player.x - 1] === ' ') {
-            grid[g.player.y][g.player.x - 1] = '-';
-        }
-    }
-    var hud = ('SCORE ' + g.score + '  WAVE ' + g.wave + '  |  ARROWS  SPACE  ESC');
-    while (hud.length < g.cols) hud += ' ';
-    hud = hud.substring(0, g.cols);
-    var hudRow = Math.max(0, g.rows - 1);
-    for (c = 0; c < g.cols; c++) {
-        if (hud.charAt(c) !== ' ') grid[hudRow][c] = hud.charAt(c);
-    }
-    var lines = [];
-    for (r = 0; r < g.rows; r++) lines.push(grid[r].join(''));
-    window.quartzPaintTerminal(ta, lines.join('\\n'), true);
-};
-window.quartzTickSpaceInvaders = function(ta, g) {
-    if (!g.running) return;
-    var maxPlayerX = Math.max(3, g.midLine - 3);
-    var maxPlayerY = Math.max(1, g.rows - 2);
-    if (g.keys.ArrowUp && g.player.y > 1) g.player.y -= 1;
-    if (g.keys.ArrowDown && g.player.y < maxPlayerY) g.player.y += 1;
-    if (g.keys.ArrowLeft && g.player.x > 1) g.player.x -= 1;
-    if (g.keys.ArrowRight && g.player.x < maxPlayerX) g.player.x += 1;
-    if (g.keys[' ']) {
-        window.quartzFireBullet(g);
-    }
-    g.bullets = g.bullets.filter(function(b) {
-        b.x += 6;
-        if (b.x >= g.cols) return false;
-        var hit = false;
-        g.invaders.forEach(function(inv) {
-            if (!inv.alive || hit) return;
-            if (Math.abs(inv.x - b.x) <= 0 && inv.y === b.y) {
-                inv.alive = false;
-                g.score += 10;
-                hit = true;
+    function makeBunker(x, y, scale) {
+        var pattern = [
+            '000111111110000',
+            '011111111111110',
+            '111111111111111',
+            '111111111111111',
+            '111111111111111',
+            '111111111111111',
+            '111111111111111',
+            '111111111111111',
+            '111111111111111',
+            '011111111111110',
+            '001111111111100'
+        ];
+        var cells = [];
+        var r, c, row;
+        for (r = 0; r < pattern.length; r++) {
+            row = pattern[r];
+            for (c = 0; c < row.length; c++) {
+                if (row.charAt(c) === '1') {
+                    cells.push({ x: x + c, y: y + r, alive: true });
+                }
             }
+        }
+        return { x: x, y: y, scale: scale, cells: cells };
+    }
+    function initBunkers(g) {
+        var bw = 15;
+        var bh = 11;
+        var gap = Math.floor((g.gridW - bw * 4) / 5);
+        var y = Math.floor(g.gridH * 0.72);
+        var bunkers = [];
+        var i, x;
+        for (i = 0; i < 4; i++) {
+            x = gap + i * (bw + gap);
+            bunkers.push(makeBunker(x, y, 1));
+        }
+        return bunkers;
+    }
+    function initInvaders(g) {
+        var invaders = [];
+        var cols = 11;
+        var rows = ROW_TYPES.length;
+        var spacingX = 14;
+        var spacingY = 10;
+        var totalW = cols * spacingX;
+        var startX = Math.floor((g.gridW - totalW) / 2);
+        var startY = Math.floor(g.gridH * 0.22);
+        var r, c, type;
+        for (r = 0; r < rows; r++) {
+            type = ROW_TYPES[r];
+            for (c = 0; c < cols; c++) {
+                invaders.push({
+                    type: type,
+                    x: startX + c * spacingX,
+                    y: startY + r * spacingY,
+                    alive: true,
+                    row: r
+                });
+            }
+        }
+        return invaders;
+    }
+    function resetWave(g) {
+        g.invaders = initInvaders(g);
+        g.direction = 1;
+        g.stepDown = false;
+        g.invaderTick = 0;
+        g.enemyBullets = [];
+        g.playerBullet = null;
+        g.bunkers = initBunkers(g);
+        g.invaderSpeed = Math.max(4, 22 - g.wave * 2);
+    }
+    function initGameState(opts) {
+        opts = opts || {};
+        var g = {
+            running: true,
+            attractMode: !!opts.attract,
+            width: 0,
+            height: 0,
+            scale: 3,
+            gridW: 56,
+            gridH: 64,
+            ctx: null,
+            wave: 1,
+            score: 0,
+            hiScore: parseInt(localStorage.getItem('qvpic-invaders-hi') || '0', 10) || 0,
+            lives: 3,
+            player: { x: 26, y: 58 },
+            invaders: [],
+            direction: 1,
+            stepDown: false,
+            invaderTick: 0,
+            invaderSpeed: 20,
+            animFrame: 0,
+            playerBullet: null,
+            enemyBullets: [],
+            bunkers: [],
+            keys: {},
+            loopId: null,
+            enemyShootCooldown: 0,
+            gameOver: false,
+            attractTimer: 0,
+            attractShootTimer: 0,
+            attractResetTimer: 0
+        };
+        resetWave(g);
+        return g;
+    }
+    function tickAttract(g) {
+        if (!g.attractMode || g.gameOver) return;
+        g.attractTimer += 1;
+        g.player.x = (g.gridW * 0.5) + Math.sin(g.attractTimer * 0.045) * 14;
+        g.player.x = Math.max(6, Math.min(g.gridW - 6, g.player.x));
+        g.attractShootTimer += 1;
+        if (g.attractShootTimer > 42 && !g.playerBullet) {
+            firePlayerBullet(g);
+            g.attractShootTimer = 0;
+        }
+    }
+    function leaveAttractMode(g) {
+        if (!g.attractMode) return;
+        g.attractMode = false;
+        g.attractTimer = 0;
+        g.attractShootTimer = 0;
+    }
+    function drawPixel(ctx, x, y, scale, bright) {
+        ctx.fillStyle = bright ? PHOSPHOR_BRIGHT : PHOSPHOR;
+        ctx.fillRect(Math.floor(x * scale), Math.floor(y * scale), scale, scale);
+    }
+    function drawSprite(ctx, sprite, x, y, scale, bright) {
+        var r, c;
+        for (r = 0; r < sprite.length; r++) {
+            for (c = 0; c < sprite[r].length; c++) {
+                if (sprite[r][c]) drawPixel(ctx, x + c, y + r, scale, bright);
+            }
+        }
+    }
+    function drawText(ctx, text, x, y, scale, bright) {
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = bright ? PHOSPHOR_BRIGHT : PHOSPHOR;
+        ctx.font = 'bold ' + Math.max(8, Math.floor(scale * 5.5)) + 'px "Courier New", Courier, monospace';
+        ctx.shadowColor = PHOSPHOR;
+        ctx.shadowBlur = Math.max(2, scale * 0.8);
+        ctx.fillText(text, Math.floor(x * scale), Math.floor((y + 4) * scale));
+        ctx.restore();
+    }
+    function drawBunker(ctx, bunker, scale) {
+        bunker.cells.forEach(function(cell) {
+            if (!cell.alive) return;
+            drawPixel(ctx, cell.x, cell.y, scale, false);
         });
-        return !hit;
-    });
-    g.invaderTick += 1;
-    if (g.invaderTick % 14 === 0) {
+    }
+    function renderGame(g) {
+        if (!g.ctx) return;
+        var ctx = g.ctx;
+        var scale = g.scale;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, g.width, g.height);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, g.width, g.height);
+        ctx.shadowColor = PHOSPHOR;
+        ctx.shadowBlur = scale * 0.55;
+        drawText(ctx, 'SPACE INVADERS', 9, 2, scale, true);
+        drawText(ctx, 'SCORE<' + String(g.score).padStart(4, '0') + '>', 2, 9, scale, false);
+        drawText(ctx, 'HI<' + String(Math.max(g.score, g.hiScore)).padStart(4, '0') + '>', 30, 9, scale, false);
+        var frame = g.animFrame % 2;
         g.invaders.forEach(function(inv) {
             if (!inv.alive) return;
-            if (inv.x > g.midLine) inv.x -= 1;
+            var frames = spriteFrames(inv.type);
+            drawSprite(ctx, frames[frame], inv.x, inv.y, scale, inv.type === 'squid');
+        });
+        g.bunkers.forEach(function(b) { drawBunker(ctx, b, scale); });
+        if (g.playerBullet) {
+            drawPixel(ctx, g.playerBullet.x, g.playerBullet.y, scale, true);
+            if (g.playerBullet.y > 0) drawPixel(ctx, g.playerBullet.x, g.playerBullet.y - 1, scale, true);
+        }
+        g.enemyBullets.forEach(function(b) {
+            drawPixel(ctx, b.x, b.y, scale, false);
+            drawPixel(ctx, b.x, b.y + 0.5, scale, false);
+        });
+        if (!g.gameOver) {
+            drawSprite(ctx, spriteRows(SPRITES.player), g.player.x - 5, g.player.y, scale, true);
+        }
+        if (g.attractMode && !g.gameOver) {
+            var blink = Math.floor(g.animFrame / 18) % 2 === 0;
+            drawText(ctx, 'LIVES', 2, g.gridH - 4, scale, false);
+            var lifeSprite = spriteRows(SPRITES.life);
+            var i;
+            for (i = 0; i < g.lives; i++) {
+                drawSprite(ctx, lifeSprite, 14 + i * 8, g.gridH - 6, scale, false);
+            }
+            if (blink) {
+                drawText(ctx, '<- -> TO PLAY', 32, g.gridH - 4, scale, true);
+            }
+        } else {
+            drawText(ctx, 'LIVES', 2, g.gridH - 4, scale, false);
+            var lifeSprite = spriteRows(SPRITES.life);
+            var j;
+            for (j = 0; j < g.lives; j++) {
+                drawSprite(ctx, lifeSprite, 14 + j * 8, g.gridH - 6, scale, false);
+            }
+        }
+        if (g.gameOver) {
+            if (g.attractMode) {
+                drawText(ctx, 'GAME OVER', 16, Math.floor(g.gridH / 2), scale, true);
+            } else {
+                drawText(ctx, 'GAME OVER', 16, Math.floor(g.gridH / 2), scale, true);
+                drawText(ctx, 'ESC TO QUIT', 15, Math.floor(g.gridH / 2) + 8, scale, false);
+            }
+        }
+        ctx.restore();
+    }
+    function aliveInvaders(g) {
+        return g.invaders.filter(function(inv) { return inv.alive; });
+    }
+    function invaderBounds(g) {
+        var alive = aliveInvaders(g);
+        if (!alive.length) return null;
+        var minX = 999, maxX = -999, maxY = -999;
+        alive.forEach(function(inv) {
+            minX = Math.min(minX, inv.x);
+            maxX = Math.max(maxX, inv.x + 11);
+            maxY = Math.max(maxY, inv.y + 8);
+        });
+        return { minX: minX, maxX: maxX, maxY: maxY };
+    }
+    function hitBunker(g, x, y) {
+        var hit = false;
+        g.bunkers.forEach(function(bunker) {
+            bunker.cells.forEach(function(cell) {
+                if (!cell.alive || hit) return;
+                if (Math.abs(cell.x - x) < 1.2 && Math.abs(cell.y - y) < 1.2) {
+                    cell.alive = false;
+                    hit = true;
+                }
+            });
+        });
+        return hit;
+    }
+    function firePlayerBullet(g) {
+        if (g.playerBullet || g.gameOver) return;
+        g.playerBullet = { x: g.player.x, y: g.player.y - 1, vy: -1.4 };
+    }
+    function fireEnemyBullet(g) {
+        var alive = aliveInvaders(g);
+        if (!alive.length) return;
+        var shooter = alive[Math.floor(Math.random() * alive.length)];
+        g.enemyBullets.push({
+            x: shooter.x + 5,
+            y: shooter.y + 8,
+            vy: 0.55 + Math.random() * 0.35
         });
     }
-    var alive = g.invaders.some(function(inv) { return inv.alive; });
-    if (!alive) {
-        g.wave += 1;
-        g.invaders = window.quartzInitInvaders(g.cols, g.rows, g.wave, g.midLine);
-    }
-    var breached = g.invaders.some(function(inv) {
-        return inv.alive && inv.x <= g.midLine;
-    });
-    if (breached) {
-        window.quartzStopSpaceInvaders();
-        return;
-    }
-    window.quartzRenderSpaceInvaders(ta, g);
-};
-window.quartzStartSpaceInvaders = function() {
-    var ta = document.querySelector('.quartz-terminal textarea');
-    if (!ta || (window.quartzGame && window.quartzGame.running)) return;
-    if (typeof fitPanel === 'function') fitPanel();
-    var cmd = document.querySelector('.quartz-cmd-input textarea');
-    if (cmd) cmd.blur();
-    document.body.classList.add('quartz-game-on');
-    var stage = document.querySelector('.quartz-torus-stage');
-    if (stage) stage.style.display = 'none';
-    if (typeof window.quartzBeginTypewriter === 'function') window.quartzBeginTypewriter(ta);
-    ta.classList.add('quartz-game-active');
-    if (typeof fitPanel === 'function') fitPanel();
-    var dims = window.quartzMeasureGameGrid(ta);
-    window.quartzGame = {
-        running: true,
-        cols: dims.cols,
-        rows: dims.rows,
-        midLine: dims.midLine,
-        starScroll: 0,
-        wave: 1,
-        player: { x: 3, y: Math.floor(dims.rows / 2) },
-        invaders: window.quartzInitInvaders(dims.cols, dims.rows, 1, dims.midLine),
-        stars: window.quartzInitStarField(dims.cols, dims.rows),
-        bullets: [],
-        invaderTick: 0,
-        score: 0,
-        keys: {},
-        loopId: null
-    };
-    var g = window.quartzGame;
-    g.keyDown = function(e) {
+    function tickGame(g) {
         if (!g.running) return;
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' ||
-            e.key === 'ArrowDown' || e.key === ' ' || e.key === 'Escape') {
-            e.preventDefault();
-            e.stopPropagation();
+        g.animFrame += 1;
+        if (g.gameOver && g.attractMode) {
+            g.attractResetTimer += 1;
+            if (g.attractResetTimer > 90) {
+                g.score = 0;
+                g.lives = 3;
+                g.wave = 1;
+                g.gameOver = false;
+                g.attractResetTimer = 0;
+                resetWave(g);
+            }
+            renderGame(g);
+            return;
         }
-        if (e.key === ' ') {
-            g.keys[' '] = true;
-            window.quartzFireBullet(g);
-        } else if (e.key === 'Escape') {
-            window.quartzStopSpaceInvaders();
-        } else if (e.key.indexOf('Arrow') === 0) {
-            g.keys[e.key] = true;
+        if (!g.gameOver) {
+            if (g.attractMode) {
+                tickAttract(g);
+            } else {
+                var speed = g.keys.ArrowLeft || g.keys.ArrowRight ? 0.85 : 0.55;
+                if (g.keys.ArrowLeft) g.player.x = Math.max(6, g.player.x - speed);
+                if (g.keys.ArrowRight) g.player.x = Math.min(g.gridW - 6, g.player.x + speed);
+                if (g.keys[' ']) firePlayerBullet(g);
+            }
+            g.invaderTick += 1;
+            if (g.invaderTick >= g.invaderSpeed) {
+                g.invaderTick = 0;
+                var bounds = invaderBounds(g);
+                if (bounds) {
+                    var step = g.direction * 1.2;
+                    if ((g.direction > 0 && bounds.maxX + step >= g.gridW - 2) ||
+                        (g.direction < 0 && bounds.minX + step <= 2)) {
+                        g.direction *= -1;
+                        aliveInvaders(g).forEach(function(inv) { inv.y += 1.4; });
+                    } else {
+                        aliveInvaders(g).forEach(function(inv) { inv.x += step; });
+                    }
+                }
+            }
+            if (g.enemyShootCooldown <= 0) {
+                fireEnemyBullet(g);
+                g.enemyShootCooldown = Math.max(18, 48 - g.wave * 3);
+            } else {
+                g.enemyShootCooldown -= 1;
+            }
+        }
+        if (g.playerBullet) {
+            g.playerBullet.y += g.playerBullet.vy;
+            var bx = g.playerBullet.x;
+            var by = g.playerBullet.y;
+            var hit = false;
+            if (by < 12) {
+                g.playerBullet = null;
+            } else {
+                g.invaders.forEach(function(inv) {
+                    if (!inv.alive || hit) return;
+                    if (bx >= inv.x && bx <= inv.x + 11 && by >= inv.y && by <= inv.y + 8) {
+                        inv.alive = false;
+                        g.score += (3 - Math.min(2, Math.floor(inv.row / 3))) * 10 + 10;
+                        if (g.score > g.hiScore) {
+                            g.hiScore = g.score;
+                            localStorage.setItem('qvpic-invaders-hi', String(g.hiScore));
+                        }
+                        hit = true;
+                    }
+                });
+                if (!hit && hitBunker(g, bx, by)) hit = true;
+                if (hit) g.playerBullet = null;
+                else if (by < 0) g.playerBullet = null;
+            }
+        }
+        g.enemyBullets = g.enemyBullets.filter(function(b) {
+            b.y += b.vy;
+            if (b.y > g.gridH) return false;
+            if (!g.gameOver && Math.abs(b.x - g.player.x) < 3 && b.y >= g.player.y && b.y <= g.player.y + 7) {
+                g.lives -= 1;
+                if (g.lives <= 0) g.gameOver = true;
+                return false;
+            }
+            if (hitBunker(g, b.x, b.y)) return false;
+            return true;
+        });
+        if (!g.gameOver) {
+            var bounds = invaderBounds(g);
+            if (bounds && bounds.maxY >= g.player.y - 2) g.gameOver = true;
+            if (!aliveInvaders(g).length) {
+                g.wave += 1;
+                resetWave(g);
+            }
+        }
+        renderGame(g);
+    }
+    window.quartzFitGameStage = fitGameStage;
+    window.quartzTryStartAttractMode = function() {
+        if (window.quartzAttractStarted) return;
+        if (window.quartzGame && window.quartzGame.running) return;
+        window.quartzAttractStarted = true;
+        window.quartzStartSpaceInvaders({ attract: true });
+    };
+    window.quartzStartSpaceInvaders = function(opts) {
+        opts = opts || {};
+        if (window.quartzGame && window.quartzGame.running) return;
+        if (opts.attract) window.quartzAttractStarted = true;
+        if (typeof fitPanel === 'function') fitPanel();
+        var cmd = document.querySelector('.quartz-cmd-input textarea');
+        if (cmd) cmd.blur();
+        document.body.classList.add('quartz-game-on');
+        var torus = document.querySelector('.quartz-torus-stage');
+        if (torus) torus.style.display = 'none';
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (ta) ta.classList.add('quartz-game-active');
+        var g = initGameState(opts);
+        window.quartzGame = g;
+        resizeCanvas(g);
+        renderGame(g);
+        g.keyDown = function(e) {
+            if (!g.running) return;
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            if (g.attractMode && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ')) {
+                leaveAttractMode(g);
+            }
+            if (e.key === ' ') {
+                g.keys[' '] = true;
+                firePlayerBullet(g);
+            } else if (e.key === 'Escape') {
+                window.quartzStopSpaceInvaders();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                g.keys[e.key] = true;
+            }
+        };
+        g.keyUp = function(e) {
+            if (e.key === ' ') g.keys[' '] = false;
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') g.keys[e.key] = false;
+        };
+        document.addEventListener('keydown', g.keyDown, true);
+        document.addEventListener('keyup', g.keyUp, true);
+        g.loopId = setInterval(function() { tickGame(g); }, 33);
+        g.resizeHandler = function() {
+            if (!g.running) return;
+            if (typeof fitPanel === 'function') fitPanel();
+            resizeCanvas(g);
+            renderGame(g);
+        };
+        window.addEventListener('resize', g.resizeHandler);
+        requestAnimationFrame(function() {
+            if (!g.running) return;
+            if (typeof fitPanel === 'function') fitPanel();
+            resizeCanvas(g);
+            renderGame(g);
+        });
+    };
+    window.quartzStopSpaceInvaders = function() {
+        var g = window.quartzGame;
+        if (!g) return;
+        var wasAttract = g.attractMode;
+        g.running = false;
+        if (g.loopId) clearInterval(g.loopId);
+        document.removeEventListener('keydown', g.keyDown, true);
+        document.removeEventListener('keyup', g.keyUp, true);
+        if (g.resizeHandler) window.removeEventListener('resize', g.resizeHandler);
+        window.quartzGame = null;
+        document.body.classList.remove('quartz-game-on');
+        var torus = document.querySelector('.quartz-torus-stage');
+        if (torus && window.quartzTorusPrefs && window.quartzTorusPrefs.visible) {
+            torus.style.display = 'block';
+        }
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (ta) {
+            ta.classList.remove('quartz-game-active');
+            if (wasAttract && window.QUARTZ_HOME_MENU_TEXT) {
+                window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
+            }
+        }
+        if (typeof fitPanel === 'function') fitPanel();
+        if (!wasAttract && typeof window.quartzClickGameQuit === 'function') {
+            window.quartzClickGameQuit();
         }
     };
-    g.keyUp = function(e) {
-        if (e.key === ' ') g.keys[' '] = false;
-        if (e.key.indexOf('Arrow') === 0) g.keys[e.key] = false;
+    window.quartzClickGameQuit = function() {
+        var btn = document.querySelector('button.quartz-game-quit-btn');
+        if (btn) btn.click();
     };
-    document.addEventListener('keydown', g.keyDown, true);
-    document.addEventListener('keyup', g.keyUp, true);
-    g.loopId = setInterval(function() { window.quartzTickSpaceInvaders(ta, g); }, 65);
-    g.resizeHandler = function() {
-        if (!g.running) return;
-        if (typeof fitPanel === 'function') fitPanel();
-        var nd = window.quartzMeasureGameGrid(ta);
-        g.cols = nd.cols;
-        g.rows = nd.rows;
-        g.midLine = nd.midLine;
-        g.player.y = Math.min(g.rows - 2, Math.max(1, g.player.y));
-        g.player.x = Math.min(Math.max(3, g.midLine - 3), g.player.x);
-        g.stars = window.quartzInitStarField(g.cols, g.rows);
-    };
-    window.addEventListener('resize', g.resizeHandler);
-    requestAnimationFrame(function() {
-        if (!g.running) return;
-        if (typeof fitPanel === 'function') fitPanel();
-        var rd = window.quartzMeasureGameGrid(ta);
-        g.cols = rd.cols;
-        g.rows = rd.rows;
-        g.midLine = rd.midLine;
-        g.player.y = Math.min(g.rows - 2, Math.max(1, g.player.y));
-        g.stars = window.quartzInitStarField(g.cols, g.rows);
-        g.invaders = window.quartzInitInvaders(g.cols, g.rows, g.wave, g.midLine);
-        window.quartzRenderSpaceInvaders(ta, g);
-    });
-    window.quartzRenderSpaceInvaders(ta, g);
-};
-window.quartzStopSpaceInvaders = function() {
-    var g = window.quartzGame;
-    if (!g) return;
-    g.running = false;
-    if (g.loopId) clearInterval(g.loopId);
-    document.removeEventListener('keydown', g.keyDown, true);
-    document.removeEventListener('keyup', g.keyUp, true);
-    if (g.resizeHandler) window.removeEventListener('resize', g.resizeHandler);
-    window.quartzGame = null;
-    document.body.classList.remove('quartz-game-on');
-    var stage = document.querySelector('.quartz-torus-stage');
-    if (stage && window.quartzTorusPrefs && window.quartzTorusPrefs.visible) {
-        stage.style.display = 'block';
-    }
-    if (typeof window.quartzEndTypewriter === 'function') window.quartzEndTypewriter();
-    var ta = document.querySelector('.quartz-terminal textarea');
-    if (ta) ta.classList.remove('quartz-game-active');
-    if (typeof fitPanel === 'function') fitPanel();
-    if (typeof window.quartzClickGameQuit === 'function') window.quartzClickGameQuit();
-};
-window.quartzClickGameQuit = function() {
-    var btn = document.querySelector('button.quartz-game-quit-btn');
-    if (btn) btn.click();
-};
+})();
 </script>
 """
 
@@ -1756,6 +1992,9 @@ _QUARTZ_HEAD_TEMPLATE = """
         backing.style.left = (tr.left - cr.left) + 'px';
         backing.style.width = tr.width + 'px';
         backing.style.height = tr.height + 'px';
+        if (typeof window.quartzFitGameStage === 'function') {
+            window.quartzFitGameStage();
+        }
     }
     function fitSkinMetrics() {
         var tabs = document.querySelector('.quartz-top-tabs');
@@ -1999,11 +2238,18 @@ _QUARTZ_HEAD_TEMPLATE = """
         quartzLastGameNudge = nudge;
         setTimeout(function() {
             if (typeof window.quartzStartSpaceInvaders === 'function') {
-                window.quartzStartSpaceInvaders();
+                window.quartzStartSpaceInvaders({ attract: false });
             }
         }, 100);
     }
     setInterval(watchGameStart, 200);
+    var attractBootPoll = setInterval(function() {
+        if (!window.quartzBootDone) return;
+        clearInterval(attractBootPoll);
+        if (typeof window.quartzTryStartAttractMode === 'function') {
+            window.quartzTryStartAttractMode();
+        }
+    }, 250);
     whenBodyReady(function() {
         initProgToggles();
         syncTorusInteractionMode();
@@ -2547,17 +2793,59 @@ html, body {{
     text-align: center !important;
 }}
 .gradio-container .quartz-terminal textarea.quartz-game-active {{
-    font-family: "Courier New", Courier, monospace !important;
-    font-size: clamp(0.5rem, 1.02vh, 0.62rem) !important;
-    letter-spacing: 0.01em !important;
-    line-height: 1.04 !important;
-    padding: 0.08rem 0.1rem !important;
-    cursor: default !important;
-    white-space: pre !important;
-    text-align: left !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
     overflow: hidden !important;
+}}
+.gradio-container .quartz-invaders-stage {{
+    position: absolute !important;
+    z-index: 6 !important;
+    display: none !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    border-radius: 3px / 5px !important;
+    background: #000000 !important;
+    box-shadow: inset 0 0 28px rgba(0, 212, 255, 0.08) !important;
+}}
+body.quartz-game-on .quartz-invaders-stage {{
+    display: block !important;
+    pointer-events: auto !important;
+}}
+.gradio-container .quartz-invaders-canvas {{
+    position: absolute !important;
+    inset: 0 !important;
     width: 100% !important;
-    padding-right: 0.1rem !important;
+    height: 100% !important;
+    display: block !important;
+    background: #000000 !important;
+    image-rendering: pixelated !important;
+    image-rendering: crisp-edges !important;
+    filter: drop-shadow(0 0 2px rgba(0, 212, 255, 0.5)) !important;
+}}
+.gradio-container .quartz-invaders-crt {{
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    border-radius: inherit !important;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0) 0px,
+            rgba(0, 0, 0, 0) 2px,
+            rgba(0, 0, 0, 0.18) 2px,
+            rgba(0, 0, 0, 0.18) 3px
+        ),
+        radial-gradient(
+            ellipse 92% 88% at 50% 48%,
+            rgba(0, 212, 255, 0.05) 0%,
+            rgba(0, 0, 0, 0) 52%,
+            rgba(0, 0, 0, 0.42) 100%
+        ) !important;
+    box-shadow:
+        inset 0 0 42px rgba(0, 212, 255, 0.09),
+        inset 0 0 80px rgba(0, 0, 0, 0.55) !important;
+    mix-blend-mode: screen !important;
+    opacity: 0.92 !important;
 }}
 body.quartz-game-on .quartz-torus-stage {{
     display: none !important;
