@@ -42,11 +42,12 @@ STARTUP_STRING = "TEST EVERYTHING, HOLD FAST WHAT IS GOOD AND KNOW YOUR GOD"
 STARTUP_DISPLAY_STRING = STARTUP_STRING + "....."
 STARTUP_CHAR_DELAY_MS = 200
 STARTUP_POST_DELAY_MS = 2000
+PROG_DIAG_HOLD_MS = 500
 
 # (label, action_key) — max 9 entries per page; overflow uses next/prev page slots.
 HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
     (
-        ("Enter QVPIC Conduit", "conduit"),
+        ("Quick Diagnostic", "quick_diagnostic"),
         ("Topology Explorer", "topology"),
         ("Quaternion Vortex Controls", "vortex"),
         ("Persistent Identity Settings", "identity"),
@@ -384,11 +385,11 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
         state["home_active"] = True
         state["menu_page"] = max(int(state.get("menu_page", 0)) - 1, 0)
         return _home_menu_text(state["menu_page"]), state, "home", False
-    if action == "conduit":
+    if action == "quick_diagnostic":
         state["pending_startup_replay"] = True
         state["home_active"] = False
         state["menu_page"] = 0
-        terminal = _append_terminal(terminal, "> STARTUP SEQUENCE REQUESTED…")
+        terminal = _append_terminal(terminal, "> QUICK DIAGNOSTIC: startup + Prog LED sweep…")
         return terminal, state, "home", False
     if action == "topology":
         terminal = _append_terminal(
@@ -505,12 +506,16 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
         )
     title, action = items[index - 1]
     state = _touch_torus(state, 0.4)
-    if action == "conduit":
+    if action == "quick_diagnostic":
         state["pending_startup_replay"] = True
         state["home_active"] = False
         state["menu_page"] = 0
         state["active_tab"] = "home"
-        terminal = _append_terminal(terminal, f"> SELECT: {index} — {title}")
+        terminal = _append_terminal(
+            terminal,
+            f"> SELECT: {index} — {title}",
+            "> QUICK DIAGNOSTIC: Prog 1–16 LED sweep during startup…",
+        )
         grid_on = bool(state.get("grid_view", True))
         return (
             terminal,
@@ -795,6 +800,8 @@ window.QUARTZ_STARTUP_STRING = {json.dumps(STARTUP_STRING)};
 window.QUARTZ_HOME_MENU_TEXT = {json.dumps(HOME_MENU_TEXT)};
 window.QUARTZ_CHAR_DELAY = {STARTUP_CHAR_DELAY_MS};
 window.QUARTZ_MENU_POST_DELAY = {STARTUP_POST_DELAY_MS};
+window.QUARTZ_PROG_DIAG_HOLD = {PROG_DIAG_HOLD_MS};
+window.QUARTZ_PROG_BANK_SIZE = {PROG_BANK_SIZE};
 window.quartzWaitForTerminal = async function(attempts) {{
     attempts = attempts || 0;
     var ta = document.querySelector('.quartz-terminal textarea');
@@ -836,12 +843,46 @@ window.quartzSetHomeLed = function(on) {{
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     }});
 }};
+window.quartzSetProgLed = function(index, on) {{
+    document.querySelectorAll('button.quartz-prog-id-' + index).forEach(function(btn) {{
+        btn.classList.toggle('quartz-prog-active', !!on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }});
+}};
+window.quartzClearProgLeds = function() {{
+    var i;
+    for (i = 1; i <= window.QUARTZ_PROG_BANK_SIZE; i++) window.quartzSetProgLed(i, false);
+}};
+window.quartzRunProgDiagnosticLoop = async function(stopSignal) {{
+    var holdMs = window.QUARTZ_PROG_DIAG_HOLD || 500;
+    var bankSize = window.QUARTZ_PROG_BANK_SIZE || 16;
+    var idx = 1;
+    var saved = JSON.parse(JSON.stringify(window.quartzProgStates || {{}}));
+    window.quartzClearProgLeds();
+    while (!stopSignal.done) {{
+        window.quartzClearProgLeds();
+        window.quartzSetProgLed(idx, true);
+        await new Promise(function(resolve) {{ setTimeout(resolve, holdMs); }});
+        if (stopSignal.done) break;
+        idx = idx >= bankSize ? 1 : idx + 1;
+    }}
+    window.quartzClearProgLeds();
+    if (typeof window.quartzApplyProgStates === 'function') {{
+        window.quartzApplyProgStates(saved);
+    }}
+}};
 window.quartzRunStartupSequence = async function(ta, options) {{
     options = options || {{}};
     var charDelay = options.charDelay != null ? options.charDelay : window.QUARTZ_CHAR_DELAY;
     var postDelay = options.postDelay != null ? options.postDelay : 0;
     var persistBoot = !!options.persistBoot;
+    var runProgDiagnostic = !!options.runProgDiagnostic;
     if (!ta) ta = await window.quartzWaitForTerminal(0);
+    var stopSignal = {{ done: false }};
+    var diagPromise = null;
+    if (runProgDiagnostic) {{
+        diagPromise = window.quartzRunProgDiagnosticLoop(stopSignal);
+    }}
     window.quartzBeginTypewriter(ta);
     var text = '> ';
     window.quartzPaintTerminal(ta, text, true);
@@ -856,6 +897,8 @@ window.quartzRunStartupSequence = async function(ta, options) {{
         text += '.';
         window.quartzPaintTerminal(ta, text, true);
     }}
+    stopSignal.done = true;
+    if (diagPromise) await diagPromise;
     if (postDelay > 0) {{
         await new Promise(function(resolve) {{ setTimeout(resolve, postDelay); }});
     }}
@@ -1027,6 +1070,7 @@ _QUARTZ_HEAD_TEMPLATE = """
         saveProgStates(window.quartzProgStates);
         applyProgStates(window.quartzProgStates);
     }
+    window.quartzApplyProgStates = applyProgStates;
     function initProgToggles() {
         applyProgStates(window.quartzProgStates);
         document.querySelectorAll('.quartz-prog-bank').forEach(function(bank) {
@@ -1538,7 +1582,8 @@ _QUARTZ_HEAD_TEMPLATE = """
         window.quartzReplayRunning = true;
         window.quartzRunStartupSequence(null, {
             postDelay: window.QUARTZ_MENU_POST_DELAY || 2000,
-            persistBoot: false
+            persistBoot: false,
+            runProgDiagnostic: true
         }).then(function() {
             window.quartzReplayRunning = false;
             if (typeof window.quartzClickStartupDone === 'function') {
