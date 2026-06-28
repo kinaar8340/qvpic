@@ -42,8 +42,6 @@ STARTUP_STRING = "TEST EVERYTHING, HOLD FAST WHAT IS GOOD AND KNOW YOUR GOD"
 STARTUP_DISPLAY_STRING = STARTUP_STRING + "....."
 STARTUP_CHAR_DELAY_MS = 200
 STARTUP_POST_DELAY_MS = 2000
-PROG_DIAG_HOLD_MS = 1000
-
 # (label, action_key) — max 9 entries per page; overflow uses next/prev page slots.
 HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
     (
@@ -67,9 +65,6 @@ HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
 )
 
 PROG_BANK_SIZE = 16
-QUICK_DIAG_PROG_INDICES: tuple[int, ...] = tuple(range(1, PROG_BANK_SIZE + 1))
-
-
 def _default_prog_states() -> dict[str, bool]:
     states = {f"prog{i}": False for i in range(1, PROG_BANK_SIZE + 1)}
     states["prog1"] = True
@@ -272,7 +267,7 @@ def _handle_startup_replay_done(state: dict) -> tuple:
     state["home_active"] = True
     state["active_tab"] = "home"
     state["menu_page"] = 0
-    state["torus_visible"] = True
+    state["torus_visible"] = False
     return (
         _home_menu_text(0),
         state,
@@ -400,7 +395,7 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
         state["pending_startup_replay"] = True
         state["home_active"] = False
         state["menu_page"] = 0
-        terminal = _append_terminal(terminal, "> QUICK DIAGNOSTIC: startup + Prog 1–16 state sweep…")
+        terminal = _append_terminal(terminal, "> QUICK DIAGNOSTIC: centered startup + LED sync…")
         return terminal, state, "home", False
     if action == "topology":
         terminal = _append_terminal(
@@ -525,7 +520,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
         terminal = _append_terminal(
             terminal,
             f"> SELECT: {index} — {title}",
-            "> QUICK DIAGNOSTIC: Prog 1–16 state sweep (1s) during startup…",
+            "> QUICK DIAGNOSTIC: centered startup + Prog LED sync…",
         )
         grid_on = bool(state.get("grid_view", True))
         return (
@@ -811,9 +806,7 @@ window.QUARTZ_STARTUP_STRING = {json.dumps(STARTUP_STRING)};
 window.QUARTZ_HOME_MENU_TEXT = {json.dumps(HOME_MENU_TEXT)};
 window.QUARTZ_CHAR_DELAY = {STARTUP_CHAR_DELAY_MS};
 window.QUARTZ_MENU_POST_DELAY = {STARTUP_POST_DELAY_MS};
-window.QUARTZ_PROG_DIAG_HOLD = {PROG_DIAG_HOLD_MS};
 window.QUARTZ_PROG_BANK_SIZE = {PROG_BANK_SIZE};
-window.QUARTZ_DIAG_PROG_INDICES = {json.dumps(list(QUICK_DIAG_PROG_INDICES))};
 window.QUARTZ_DEFAULT_PROG_STATES = {json.dumps(DEFAULT_PROG_STATES)};
 window.quartzWaitForTerminal = async function(attempts) {{
     attempts = attempts || 0;
@@ -844,7 +837,9 @@ window.quartzEndTypewriter = function(ta) {{
     if (!ta) ta = document.querySelector('.quartz-terminal textarea');
     if (ta) {{
         ta.classList.remove('quartz-typewriter-active');
+        ta.classList.remove('quartz-startup-centered');
         ta.style.overflowY = '';
+        ta.style.textAlign = '';
     }}
     var vh = window.innerHeight || document.documentElement.clientHeight || 0;
     if (vh > 0 && typeof syncTerminalOverflow === 'function') syncTerminalOverflow(vh);
@@ -865,6 +860,17 @@ window.quartzSetProgLed = function(index, on) {{
 window.quartzClearProgLeds = function() {{
     var i;
     for (i = 1; i <= window.QUARTZ_PROG_BANK_SIZE; i++) window.quartzSetProgLed(i, false);
+}};
+window.quartzSetAllProgLeds = function(on) {{
+    var i;
+    for (i = 1; i <= window.QUARTZ_PROG_BANK_SIZE; i++) window.quartzSetProgLed(i, !!on);
+}};
+window.quartzSyncProgLedsForCharIndex = function(index, strLen) {{
+    if (index === strLen - 1) {{
+        window.quartzSetAllProgLeds(false);
+        return;
+    }}
+    window.quartzSetAllProgLeds(index % 2 === 0);
 }};
 window.quartzResetAllProgStates = function(active) {{
     var bankSize = window.QUARTZ_PROG_BANK_SIZE || 16;
@@ -895,29 +901,6 @@ window.quartzApplyDefaultProgStates = function() {{
         window.quartzSaveProgStates(window.quartzProgStates);
     }}
 }};
-window.quartzRunProgDiagnosticLoop = async function(stopSignal) {{
-    var holdMs = window.QUARTZ_PROG_DIAG_HOLD || 1000;
-    var bankSize = window.QUARTZ_PROG_BANK_SIZE || 16;
-    var indices = window.QUARTZ_DIAG_PROG_INDICES;
-    var pos = 0;
-    var i;
-    if (!indices || !indices.length) {{
-        indices = [];
-        for (i = 1; i <= bankSize; i++) indices.push(i);
-    }}
-    window.quartzResetAllProgStates(false);
-    while (!stopSignal.done) {{
-        for (i = 1; i <= bankSize; i++) window.quartzProgStates['prog' + i] = false;
-        window.quartzProgStates['prog' + indices[pos]] = true;
-        if (typeof window.quartzApplyProgStates === 'function') {{
-            window.quartzApplyProgStates(window.quartzProgStates);
-        }}
-        await new Promise(function(resolve) {{ setTimeout(resolve, holdMs); }});
-        if (stopSignal.done) break;
-        pos = (pos + 1) % indices.length;
-    }}
-    window.quartzApplyDefaultProgStates();
-}};
 window.quartzRunStartupSequence = async function(ta, options) {{
     options = options || {{}};
     var charDelay = options.charDelay != null ? options.charDelay : window.QUARTZ_CHAR_DELAY;
@@ -925,27 +908,26 @@ window.quartzRunStartupSequence = async function(ta, options) {{
     var persistBoot = !!options.persistBoot;
     var runProgDiagnostic = !!options.runProgDiagnostic;
     if (!ta) ta = await window.quartzWaitForTerminal(0);
-    var stopSignal = {{ done: false }};
-    var diagPromise = null;
+    var strLen = window.QUARTZ_STARTUP_STRING.length;
     if (runProgDiagnostic) {{
-        diagPromise = window.quartzRunProgDiagnosticLoop(stopSignal);
+        window.quartzClearProgLeds();
+        ta.classList.add('quartz-startup-centered');
     }}
     window.quartzBeginTypewriter(ta);
-    var text = '> ';
+    var text = runProgDiagnostic ? '' : '> ';
     window.quartzPaintTerminal(ta, text, true);
     var i;
-    for (i = 0; i < window.QUARTZ_STARTUP_STRING.length; i++) {{
+    for (i = 0; i < strLen; i++) {{
         await new Promise(function(resolve) {{ setTimeout(resolve, charDelay); }});
         text += window.QUARTZ_STARTUP_STRING.charAt(i);
         window.quartzPaintTerminal(ta, text, true);
+        if (runProgDiagnostic) window.quartzSyncProgLedsForCharIndex(i, strLen);
     }}
     for (i = 0; i < 5; i++) {{
         await new Promise(function(resolve) {{ setTimeout(resolve, charDelay); }});
         text += '.';
         window.quartzPaintTerminal(ta, text, true);
     }}
-    stopSignal.done = true;
-    if (diagPromise) await diagPromise;
     if (postDelay > 0) {{
         await new Promise(function(resolve) {{ setTimeout(resolve, postDelay); }});
     }}
@@ -953,6 +935,12 @@ window.quartzRunStartupSequence = async function(ta, options) {{
         sessionStorage.setItem('qvpic-boot-complete', '1');
     }}
     window.quartzEndTypewriter(ta);
+    if (runProgDiagnostic) {{
+        window.quartzSetAllProgLeds(false);
+        if (typeof window.quartzResetAllProgStates === 'function') {{
+            window.quartzResetAllProgStates(false);
+        }}
+    }}
     window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
     window.quartzSetHomeLed(true);
     return window.QUARTZ_HOME_MENU_TEXT;
@@ -2178,6 +2166,9 @@ html, body {{
 .gradio-container .quartz-terminal textarea.quartz-typewriter-active {{
     overflow-y: hidden !important;
     scrollbar-gutter: auto !important;
+}}
+.gradio-container .quartz-terminal textarea.quartz-startup-centered {{
+    text-align: center !important;
 }}
 .gradio-container .quartz-terminal textarea::-webkit-scrollbar {{
     width: 5px !important;
