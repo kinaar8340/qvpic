@@ -331,8 +331,8 @@ function() {
         var ta = document.querySelector('.quartz-terminal textarea');
         var textStart = !!(ta && ta.value && ta.value.indexOf('SPACE INVADERS') >= 0);
         if (!bridgeStart && !textStart) return;
-        if (typeof window.quartzBeginPlayerMode === 'function') {
-            window.quartzBeginPlayerMode();
+        if (typeof window.quartzStartPlayerGame === 'function') {
+            window.quartzStartPlayerGame();
         }
     }, 320);
 }
@@ -348,20 +348,10 @@ async () => {
         window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
         window.quartzSetHomeLed(true);
         window.quartzBootDone = true;
-        setTimeout(function() {
-            if (typeof window.quartzTryStartAttractMode === 'function') {
-                window.quartzTryStartAttractMode();
-            }
-        }, 1200);
         return window.QUARTZ_HOME_MENU_TEXT;
     }
     await window.quartzRunStartupSequence(ta, { postDelay: 0, persistBoot: true });
     window.quartzBootDone = true;
-    setTimeout(function() {
-        if (typeof window.quartzTryStartAttractMode === 'function') {
-            window.quartzTryStartAttractMode();
-        }
-    }, 1200);
     return window.QUARTZ_HOME_MENU_TEXT;
 }
 """
@@ -1605,46 +1595,14 @@ def _quartz_games_js_block() -> str:
     window.quartzTerminalReady = function() {
         return !!terminalDisplayRect();
     };
-    window.quartzTryStartAttractMode = function() {
-        if (window.quartzAttractStarted) return;
+    window.quartzStartPlayerGame = function() {
         if (window.quartzGame && window.quartzGame.running) return;
-        if (!terminalDisplayRect()) return;
-        window.quartzAttractStarted = true;
-        window.quartzStartSpaceInvaders({ attract: true });
+        window.quartzStartSpaceInvaders({ attract: false });
     };
-    window.quartzBeginPlayerMode = function() {
-        var g = window.quartzGame;
-        if (g && g.running && g.overlayReady && g.attractMode) {
-            leaveAttractMode(g);
-            g.score = 0;
-            g.lives = 3;
-            g.wave = 1;
-            g.gameOver = false;
-            g.warmupTicks = 30;
-            g.attractResetTimer = 0;
-            resetWave(g);
-            renderGame(g);
-            if (typeof window.quartzClickGameStartDone === 'function') {
-                window.quartzClickGameStartDone();
-            }
-            return;
-        }
-        if (g && g.running) {
-            window.quartzStopSpaceInvaders();
-        }
-        setTimeout(function() {
-            window.quartzStartSpaceInvaders({ attract: false });
-        }, 60);
-    };
+    window.quartzBeginPlayerMode = window.quartzStartPlayerGame;
     window.quartzStartSpaceInvaders = function(opts) {
         opts = opts || {};
-        if (window.quartzGame && window.quartzGame.running) {
-            if (!opts.attract && window.quartzGame.attractMode && window.quartzGame.overlayReady) {
-                window.quartzBeginPlayerMode();
-            }
-            return;
-        }
-        if (opts.attract) window.quartzAttractStarted = true;
+        if (window.quartzGame && window.quartzGame.running) return;
         if (typeof fitPanel === 'function') fitPanel();
         var cmd = document.querySelector('.quartz-cmd-input textarea');
         if (cmd) cmd.blur();
@@ -1656,7 +1614,6 @@ def _quartz_games_js_block() -> str:
             g.running = false;
             window.quartzGame = null;
             deactivateGameOverlay(g);
-            if (opts.attract) window.quartzAttractStarted = false;
         });
         g.keyDown = function(e) {
             if (!g.running) return;
@@ -1692,7 +1649,6 @@ def _quartz_games_js_block() -> str:
     window.quartzStopSpaceInvaders = function() {
         var g = window.quartzGame;
         if (!g) return;
-        var wasAttract = g.attractMode;
         g.running = false;
         if (g.loopId) clearInterval(g.loopId);
         document.removeEventListener('keydown', g.keyDown, true);
@@ -1700,18 +1656,21 @@ def _quartz_games_js_block() -> str:
         if (g.resizeHandler) window.removeEventListener('resize', g.resizeHandler);
         deactivateGameOverlay(g);
         window.quartzGame = null;
+        document.body.classList.remove('quartz-game-on');
         var torus = document.querySelector('.quartz-torus-stage');
         if (torus && window.quartzTorusPrefs && window.quartzTorusPrefs.visible) {
             torus.style.display = 'block';
         }
         var ta = document.querySelector('.quartz-terminal textarea');
         if (ta) {
-            if (wasAttract && window.QUARTZ_HOME_MENU_TEXT) {
+            ta.classList.remove('quartz-game-active');
+            if (window.QUARTZ_HOME_MENU_TEXT) {
                 window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
             }
+            window.quartzSetHomeLed(true);
         }
         if (typeof fitPanel === 'function') fitPanel();
-        if (!wasAttract && typeof window.quartzClickGameQuit === 'function') {
+        if (typeof window.quartzClickGameQuit === 'function') {
             window.quartzClickGameQuit();
         }
     };
@@ -2417,29 +2376,12 @@ _QUARTZ_HEAD_TEMPLATE = """
         if (nudge === quartzLastGameNudge) return;
         quartzLastGameNudge = nudge;
         setTimeout(function() {
-            if (typeof window.quartzBeginPlayerMode === 'function') {
-                window.quartzBeginPlayerMode();
+            if (typeof window.quartzStartPlayerGame === 'function') {
+                window.quartzStartPlayerGame();
             }
         }, 100);
     }
     setInterval(watchGameStart, 200);
-    var attractBootAttempts = 0;
-    var attractBootPoll = setInterval(function() {
-        if (!window.quartzBootDone) return;
-        if (window.quartzAttractStarted || (window.quartzGame && window.quartzGame.running)) {
-            clearInterval(attractBootPoll);
-            return;
-        }
-        if (typeof window.quartzTerminalReady === 'function' && !window.quartzTerminalReady()) {
-            attractBootAttempts += 1;
-            if (attractBootAttempts > 80) clearInterval(attractBootPoll);
-            return;
-        }
-        if (typeof window.quartzTryStartAttractMode === 'function') {
-            window.quartzTryStartAttractMode();
-        }
-        if (window.quartzAttractStarted) clearInterval(attractBootPoll);
-    }, 250);
     whenBodyReady(function() {
         initProgToggles();
         syncTorusInteractionMode();
