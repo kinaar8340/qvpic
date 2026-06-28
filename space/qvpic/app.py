@@ -348,10 +348,12 @@ async () => {
         window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
         window.quartzSetHomeLed(true);
         window.quartzBootDone = true;
+        if (typeof window.quartzHideInvadersStage === 'function') window.quartzHideInvadersStage();
         return window.QUARTZ_HOME_MENU_TEXT;
     }
     await window.quartzRunStartupSequence(ta, { postDelay: 0, persistBoot: true });
     window.quartzBootDone = true;
+    if (typeof window.quartzHideInvadersStage === 'function') window.quartzHideInvadersStage();
     return window.QUARTZ_HOME_MENU_TEXT;
 }
 """
@@ -1130,20 +1132,21 @@ def _quartz_games_js_block() -> str:
     }
     function ensureInvadersStage() {
         var stage = document.querySelector('.quartz-invaders-stage');
-        if (!stage) {
-            stage = document.createElement('div');
-            stage.className = 'quartz-invaders-stage';
-            stage.setAttribute('aria-hidden', 'true');
-            stage.innerHTML =
-                '<canvas class="quartz-invaders-canvas"></canvas>' +
-                '<div class="quartz-invaders-crt" aria-hidden="true"></div>';
-        }
-        if (stage.parentElement !== document.body) {
-            document.body.appendChild(stage);
-        }
+        if (!stage) return null;
         return stage;
     }
+    function hideInvadersStage() {
+        var stage = document.querySelector('.quartz-invaders-stage');
+        if (!stage) return;
+        stage.style.display = 'none';
+        stage.style.pointerEvents = 'none';
+        stage.style.visibility = 'hidden';
+    }
     function fitGameStage() {
+        if (!document.body.classList.contains('quartz-game-on')) {
+            hideInvadersStage();
+            return null;
+        }
         var stage = ensureInvadersStage();
         var tr = displayApertureRect();
         if (!stage || !tr) return null;
@@ -1153,6 +1156,9 @@ def _quartz_games_js_block() -> str:
         stage.style.width = Math.round(tr.width) + 'px';
         stage.style.height = Math.round(tr.height) + 'px';
         stage.style.zIndex = '100001';
+        stage.style.display = 'block';
+        stage.style.pointerEvents = 'auto';
+        stage.style.visibility = 'visible';
         return stage;
     }
     function resizeCanvas(g) {
@@ -1197,14 +1203,12 @@ def _quartz_games_js_block() -> str:
         g.overlayReady = true;
     }
     function deactivateGameOverlay(g) {
-        if (g && g.overlayReady) {
-            document.body.classList.remove('quartz-game-on');
-            var ta = document.querySelector('.quartz-terminal textarea');
-            if (ta) ta.classList.remove('quartz-game-active');
-        }
+        document.body.classList.remove('quartz-game-on');
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (ta) ta.classList.remove('quartz-game-active');
+        hideInvadersStage();
         var stage = document.querySelector('.quartz-invaders-stage');
         if (stage) {
-            stage.style.display = 'none';
             stage.style.position = '';
             stage.style.top = '';
             stage.style.left = '';
@@ -1592,6 +1596,7 @@ def _quartz_games_js_block() -> str:
         renderGame(g);
     }
     window.quartzFitGameStage = fitGameStage;
+    window.quartzHideInvadersStage = hideInvadersStage;
     window.quartzTerminalReady = function() {
         return !!terminalDisplayRect();
     };
@@ -2131,9 +2136,6 @@ _QUARTZ_HEAD_TEMPLATE = """
         backing.style.left = (tr.left - cr.left) + 'px';
         backing.style.width = tr.width + 'px';
         backing.style.height = tr.height + 'px';
-        if (typeof window.quartzFitGameStage === 'function') {
-            window.quartzFitGameStage();
-        }
     }
     function fitSkinMetrics() {
         var tabs = document.querySelector('.quartz-top-tabs');
@@ -2390,6 +2392,9 @@ _QUARTZ_HEAD_TEMPLATE = """
         initTorusInteraction();
         watchStartupReplay();
         watchGameStart();
+        if (typeof window.quartzHideInvadersStage === 'function') {
+            window.quartzHideInvadersStage();
+        }
     });
     window.addEventListener('resize', debouncedFitPanel);
     if (window.visualViewport) {
@@ -2929,10 +2934,11 @@ html, body {{
     pointer-events: none !important;
     overflow: hidden !important;
 }}
-.gradio-container .quartz-invaders-stage {{
+.quartz-invaders-stage {{
     position: fixed !important;
     z-index: 100001 !important;
     display: none !important;
+    visibility: hidden !important;
     pointer-events: none !important;
     overflow: hidden !important;
     border-radius: 3px / 5px !important;
@@ -2941,6 +2947,7 @@ html, body {{
 }}
 body.quartz-game-on .quartz-invaders-stage {{
     display: block !important;
+    visibility: visible !important;
     pointer-events: auto !important;
 }}
 body.quartz-game-on .quartz-terminal,
