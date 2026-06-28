@@ -1739,6 +1739,29 @@ html, body {{
     background: #ff2222 !important;
     box-shadow: 0 0 6px rgba(255, 40, 40, 0.85) !important;
 }}
+.gradio-container button.quartz-prog-id-1::before,
+.gradio-container button.quartz-prog-id-9::before {{
+    display: inline-block !important;
+    vertical-align: middle !important;
+    margin-right: 0.2em !important;
+    font-size: calc(var(--quartz-btn-label-size) * 0.72) !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    position: relative !important;
+    z-index: 1 !important;
+}}
+.gradio-container button.quartz-prog-id-1::before {{
+    content: "↵" !important;
+}}
+.gradio-container button.quartz-prog-id-9::before {{
+    content: "▶" !important;
+}}
+.gradio-container button.quartz-prog-id-9.quartz-prog-active::before {{
+    content: "||" !important;
+    letter-spacing: -0.07em !important;
+}}
 .gradio-container .quartz-footer-wrap {{
     flex-shrink: 0 !important;
     text-align: right !important;
