@@ -67,6 +67,7 @@ HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
 )
 
 PROG_BANK_SIZE = 16
+QUICK_DIAG_PROG_INDICES: tuple[int, ...] = tuple(range(2, 9)) + tuple(range(10, PROG_BANK_SIZE + 1))
 PROG_ROW_1 = tuple(range(1, 9))
 PROG_ROW_2 = tuple(range(9, PROG_BANK_SIZE + 1))
 
@@ -514,7 +515,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
         terminal = _append_terminal(
             terminal,
             f"> SELECT: {index} — {title}",
-            "> QUICK DIAGNOSTIC: Prog 1–16 LED sweep during startup…",
+            "> QUICK DIAGNOSTIC: Prog 2–8, 10–16 LED sweep during startup…",
         )
         grid_on = bool(state.get("grid_view", True))
         return (
@@ -802,6 +803,7 @@ window.QUARTZ_CHAR_DELAY = {STARTUP_CHAR_DELAY_MS};
 window.QUARTZ_MENU_POST_DELAY = {STARTUP_POST_DELAY_MS};
 window.QUARTZ_PROG_DIAG_HOLD = {PROG_DIAG_HOLD_MS};
 window.QUARTZ_PROG_BANK_SIZE = {PROG_BANK_SIZE};
+window.QUARTZ_DIAG_PROG_INDICES = {json.dumps(list(QUICK_DIAG_PROG_INDICES))};
 window.quartzWaitForTerminal = async function(attempts) {{
     attempts = attempts || 0;
     var ta = document.querySelector('.quartz-terminal textarea');
@@ -855,16 +857,16 @@ window.quartzClearProgLeds = function() {{
 }};
 window.quartzRunProgDiagnosticLoop = async function(stopSignal) {{
     var holdMs = window.QUARTZ_PROG_DIAG_HOLD || 500;
-    var bankSize = window.QUARTZ_PROG_BANK_SIZE || 16;
-    var idx = 1;
+    var indices = window.QUARTZ_DIAG_PROG_INDICES || [2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16];
+    var pos = 0;
     var saved = JSON.parse(JSON.stringify(window.quartzProgStates || {{}}));
     window.quartzClearProgLeds();
     while (!stopSignal.done) {{
         window.quartzClearProgLeds();
-        window.quartzSetProgLed(idx, true);
+        window.quartzSetProgLed(indices[pos], true);
         await new Promise(function(resolve) {{ setTimeout(resolve, holdMs); }});
         if (stopSignal.done) break;
-        idx = idx >= bankSize ? 1 : idx + 1;
+        pos = (pos + 1) % indices.length;
     }}
     window.quartzClearProgLeds();
     if (typeof window.quartzApplyProgStates === 'function') {{
