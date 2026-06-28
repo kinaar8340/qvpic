@@ -286,6 +286,15 @@ def _handle_game_quit(state: dict) -> tuple:
     )
 
 
+def _handle_game_start_done(state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    state["pending_game_start"] = False
+    state["game_active"] = True
+    state["home_active"] = False
+    state["active_tab"] = "games"
+    return state, gr.update(value=_torus_bridge_html(state))
+
+
 def _handle_startup_replay_done(state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
     state["pending_startup_replay"] = False
@@ -311,6 +320,21 @@ def _sync_boot_state(state: dict) -> tuple:
         state,
         gr.update(elem_classes=_home_btn_classes(True)),
     )
+
+
+def _build_game_menu_ack_js() -> str:
+    return """
+function() {
+    setTimeout(function() {
+        var node = document.querySelector('.quartz-torus-bridge');
+        if (!node) return;
+        if (parseInt(node.getAttribute('data-game-start') || '0', 10) !== 1) return;
+        if (typeof window.quartzBeginPlayerMode === 'function') {
+            window.quartzBeginPlayerMode();
+        }
+    }, 240);
+}
+"""
 
 
 def _build_startup_load_js() -> str:
@@ -1145,6 +1169,9 @@ def _quartz_games_js_block() -> str:
             if (!g.loopId) {
                 g.loopId = setInterval(function() { tickGame(g); }, 33);
             }
+            if (!g.attractMode && typeof window.quartzClickGameStartDone === 'function') {
+                window.quartzClickGameStartDone();
+            }
             if (done) done(true);
             return;
         }
@@ -1516,6 +1543,30 @@ def _quartz_games_js_block() -> str:
         window.quartzAttractStarted = true;
         window.quartzStartSpaceInvaders({ attract: true });
     };
+    window.quartzBeginPlayerMode = function() {
+        var g = window.quartzGame;
+        if (g && g.running) {
+            if (!g.attractMode) {
+                if (typeof window.quartzClickGameStartDone === 'function') {
+                    window.quartzClickGameStartDone();
+                }
+                return;
+            }
+            leaveAttractMode(g);
+            g.score = 0;
+            g.lives = 3;
+            g.wave = 1;
+            g.gameOver = false;
+            g.attractResetTimer = 0;
+            resetWave(g);
+            renderGame(g);
+            if (typeof window.quartzClickGameStartDone === 'function') {
+                window.quartzClickGameStartDone();
+            }
+            return;
+        }
+        window.quartzStartSpaceInvaders({ attract: false });
+    };
     window.quartzStartSpaceInvaders = function(opts) {
         opts = opts || {};
         if (window.quartzGame && window.quartzGame.running) return;
@@ -1592,6 +1643,10 @@ def _quartz_games_js_block() -> str:
     };
     window.quartzClickGameQuit = function() {
         var btn = document.querySelector('button.quartz-game-quit-btn');
+        if (btn) btn.click();
+    };
+    window.quartzClickGameStartDone = function() {
+        var btn = document.querySelector('button.quartz-game-start-done-btn');
         if (btn) btn.click();
     };
 })();
@@ -2280,16 +2335,16 @@ _QUARTZ_HEAD_TEMPLATE = """
     setInterval(watchStartupReplay, 200);
     var quartzLastGameNudge = -1;
     function watchGameStart() {
-        if (window.quartzGame && window.quartzGame.running) return;
         var node = document.querySelector('.quartz-torus-bridge');
         if (!node) return;
         var start = parseInt(node.getAttribute('data-game-start') || '0', 10);
+        if (!start) return;
         var nudge = parseInt(node.getAttribute('data-nudge') || '0', 10);
-        if (!start || nudge === quartzLastGameNudge) return;
+        if (nudge === quartzLastGameNudge) return;
         quartzLastGameNudge = nudge;
         setTimeout(function() {
-            if (typeof window.quartzStartSpaceInvaders === 'function') {
-                window.quartzStartSpaceInvaders({ attract: false });
+            if (typeof window.quartzBeginPlayerMode === 'function') {
+                window.quartzBeginPlayerMode();
             }
         }, 100);
     }
@@ -3157,7 +3212,8 @@ body.quartz-game-on .quartz-terminal .wrap {{
 }}
 footer {{ visibility: hidden !important; }}
 .gradio-container button.quartz-startup-done-btn,
-.gradio-container button.quartz-game-quit-btn {{
+.gradio-container button.quartz-game-quit-btn,
+.gradio-container button.quartz-game-start-done-btn {{
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
@@ -3198,6 +3254,10 @@ def build_app() -> gr.Blocks:
         game_quit_btn = gr.Button(
             "GameQuit",
             elem_classes=["quartz-game-quit-btn"],
+        )
+        game_start_done_btn = gr.Button(
+            "GameStartDone",
+            elem_classes=["quartz-game-start-done-btn"],
         )
 
         with gr.Column(elem_classes=_root_classes(True)) as root_col:
@@ -3345,8 +3405,14 @@ def build_app() -> gr.Blocks:
                     outputs=[terminal, cmd_input, ui_state, torus_bridge],
                 )
 
-        send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
-        cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
+        send_evt = send_btn.click(
+            _handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs
+        )
+        send_evt.then(None, None, None, js=_build_game_menu_ack_js())
+        cmd_submit_evt = cmd_input.submit(
+            _handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs
+        )
+        cmd_submit_evt.then(None, None, None, js=_build_game_menu_ack_js())
 
         startup_done_btn.click(
             _handle_startup_replay_done,
@@ -3357,6 +3423,11 @@ def build_app() -> gr.Blocks:
             _handle_game_quit,
             inputs=[ui_state],
             outputs=[terminal, ui_state, home_btn, torus_bridge],
+        )
+        game_start_done_btn.click(
+            _handle_game_start_done,
+            inputs=[ui_state],
+            outputs=[ui_state, torus_bridge],
         )
 
         boot_evt = demo.load(None, None, terminal, js=_build_startup_load_js())
