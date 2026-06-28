@@ -1030,6 +1030,9 @@ QUARTZ_CSS = f"""
     --quartz-border: #121418;
     --quartz-border-hi: #3a3f47;
     --quartz-inset: clamp(0.25rem, 2vw, 0.2in);
+    --quartz-tab-display-gap: 0.12rem;
+    --quartz-display-inset-top: clamp(0.1rem, 0.8vw, 0.12rem);
+    --quartz-prog-btn-width: calc((100% - 1.12rem) / 8 * 0.95);
     --quartz-grid-line: rgba(90, 96, 104, 0.55);
     --quartz-skin-case-top: #2e333b;
     --quartz-skin-case-mid: #1e2228;
@@ -1193,7 +1196,7 @@ html, body {{
 }}
 .gradio-container .quartz-skin-display-frame {{
     position: absolute !important;
-    top: calc(0.45rem + var(--quartz-skin-tab-h) + 0.35rem) !important;
+    top: calc(0.45rem + var(--quartz-skin-tab-h) + var(--quartz-tab-display-gap)) !important;
     left: calc(0.55rem + var(--quartz-inset)) !important;
     right: calc(0.55rem + var(--quartz-inset)) !important;
     bottom: calc(
@@ -1243,7 +1246,7 @@ html, body {{
 }}
 .gradio-container .quartz-top-tabs {{
     gap: 0.28rem !important;
-    margin: 0 0 0.35rem 0 !important;
+    margin: 0 0 var(--quartz-tab-display-gap) 0 !important;
     flex-shrink: 0 !important;
 }}
 .gradio-container button.quartz-tab {{
@@ -1303,7 +1306,7 @@ html, body {{
     min-width: 0 !important;
     width: calc(100% - 2 * var(--quartz-inset)) !important;
     max-width: calc(100% - 2 * var(--quartz-inset)) !important;
-    margin: var(--quartz-inset) !important;
+    margin: var(--quartz-display-inset-top) var(--quartz-inset) var(--quartz-inset) !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
@@ -1587,16 +1590,19 @@ html, body {{
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
+    justify-content: center !important;
 }}
 .gradio-container button.quartz-prog {{
-    flex: 1 1 0 !important;
+    flex: 0 1 var(--quartz-prog-btn-width) !important;
+    max-width: var(--quartz-prog-btn-width) !important;
     min-width: 0 !important;
     min-height: clamp(2.56rem, 5.2vh, 3.24rem) !important;
-    font-size: clamp(0.42rem, 0.9vh, 0.56rem) !important;
+    font-size: var(--quartz-btn-label-size) !important;
     letter-spacing: 0.03em !important;
-    padding: 0.2rem 0.34rem 0.2rem 0.06rem !important;
+    padding: 0.2rem 0.28rem 0.2rem 0.06rem !important;
     position: relative !important;
     text-transform: none !important;
+    text-align: center !important;
 }}
 .gradio-container button.quartz-prog-active::after {{
     content: "" !important;
