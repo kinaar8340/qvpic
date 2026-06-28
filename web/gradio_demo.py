@@ -803,12 +803,32 @@ window.quartzWaitForTerminal = async function(attempts) {{
     await new Promise(function(resolve) {{ setTimeout(resolve, 100); }});
     return window.quartzWaitForTerminal(attempts + 1);
 }};
-window.quartzPaintTerminal = function(ta, text) {{
+window.quartzPaintTerminal = function(ta, text, quiet) {{
     if (!ta) return;
     ta.value = text;
+    if (quiet || window.quartzTypewriterActive) return;
     ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
     var vh = window.innerHeight || document.documentElement.clientHeight || 0;
     if (vh > 0 && typeof syncTerminalOverflow === 'function') syncTerminalOverflow(vh);
+}};
+window.quartzBeginTypewriter = function(ta) {{
+    if (!ta) return;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (vh > 0 && typeof syncTerminalOverflow === 'function') syncTerminalOverflow(vh);
+    window.quartzTypewriterActive = true;
+    ta.classList.add('quartz-typewriter-active');
+    ta.style.overflowY = 'hidden';
+}};
+window.quartzEndTypewriter = function(ta) {{
+    window.quartzTypewriterActive = false;
+    if (!ta) ta = document.querySelector('.quartz-terminal textarea');
+    if (ta) {{
+        ta.classList.remove('quartz-typewriter-active');
+        ta.style.overflowY = '';
+    }}
+    var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (vh > 0 && typeof syncTerminalOverflow === 'function') syncTerminalOverflow(vh);
+    if (typeof fitDisplayBacking === 'function') fitDisplayBacking();
 }};
 window.quartzSetHomeLed = function(on) {{
     document.querySelectorAll('button.quartz-home-btn').forEach(function(btn) {{
@@ -822,18 +842,19 @@ window.quartzRunStartupSequence = async function(ta, options) {{
     var postDelay = options.postDelay != null ? options.postDelay : 0;
     var persistBoot = !!options.persistBoot;
     if (!ta) ta = await window.quartzWaitForTerminal(0);
+    window.quartzBeginTypewriter(ta);
     var text = '> ';
-    window.quartzPaintTerminal(ta, text);
+    window.quartzPaintTerminal(ta, text, true);
     var i;
     for (i = 0; i < window.QUARTZ_STARTUP_STRING.length; i++) {{
         await new Promise(function(resolve) {{ setTimeout(resolve, charDelay); }});
         text += window.QUARTZ_STARTUP_STRING.charAt(i);
-        window.quartzPaintTerminal(ta, text);
+        window.quartzPaintTerminal(ta, text, true);
     }}
     for (i = 0; i < 5; i++) {{
         await new Promise(function(resolve) {{ setTimeout(resolve, charDelay); }});
         text += '.';
-        window.quartzPaintTerminal(ta, text);
+        window.quartzPaintTerminal(ta, text, true);
     }}
     if (postDelay > 0) {{
         await new Promise(function(resolve) {{ setTimeout(resolve, postDelay); }});
@@ -841,6 +862,7 @@ window.quartzRunStartupSequence = async function(ta, options) {{
     if (persistBoot) {{
         sessionStorage.setItem('qvpic-boot-complete', '1');
     }}
+    window.quartzEndTypewriter(ta);
     window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
     window.quartzSetHomeLed(true);
     return window.QUARTZ_HOME_MENU_TEXT;
@@ -1263,6 +1285,7 @@ _QUARTZ_HEAD_TEMPLATE = """
         });
     }
     function syncTerminalOverflow(viewportH) {
+        if (window.quartzTypewriterActive) return;
         var ta = document.querySelector('.quartz-terminal textarea');
         if (!ta) return;
         var inputRow = document.querySelector('.quartz-input-row');
@@ -1270,8 +1293,9 @@ _QUARTZ_HEAD_TEMPLATE = """
         var th = Math.max(120, viewportH - (window.quartzChromePx || 220) - inputH - 8);
         ta.style.height = th + 'px';
         ta.style.maxHeight = th + 'px';
+        ta.style.minHeight = th + 'px';
         ta.style.overflowX = 'hidden';
-        ta.style.overflowY = ta.scrollHeight > ta.clientHeight + 2 ? 'auto' : 'hidden';
+        ta.style.overflowY = 'auto';
         lockTerminalOverflowX();
     }
     function torusMeshScale() {
@@ -1554,6 +1578,7 @@ _QUARTZ_HEAD_TEMPLATE = """
         if (!ta || ta._quartzOverflowObs) return;
         ta._quartzOverflowObs = true;
         new MutationObserver(function() {
+            if (window.quartzTypewriterActive) return;
             var vh = window.innerHeight || document.documentElement.clientHeight || 0;
             if (vh > 0) syncTerminalOverflow(vh);
         }).observe(ta, { childList: true, characterData: true, subtree: true });
@@ -2047,13 +2072,18 @@ html, body {{
     text-shadow: 0 0 6px rgba(0,255,65,0.35) !important;
     resize: none !important;
     overflow-x: hidden !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
     box-sizing: border-box !important;
     white-space: pre-wrap !important;
     word-break: break-word !important;
     max-width: 100% !important;
     scrollbar-width: thin !important;
     scrollbar-color: rgba(0, 255, 65, 0.22) transparent !important;
+    scrollbar-gutter: stable !important;
+}}
+.gradio-container .quartz-terminal textarea.quartz-typewriter-active {{
+    overflow-y: hidden !important;
+    scrollbar-gutter: auto !important;
 }}
 .gradio-container .quartz-terminal textarea::-webkit-scrollbar {{
     width: 5px !important;
