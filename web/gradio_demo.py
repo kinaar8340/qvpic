@@ -1038,6 +1038,7 @@ QUARTZ_CSS = f"""
     --quartz-skin-prog-h: 3rem;
     --quartz-skin-footer-h: 1.4rem;
     --quartz-skin-settings-h: 0px;
+    --quartz-btn-label-size: clamp(calc(0.42rem + 2px), calc(0.9vh + 2px), calc(0.56rem + 2px));
     --torus-line: {_PHOSPHOR};
     --torus-line-dim: rgba(0, 204, 52, 0.45);
     --torus-orbit: rgba(0, 255, 65, 0.22);
@@ -1255,7 +1256,7 @@ html, body {{
     color: var(--quartz-phosphor-dim) !important;
     -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
     font-family: "Segoe UI", system-ui, sans-serif !important;
-    font-size: clamp(0.62rem, 1.32vh, 0.82rem) !important;
+    font-size: var(--quartz-btn-label-size) !important;
     font-weight: 700 !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
@@ -1268,6 +1269,7 @@ html, body {{
     cursor: pointer !important;
 }}
 .gradio-container button.quartz-tab span {{
+    font-size: inherit !important;
     color: var(--quartz-phosphor-dim) !important;
     -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
     text-shadow:
@@ -1518,7 +1520,7 @@ html, body {{
     -webkit-text-fill-color: var(--quartz-phosphor) !important;
     font-family: "Segoe UI", system-ui, sans-serif !important;
     font-weight: 700 !important;
-    font-size: clamp(0.58rem, 1.2vh, 0.74rem) !important;
+    font-size: var(--quartz-btn-label-size) !important;
     text-shadow:
         0 0 8px rgba(0,255,65,0.35),
         0 1px 2px rgba(0,0,0,0.9),
@@ -1531,6 +1533,7 @@ html, body {{
     transition: filter 0.12s ease, box-shadow 0.12s ease !important;
 }}
 .gradio-container button.quartz-btn span {{
+    font-size: inherit !important;
     color: var(--quartz-phosphor) !important;
     -webkit-text-fill-color: var(--quartz-phosphor) !important;
     text-shadow:
@@ -1554,7 +1557,7 @@ html, body {{
 .gradio-container button.quartz-send {{
     flex: 0 0 clamp(3.2rem, 7vw, 4.2rem) !important;
     min-width: clamp(3.2rem, 7vw, 4.2rem) !important;
-    font-size: clamp(0.58rem, 1.2vh, 0.7rem) !important;
+    font-size: var(--quartz-btn-label-size) !important;
     letter-spacing: 0.1em !important;
 }}
 .gradio-container button.quartz-btn-pulse {{
