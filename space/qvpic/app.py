@@ -39,6 +39,9 @@ TAB_LABELS: dict[str, str] = {
 }
 
 STARTUP_STRING = "TEST EVERYTHING, HOLD FAST WHAT IS GOOD AND KNOW YOUR GOD"
+STARTUP_DISPLAY_STRING = STARTUP_STRING + "....."
+STARTUP_CHAR_DELAY_MS = 200
+STARTUP_POST_DELAY_MS = 2000
 
 # (label, action_key) — max 9 entries per page; overflow uses next/prev page slots.
 HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
@@ -168,6 +171,7 @@ def _default_ui_state() -> dict:
         "torus_visible": True,
         "home_active": True,
         "menu_page": 0,
+        "pending_startup_replay": False,
     }
 
 
@@ -182,9 +186,11 @@ def _torus_bridge_html(state: dict) -> str:
     echo = float(state.get("torus_echo", 0.0))
     nudge = int(state.get("torus_nudge", 0))
     visible = 1 if state.get("torus_visible", True) else 0
+    replay = 1 if state.get("pending_startup_replay") else 0
     return (
         f'<div class="quartz-torus-bridge" data-echo="{echo}" '
-        f'data-nudge="{nudge}" data-visible="{visible}" hidden></div>'
+        f'data-nudge="{nudge}" data-visible="{visible}" '
+        f'data-startup-replay="{replay}" hidden></div>'
     )
 
 
@@ -249,6 +255,20 @@ def _effective_terminal(terminal: str, state: dict) -> str:
     return text
 
 
+def _handle_startup_replay_done(state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    state["pending_startup_replay"] = False
+    state["home_active"] = True
+    state["active_tab"] = "home"
+    state["menu_page"] = 0
+    return (
+        _home_menu_text(0),
+        state,
+        gr.update(elem_classes=_home_btn_classes(True)),
+        gr.update(value=_torus_bridge_html(state)),
+    )
+
+
 def _sync_boot_state(state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
     state["home_active"] = True
@@ -262,58 +282,20 @@ def _sync_boot_state(state: dict) -> tuple:
 
 
 def _build_startup_load_js() -> str:
-    return f"""
-async () => {{
-    const STARTUP_STRING = {json.dumps(STARTUP_STRING)};
-    const HOME_MENU_TEXT = {json.dumps(HOME_MENU_TEXT)};
+    return """
+async () => {
     const BOOT_KEY = 'qvpic-boot-complete';
-    const BOOT_DELAY = 200;
-    async function waitForTerminal(attempts) {{
-        attempts = attempts || 0;
-        const ta = document.querySelector('.quartz-terminal textarea');
-        if (ta) return ta;
-        if (attempts > 120) return null;
-        await new Promise(function(resolve) {{ setTimeout(resolve, 100); }});
-        return waitForTerminal(attempts + 1);
-    }}
-    function setHomeLed(on) {{
-        document.querySelectorAll('button.quartz-home-btn').forEach(function(btn) {{
-            btn.classList.toggle('quartz-home-active', !!on);
-            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        }});
-    }}
-    function paint(ta, text) {{
-        if (!ta) return;
-        ta.value = text;
-        ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
-    }}
-    const ta = await waitForTerminal(0);
-    if (sessionStorage.getItem(BOOT_KEY)) {{
-        paint(ta, HOME_MENU_TEXT);
-        setHomeLed(true);
+    const ta = await window.quartzWaitForTerminal(0);
+    if (sessionStorage.getItem(BOOT_KEY)) {
+        window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
+        window.quartzSetHomeLed(true);
         window.quartzBootDone = true;
-        return HOME_MENU_TEXT;
-    }}
-    var text = '> ';
-    paint(ta, text);
-    var i;
-    for (i = 0; i < STARTUP_STRING.length; i++) {{
-        await new Promise(function(resolve) {{ setTimeout(resolve, BOOT_DELAY); }});
-        text += STARTUP_STRING.charAt(i);
-        paint(ta, text);
-    }}
-    for (i = 0; i < 5; i++) {{
-        await new Promise(function(resolve) {{ setTimeout(resolve, BOOT_DELAY); }});
-        text += '.';
-        paint(ta, text);
-    }}
-    await new Promise(function(resolve) {{ setTimeout(resolve, BOOT_DELAY); }});
-    sessionStorage.setItem(BOOT_KEY, '1');
-    paint(ta, HOME_MENU_TEXT);
-    setHomeLed(true);
+        return window.QUARTZ_HOME_MENU_TEXT;
+    }
+    await window.quartzRunStartupSequence(ta, { postDelay: 0, persistBoot: true });
     window.quartzBootDone = true;
-    return HOME_MENU_TEXT;
-}}
+    return window.QUARTZ_HOME_MENU_TEXT;
+}
 """
 
 
@@ -403,13 +385,11 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
         state["menu_page"] = max(int(state.get("menu_page", 0)) - 1, 0)
         return _home_menu_text(state["menu_page"]), state, "home", False
     if action == "conduit":
-        terminal = _append_terminal(
-            terminal,
-            "> MENU: Enter QVPIC Conduit",
-            "> QVPIC: Conduit online — quaternion vortex recall ready.",
-            "> _",
-        )
-        return terminal, state, "chat", False
+        state["pending_startup_replay"] = True
+        state["home_active"] = False
+        state["menu_page"] = 0
+        terminal = _append_terminal(terminal, "> STARTUP SEQUENCE REQUESTED…")
+        return terminal, state, "home", False
     if action == "topology":
         terminal = _append_terminal(
             terminal,
@@ -525,6 +505,23 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
         )
     title, action = items[index - 1]
     state = _touch_torus(state, 0.4)
+    if action == "conduit":
+        state["pending_startup_replay"] = True
+        state["home_active"] = False
+        state["menu_page"] = 0
+        state["active_tab"] = "home"
+        terminal = _append_terminal(terminal, f"> SELECT: {index} — {title}")
+        grid_on = bool(state.get("grid_view", True))
+        return (
+            terminal,
+            "",
+            state,
+            gr.update(value=_torus_bridge_html(state)),
+            gr.update(elem_classes=_home_btn_classes(False)),
+            gr.update(visible=False),
+            *_tab_updates("home"),
+            gr.update(elem_classes=_root_classes(grid_on)),
+        )
     if action in {"next_page", "prev_page"}:
         terminal, state, active_tab, show_settings = _route_menu_action(action, terminal, state)
     else:
@@ -789,6 +786,71 @@ def _handle_exec(
             "> _",
         )
     return terminal, "", state, gr.update(value=_torus_bridge_html(state))
+
+
+def _quartz_startup_js_block() -> str:
+    return f"""
+<script>
+window.QUARTZ_STARTUP_STRING = {json.dumps(STARTUP_STRING)};
+window.QUARTZ_HOME_MENU_TEXT = {json.dumps(HOME_MENU_TEXT)};
+window.QUARTZ_CHAR_DELAY = {STARTUP_CHAR_DELAY_MS};
+window.QUARTZ_MENU_POST_DELAY = {STARTUP_POST_DELAY_MS};
+window.quartzWaitForTerminal = async function(attempts) {{
+    attempts = attempts || 0;
+    var ta = document.querySelector('.quartz-terminal textarea');
+    if (ta) return ta;
+    if (attempts > 120) return null;
+    await new Promise(function(resolve) {{ setTimeout(resolve, 100); }});
+    return window.quartzWaitForTerminal(attempts + 1);
+}};
+window.quartzPaintTerminal = function(ta, text) {{
+    if (!ta) return;
+    ta.value = text;
+    ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (vh > 0 && typeof syncTerminalOverflow === 'function') syncTerminalOverflow(vh);
+}};
+window.quartzSetHomeLed = function(on) {{
+    document.querySelectorAll('button.quartz-home-btn').forEach(function(btn) {{
+        btn.classList.toggle('quartz-home-active', !!on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }});
+}};
+window.quartzRunStartupSequence = async function(ta, options) {{
+    options = options || {{}};
+    var charDelay = options.charDelay != null ? options.charDelay : window.QUARTZ_CHAR_DELAY;
+    var postDelay = options.postDelay != null ? options.postDelay : 0;
+    var persistBoot = !!options.persistBoot;
+    if (!ta) ta = await window.quartzWaitForTerminal(0);
+    var text = '> ';
+    window.quartzPaintTerminal(ta, text);
+    var i;
+    for (i = 0; i < window.QUARTZ_STARTUP_STRING.length; i++) {{
+        await new Promise(function(resolve) {{ setTimeout(resolve, charDelay); }});
+        text += window.QUARTZ_STARTUP_STRING.charAt(i);
+        window.quartzPaintTerminal(ta, text);
+    }}
+    for (i = 0; i < 5; i++) {{
+        await new Promise(function(resolve) {{ setTimeout(resolve, charDelay); }});
+        text += '.';
+        window.quartzPaintTerminal(ta, text);
+    }}
+    if (postDelay > 0) {{
+        await new Promise(function(resolve) {{ setTimeout(resolve, postDelay); }});
+    }}
+    if (persistBoot) {{
+        sessionStorage.setItem('qvpic-boot-complete', '1');
+    }}
+    window.quartzPaintTerminal(ta, window.QUARTZ_HOME_MENU_TEXT);
+    window.quartzSetHomeLed(true);
+    return window.QUARTZ_HOME_MENU_TEXT;
+}};
+window.quartzClickStartupDone = function() {{
+    var btn = document.querySelector('button.quartz-startup-done-btn');
+    if (btn) btn.click();
+}};
+</script>
+"""
 
 
 _QUARTZ_HEAD_TEMPLATE = """
@@ -1440,12 +1502,34 @@ _QUARTZ_HEAD_TEMPLATE = """
             pulse: function() { state.pulseUntil = Date.now() + 1200; }
         };
     }
+    var quartzLastStartupNudge = -1;
+    function watchStartupReplay() {
+        if (window.quartzReplayRunning) return;
+        var node = document.querySelector('.quartz-torus-bridge');
+        if (!node) return;
+        var replay = parseInt(node.getAttribute('data-startup-replay') || '0', 10);
+        var nudge = parseInt(node.getAttribute('data-nudge') || '0', 10);
+        if (!replay || nudge === quartzLastStartupNudge) return;
+        quartzLastStartupNudge = nudge;
+        window.quartzReplayRunning = true;
+        window.quartzRunStartupSequence(null, {
+            postDelay: window.QUARTZ_MENU_POST_DELAY || 2000,
+            persistBoot: false
+        }).then(function() {
+            window.quartzReplayRunning = false;
+            if (typeof window.quartzClickStartupDone === 'function') {
+                window.quartzClickStartupDone();
+            }
+        });
+    }
+    setInterval(watchStartupReplay, 200);
     whenBodyReady(function() {
         initProgToggles();
         syncTorusInteractionMode();
         bootQuartzTorus();
         fitPanel();
         initTorusInteraction();
+        watchStartupReplay();
     });
     window.addEventListener('resize', debouncedFitPanel);
     if (window.visualViewport) {
@@ -1478,7 +1562,7 @@ _QUARTZ_HEAD_TEMPLATE = """
 </script>
 """
 
-QUARTZ_HEAD = _QUARTZ_HEAD_TEMPLATE
+QUARTZ_HEAD = _quartz_startup_js_block() + _QUARTZ_HEAD_TEMPLATE
 
 QUARTZ_CSS = f"""
 :root {{
@@ -2188,6 +2272,15 @@ html, body {{
     accent-color: var(--quartz-phosphor) !important;
 }}
 footer {{ visibility: hidden !important; }}
+.gradio-container button.quartz-startup-done-btn {{
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}}
 """
 
 
@@ -2213,6 +2306,10 @@ def build_app() -> gr.Blocks:
     ) as demo:
         ui_state = gr.State(_default_ui_state())
         tab_btns: dict[str, gr.Button] = {}
+        startup_done_btn = gr.Button(
+            "StartupDone",
+            elem_classes=["quartz-startup-done-btn"],
+        )
 
         with gr.Column(elem_classes=_root_classes(True)) as root_col:
             torus_bridge = gr.HTML(TORUS_STATE_BRIDGE_HTML, visible=False)
@@ -2361,6 +2458,12 @@ def build_app() -> gr.Blocks:
 
         send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
         cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=send_outputs)
+
+        startup_done_btn.click(
+            _handle_startup_replay_done,
+            inputs=[ui_state],
+            outputs=[terminal, ui_state, home_btn, torus_bridge],
+        )
 
         boot_evt = demo.load(None, None, terminal, js=_build_startup_load_js())
         boot_evt.then(
