@@ -55,7 +55,8 @@ DISPLAY_BACKING_HTML = """
 """
 
 TORUS_STATE_BRIDGE_HTML = (
-    '<div class="quartz-torus-bridge" data-echo="0" data-nudge="0" hidden></div>'
+    '<div class="quartz-torus-bridge" data-echo="0" data-nudge="0" '
+    'data-visible="1" hidden></div>'
 )
 
 PANEL_SKIN_HTML = """
@@ -94,7 +95,7 @@ HELP_TEXT = "\n".join(
         "> MEMORY: run full benchmark (bake → recall → drift)",
         "> TOOLS: repo links and CLI pointers",
         "> SEND / Enter key: submit command · EXEC: run recall/benchmark",
-        "> PROG 1–4: load sample prompts into input",
+        "> PROG 1: toggle geodesic torus · PROG 2–4: load sample prompts",
         "> CLEAR: wipe terminal · MODE: toggle VQCEnhanced flag",
         f"> Repo: {GITHUB_URL}",
     ]
@@ -141,6 +142,7 @@ def _default_ui_state() -> dict:
         "last_cmd": "",
         "torus_echo": 0.0,
         "torus_nudge": 0,
+        "torus_visible": True,
     }
 
 
@@ -154,9 +156,10 @@ def _touch_torus(state: dict, strength: float = 1.0) -> dict:
 def _torus_bridge_html(state: dict) -> str:
     echo = float(state.get("torus_echo", 0.0))
     nudge = int(state.get("torus_nudge", 0))
+    visible = 1 if state.get("torus_visible", True) else 0
     return (
         f'<div class="quartz-torus-bridge" data-echo="{echo}" '
-        f'data-nudge="{nudge}" hidden></div>'
+        f'data-nudge="{nudge}" data-visible="{visible}" hidden></div>'
     )
 
 
@@ -185,6 +188,13 @@ def _tab_updates(active: str) -> tuple:
 
 def _metallic_btn(*extra: str) -> list[str]:
     return ["quartz-btn", *extra]
+
+
+def _prog_btn_classes(prog_id: str, state: dict | None = None) -> list[str]:
+    classes = _metallic_btn("quartz-prog", f"quartz-prog-{prog_id[-1]}")
+    if prog_id == "prog1" and state is not None and not state.get("torus_visible", True):
+        classes.append("quartz-prog-torus-off")
+    return classes
 
 
 def _simulate_chat_response(message: str) -> str:
@@ -359,14 +369,31 @@ def _make_prog_handler(prog_id: str):
     return handler
 
 
+def _handle_prog1_toggle(terminal: str, state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    visible = not bool(state.get("torus_visible", True))
+    state["torus_visible"] = visible
+    state = _touch_torus(state, 0.35)
+    label = "visible" if visible else "hidden"
+    terminal = _append_terminal(terminal, f"> TORUS: {label}")
+    return (
+        terminal,
+        "",
+        state,
+        gr.update(value=_torus_bridge_html(state)),
+        gr.update(elem_classes=_prog_btn_classes("prog1", state)),
+    )
+
+
 def _handle_prog(
     prog_id: str,
     terminal: str,
     state: dict,
 ) -> tuple:
     prompt = PROG_PROMPTS.get(prog_id, "")
+    state = dict(state) if state else _default_ui_state()
     state = _touch_torus(state, 0.45)
-    terminal = _append_terminal(terminal, f"> PROG: loaded preset into input")
+    terminal = _append_terminal(terminal, "> PROG: loaded preset into input")
     return terminal, prompt, state, gr.update(value=_torus_bridge_html(state))
 
 
@@ -527,7 +554,158 @@ QUARTZ_HEAD = """
         fitSkinMetrics();
         fitDisplayBacking();
         ensureTorusStage();
-        fitTorusMount();
+        layoutTorusStage();
+    }
+    var TORUS_STORE_KEY = 'qvpic-torus-prefs';
+    function loadTorusPrefs() {
+        try {
+            var raw = localStorage.getItem(TORUS_STORE_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return { visible: true, custom: false, left: null, top: null, width: null, height: null };
+    }
+    function saveTorusPrefs(prefs) {
+        try { localStorage.setItem(TORUS_STORE_KEY, JSON.stringify(prefs)); } catch (e) {}
+    }
+    window.quartzTorusPrefs = loadTorusPrefs();
+    function syncProg1Button(visible) {
+        document.querySelectorAll('button.quartz-prog-1').forEach(function(btn) {
+            btn.classList.toggle('quartz-prog-torus-off', !visible);
+        });
+    }
+    function applyTorusVisibility(visible) {
+        var stage = document.querySelector('.quartz-torus-stage');
+        window.quartzTorusPrefs.visible = !!visible;
+        if (stage) {
+            stage.style.display = visible ? 'block' : 'none';
+            stage.classList.toggle('quartz-torus-hidden', !visible);
+        }
+        syncProg1Button(visible);
+        saveTorusPrefs(window.quartzTorusPrefs);
+    }
+    function defaultTorusBox() {
+        var tr = terminalOutputRect();
+        if (!tr || tr.width < 40 || tr.height < 40) return null;
+        var w = tr.width;
+        var h = tr.height;
+        var pad = Math.max(6, Math.round(Math.min(w, h) * 0.045));
+        var rightX0 = w * 0.5 + pad * 0.5;
+        var rightW = Math.max(20, w * 0.5 - pad * 1.5);
+        var availH = Math.max(20, h - pad * 2);
+        var size = Math.floor(Math.min(rightW, availH) * 0.82);
+        var originX = tr.left + rightX0 + rightW * 0.5;
+        var originY = tr.top + h * 0.5;
+        return {
+            left: Math.round(originX - size * 0.5),
+            top: Math.round(originY - size * 0.5),
+            width: size,
+            height: size
+        };
+    }
+    function clampTorusOnScreen(stage, left, top) {
+        var vw = window.innerWidth || document.documentElement.clientWidth || 0;
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        var w = stage.offsetWidth || 120;
+        var h = stage.offsetHeight || 120;
+        var minVis = 40;
+        return {
+            left: Math.max(-w + minVis, Math.min(vw - minVis, left)),
+            top: Math.max(0, Math.min(vh - minVis, top))
+        };
+    }
+    function applyTorusBox(box) {
+        var stage = document.querySelector('.quartz-torus-stage');
+        var frame = stage && stage.querySelector('.quartz-torus-frame');
+        if (!stage || !frame || !box) return;
+        stage.style.position = 'fixed';
+        stage.style.left = box.left + 'px';
+        stage.style.top = box.top + 'px';
+        stage.style.width = box.width + 'px';
+        stage.style.height = box.height + 'px';
+        stage.style.zIndex = '99999';
+        stage.style.overflow = 'visible';
+        frame.style.position = 'absolute';
+        frame.style.inset = '0';
+        frame.style.left = '0';
+        frame.style.top = '0';
+        frame.style.right = '0';
+        frame.style.bottom = '0';
+        frame.style.width = '100%';
+        frame.style.height = '100%';
+        frame.style.transform = 'none';
+        frame.style.display = 'flex';
+        frame.style.alignItems = 'center';
+        frame.style.justifyContent = 'center';
+        stage.style.display = window.quartzTorusPrefs.visible ? 'block' : 'none';
+    }
+    function layoutTorusStage() {
+        if (window.quartzTorusDragging) return;
+        var stage = document.querySelector('.quartz-torus-stage');
+        if (!stage) return;
+        if (!window.quartzTorusPrefs.visible) {
+            stage.style.display = 'none';
+            return;
+        }
+        var box;
+        if (window.quartzTorusPrefs.custom
+            && window.quartzTorusPrefs.left != null
+            && window.quartzTorusPrefs.top != null) {
+            var clamped = clampTorusOnScreen(
+                stage,
+                window.quartzTorusPrefs.left,
+                window.quartzTorusPrefs.top
+            );
+            box = {
+                left: clamped.left,
+                top: clamped.top,
+                width: window.quartzTorusPrefs.width || 160,
+                height: window.quartzTorusPrefs.height || 160
+            };
+        } else {
+            box = defaultTorusBox();
+        }
+        if (!box) {
+            stage.style.display = 'none';
+            return;
+        }
+        applyTorusBox(box);
+    }
+    function initTorusDrag() {
+        var stage = document.querySelector('.quartz-torus-stage');
+        if (!stage || stage._quartzDragInit) return;
+        stage._quartzDragInit = true;
+        var offsetX = 0;
+        var offsetY = 0;
+        stage.addEventListener('mousedown', function(e) {
+            if (e.button !== 0 || !window.quartzTorusPrefs.visible) return;
+            window.quartzTorusDragging = true;
+            stage.classList.add('quartz-torus-dragging');
+            var rect = stage.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!window.quartzTorusDragging) return;
+            var clamped = clampTorusOnScreen(
+                stage,
+                e.clientX - offsetX,
+                e.clientY - offsetY
+            );
+            stage.style.left = clamped.left + 'px';
+            stage.style.top = clamped.top + 'px';
+        });
+        document.addEventListener('mouseup', function() {
+            if (!window.quartzTorusDragging) return;
+            window.quartzTorusDragging = false;
+            stage.classList.remove('quartz-torus-dragging');
+            window.quartzTorusPrefs.custom = true;
+            window.quartzTorusPrefs.left = parseFloat(stage.style.left) || 0;
+            window.quartzTorusPrefs.top = parseFloat(stage.style.top) || 0;
+            window.quartzTorusPrefs.width = stage.offsetWidth;
+            window.quartzTorusPrefs.height = stage.offsetHeight;
+            saveTorusPrefs(window.quartzTorusPrefs);
+        });
     }
     function ensureTorusStage() {
         var root = torusMountRoot();
@@ -545,6 +723,7 @@ QUARTZ_HEAD = """
                 + '<rect class="quartz-torus-core" x="106" y="106" width="8" height="8"></rect>'
                 + '</svg></div>';
             root.appendChild(stage);
+            initTorusDrag();
         }
         return stage.querySelector('.quartz-torus-mesh');
     }
@@ -574,58 +753,12 @@ QUARTZ_HEAD = """
         ta.style.overflowY = ta.scrollHeight > ta.clientHeight + 2 ? 'auto' : 'hidden';
         lockTerminalOverflowX();
     }
-    function fitTorusFrame() {
-        var mount = document.querySelector('.quartz-torus-stage');
-        var frame = mount && mount.querySelector('.quartz-torus-frame');
-        if (!mount || !frame) return;
-        var w = mount.clientWidth;
-        var h = mount.clientHeight;
-        if (w < 40 || h < 40) return;
-        var pad = Math.max(6, Math.round(Math.min(w, h) * 0.045));
-        var rightX0 = w * 0.5 + pad * 0.5;
-        var rightW = Math.max(20, w * 0.5 - pad * 1.5);
-        var availH = Math.max(20, h - pad * 2);
-        var size = Math.floor(Math.min(rightW, availH) * 0.82);
-        var originX = rightX0 + rightW * 0.5;
-        var originY = h * 0.5;
-        frame.style.position = 'absolute';
-        frame.style.left = Math.round(originX - size * 0.5) + 'px';
-        frame.style.top = Math.round(originY - size * 0.5) + 'px';
-        frame.style.width = size + 'px';
-        frame.style.height = size + 'px';
-        frame.style.right = 'auto';
-        frame.style.transform = 'none';
-        frame.style.display = 'flex';
-        frame.style.alignItems = 'center';
-        frame.style.justifyContent = 'center';
-    }
     function torusMeshScale() {
-        var frame = document.querySelector('.quartz-torus-stage .quartz-torus-frame');
-        if (!frame) return 58;
-        var side = Math.min(frame.clientWidth, frame.clientHeight);
+        var stage = document.querySelector('.quartz-torus-stage');
+        if (!stage) return 58;
+        var side = Math.min(stage.offsetWidth, stage.offsetHeight);
         if (side < 1) return 58;
         return Math.max(38, Math.min(76, side * 0.28));
-    }
-    function fitTorusMount() {
-        var mount = document.querySelector('.quartz-torus-stage');
-        var tr = terminalOutputRect();
-        if (!mount || !tr) {
-            if (mount) mount.style.display = 'none';
-            return;
-        }
-        if (tr.width < 40 || tr.height < 40) {
-            mount.style.display = 'none';
-            return;
-        }
-        mount.style.display = 'block';
-        mount.style.position = 'fixed';
-        mount.style.top = Math.round(tr.top) + 'px';
-        mount.style.left = Math.round(tr.left) + 'px';
-        mount.style.width = Math.round(tr.width) + 'px';
-        mount.style.height = Math.round(tr.height) + 'px';
-        mount.style.zIndex = '99999';
-        mount.style.overflow = 'hidden';
-        fitTorusFrame();
     }
     function fitDisplayBacking() {
         var backing = document.querySelector('.quartz-display-backing');
@@ -802,6 +935,11 @@ QUARTZ_HEAD = """
             var echo = parseFloat(node.getAttribute('data-echo') || '0');
             var nudge = parseInt(node.getAttribute('data-nudge') || '0', 10);
             if (nudge !== state.nudge) {
+                var visAttr = node.getAttribute('data-visible');
+                if (visAttr !== null) {
+                    applyTorusVisibility(visAttr !== '0');
+                    if (!window.quartzTorusPrefs.custom) layoutTorusStage();
+                }
                 state.nudge = nudge;
                 state.echo = echo;
                 state.pulseUntil = Date.now() + 1400;
@@ -826,8 +964,10 @@ QUARTZ_HEAD = """
         };
     }
     whenBodyReady(function() {
+        applyTorusVisibility(window.quartzTorusPrefs.visible !== false);
         bootQuartzTorus();
         fitPanel();
+        initTorusDrag();
     });
     window.addEventListener('resize', debouncedFitPanel);
     if (window.visualViewport) {
@@ -843,7 +983,7 @@ QUARTZ_HEAD = """
         if (h > 0) syncTerminalOverflow(h);
         if (!torusMountRoot()) return;
         ensureTorusStage();
-        fitTorusMount();
+        layoutTorusStage();
         if (!window.quartzTorus || !window.quartzTorus.ready) bootQuartzTorus();
     }, 1500);
     whenBodyReady(function() {
@@ -1225,10 +1365,20 @@ html, body {{
 .quartz-torus-stage {{
     position: fixed !important;
     z-index: 99999 !important;
-    pointer-events: none !important;
-    overflow: hidden !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
     background: transparent !important;
     box-sizing: border-box !important;
+    cursor: grab !important;
+    touch-action: none !important;
+}}
+.quartz-torus-stage.quartz-torus-dragging {{
+    cursor: grabbing !important;
+    opacity: 0.88 !important;
+}}
+.quartz-torus-stage.quartz-torus-hidden {{
+    display: none !important;
+    pointer-events: none !important;
 }}
 .quartz-torus-stage .quartz-torus-frame {{
     position: absolute !important;
@@ -1412,6 +1562,16 @@ html, body {{
     padding: 0.12rem 0.08rem !important;
     position: relative !important;
 }}
+.gradio-container button.quartz-prog-torus-off {{
+    opacity: 0.52 !important;
+    filter: brightness(0.82) !important;
+    color: var(--quartz-phosphor-dim) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
+}}
+.gradio-container button.quartz-prog-torus-off span {{
+    color: var(--quartz-phosphor-dim) !important;
+    -webkit-text-fill-color: var(--quartz-phosphor-dim) !important;
+}}
 .gradio-container button.quartz-prog-led::after {{
     content: "" !important;
     position: absolute !important;
@@ -1538,9 +1698,10 @@ def build_app() -> gr.Blocks:
                     with gr.Row(elem_classes=["quartz-prog-row"]):
                         prog_btns = {}
                         for index in range(1, 5):
-                            prog_btns[f"prog{index}"] = gr.Button(
+                            prog_id = f"prog{index}"
+                            prog_btns[prog_id] = gr.Button(
                                 f"PROG {index}",
-                                elem_classes=_metallic_btn("quartz-prog"),
+                                elem_classes=_prog_btn_classes(prog_id, _default_ui_state()),
                             )
                         exec_btn = gr.Button(
                             "EXEC",
@@ -1599,8 +1760,13 @@ def build_app() -> gr.Blocks:
         send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
         cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
 
-        for prog_id, btn in prog_btns.items():
-            btn.click(
+        prog_btns["prog1"].click(
+            _handle_prog1_toggle,
+            inputs=[terminal, ui_state],
+            outputs=[terminal, cmd_input, ui_state, torus_bridge, prog_btns["prog1"]],
+        )
+        for prog_id in ("prog2", "prog3", "prog4"):
+            prog_btns[prog_id].click(
                 _make_prog_handler(prog_id),
                 inputs=[terminal, ui_state],
                 outputs=[terminal, cmd_input, ui_state, torus_bridge],
