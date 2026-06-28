@@ -37,7 +37,7 @@ TAB_LABELS: dict[str, str] = {
     "tools": "TOOLS",
 }
 
-PROG_BANK_SIZE = 18
+PROG_BANK_SIZE = 16
 PROG_ROW_1 = tuple(range(1, 9))
 PROG_ROW_2 = tuple(range(9, PROG_BANK_SIZE + 1))
 
@@ -92,7 +92,7 @@ HELP_TEXT = "\n".join(
         "> MEMORY: run full benchmark (bake → recall → drift)",
         "> TOOLS: repo links and CLI pointers",
         "> SEND / Enter key: submit command",
-        "> PROG 1–18: maintained toggle keys (red LED = on) · Prog 1 = torus",
+        "> PROG 1–16: maintained toggle keys (red LED = on) · Prog 1 = torus",
         "> MEMORY tab: run benchmark · SETTINGS: tune conduit dials",
         f"> Repo: {GITHUB_URL}",
     ]
@@ -528,7 +528,7 @@ QUARTZ_HEAD = """
     }
     window.quartzTorusPrefs = loadTorusPrefs();
     var PROG_STORE_KEY = 'qvpic-prog-states';
-    var PROG_BANK_SIZE = 18;
+    var PROG_BANK_SIZE = 16;
     function defaultProgStates() {
         var states = {};
         var i;
