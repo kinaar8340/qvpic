@@ -54,6 +54,20 @@ DISPLAY_BACKING_HTML = """
 <div class="quartz-display-backing" aria-hidden="true"></div>
 """
 
+GEODESIC_TORUS_HTML = """
+<div class="quartz-torus-mount" aria-hidden="true">
+  <div class="quartz-torus-frame">
+    <svg class="quartz-torus-svg" viewBox="0 0 220 220" role="img" aria-label="Geodesic torus conduit">
+      <circle class="quartz-torus-orbit" cx="110" cy="110" r="102"></circle>
+      <g class="quartz-torus-mesh" id="quartz-torus-mesh"></g>
+      <rect class="quartz-torus-core" x="106" y="106" width="8" height="8"></rect>
+    </svg>
+  </div>
+</div>
+"""
+
+TORUS_STATE_BRIDGE_HTML = '<div id="quartz-torus-bridge" data-echo="0" data-nudge="0" hidden></div>'
+
 PANEL_SKIN_HTML = """
 <div class="quartz-skin quartz-skin--quartz-default" data-skin="quartz-default" aria-hidden="true">
   <div class="quartz-skin-case"></div>
@@ -140,7 +154,25 @@ def _default_ui_state() -> dict:
         "history": [],
         "cmd_index": -1,
         "last_cmd": "",
+        "torus_echo": 0.0,
+        "torus_nudge": 0,
     }
+
+
+def _touch_torus(state: dict, strength: float = 1.0) -> dict:
+    state = dict(state) if state else _default_ui_state()
+    state["torus_echo"] = round(float(state.get("torus_echo", 0.0)) + strength * 0.618034, 6)
+    state["torus_nudge"] = int(state.get("torus_nudge", 0)) + 1
+    return state
+
+
+def _torus_bridge_html(state: dict) -> str:
+    echo = float(state.get("torus_echo", 0.0))
+    nudge = int(state.get("torus_nudge", 0))
+    return (
+        f'<div id="quartz-torus-bridge" data-echo="{echo}" '
+        f'data-nudge="{nudge}" hidden></div>'
+    )
 
 
 def _root_classes(grid_on: bool) -> list[str]:
@@ -205,6 +237,7 @@ def _make_tab_switch(tab_id: str):
 
 def _handle_grid_toggle(terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
+    state = _touch_torus(state, 0.35)
     grid_on = not bool(state.get("grid_view", True))
     state["grid_view"] = grid_on
     state["active_tab"] = "chat"
@@ -216,11 +249,13 @@ def _handle_grid_toggle(terminal: str, state: dict) -> tuple:
         gr.update(visible=False),
         *_tab_updates("chat"),
         gr.update(elem_classes=_root_classes(grid_on)),
+        gr.update(value=_torus_bridge_html(state)),
     )
 
 
 def _switch_tab(tab_id: str, terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
+    state = _touch_torus(state, 0.25)
     state["active_tab"] = tab_id
     label = TAB_LABELS[tab_id]
     if tab_id == "history":
@@ -259,6 +294,7 @@ def _switch_tab(tab_id: str, terminal: str, state: dict) -> tuple:
         gr.update(visible=show_settings),
         *_tab_updates(tab_id),
         gr.update(elem_classes=_root_classes(grid_on)),
+        gr.update(value=_torus_bridge_html(state)),
     )
 
 
@@ -284,10 +320,11 @@ def _handle_send(
     state = dict(state) if state else _default_ui_state()
     cmd = (cmd or "").strip()
     if not cmd:
-        return terminal, "", state
+        return terminal, "", state, gr.update(value=_torus_bridge_html(state))
     state = _push_history(state, cmd)
+    state = _touch_torus(state, 1.0)
     terminal = _append_terminal(terminal, f"> USER: {cmd}", _simulate_chat_response(cmd), "> _")
-    return terminal, "", state
+    return terminal, "", state, gr.update(value=_torus_bridge_html(state))
 
 
 def _make_nav_handler(action: str):
@@ -343,24 +380,28 @@ def _handle_prog(
     state: dict,
 ) -> tuple:
     prompt = PROG_PROMPTS.get(prog_id, "")
+    state = _touch_torus(state, 0.45)
     terminal = _append_terminal(terminal, f"> PROG: loaded preset into input")
-    return terminal, prompt, state
+    return terminal, prompt, state, gr.update(value=_torus_bridge_html(state))
 
 
 def _handle_clear(terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
-    return INITIAL_TERMINAL, state
+    state = _touch_torus(state, 0.3)
+    return INITIAL_TERMINAL, state, gr.update(value=_torus_bridge_html(state))
 
 
 def _handle_help(terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
-    return _append_terminal(terminal, HELP_TEXT, "> _"), state
+    state = _touch_torus(state, 0.2)
+    return _append_terminal(terminal, HELP_TEXT, "> _"), state, gr.update(value=_torus_bridge_html(state))
 
 
 def _handle_mode(terminal: str, state: dict, use_vqc: bool) -> tuple:
     state = dict(state) if state else _default_ui_state()
+    state = _touch_torus(state, 0.55)
     terminal = _append_terminal(terminal, MODE_TEXT, f"> MODE: VQCEnhanced = {use_vqc}", "> _")
-    return terminal, state
+    return terminal, state, gr.update(value=_torus_bridge_html(state))
 
 
 def _handle_exec(
@@ -377,6 +418,7 @@ def _handle_exec(
     state = dict(state) if state else _default_ui_state()
     text = (cmd or state.get("last_cmd") or DEFAULT_QUERY_TEXT).strip()
     state = _push_history(state, text)
+    state = _touch_torus(state, 1.35)
     run_benchmark = text.lower() in {"benchmark", "run benchmark", "exec benchmark"} or (
         "benchmark" in text.lower() and "recall" not in text.lower()
     )
@@ -421,7 +463,7 @@ def _handle_exec(
             traceback.format_exc(),
             "> _",
         )
-    return terminal, "", state
+    return terminal, "", state, gr.update(value=_torus_bridge_html(state))
 
 
 QUARTZ_HEAD = """
@@ -461,6 +503,19 @@ QUARTZ_HEAD = """
         fitSkinMetrics();
         fitDisplayOverlay();
         fitDisplayBacking();
+        fitTorusMount();
+    }
+    function fitTorusMount() {
+        var mount = document.querySelector('.quartz-torus-mount');
+        var ta = document.querySelector('.quartz-terminal textarea');
+        var col = document.querySelector('.quartz-terminal-col');
+        if (!mount || !ta || !col) return;
+        var cr = col.getBoundingClientRect();
+        var tr = ta.getBoundingClientRect();
+        mount.style.top = (tr.top - cr.top) + 'px';
+        mount.style.left = (tr.left - cr.left) + 'px';
+        mount.style.width = tr.width + 'px';
+        mount.style.height = tr.height + 'px';
     }
     function fitDisplayBacking() {
         var backing = document.querySelector('.quartz-display-backing');
@@ -553,6 +608,150 @@ QUARTZ_HEAD = """
         var b = e.target && e.target.closest('button.quartz-btn, button.quartz-tab');
         if (b) clickPulse(b);
     });
+    function bootQuartzTorus() {
+        var PHI = 1.61803398875;
+        var mesh = document.getElementById('quartz-torus-mesh');
+        if (!mesh) {
+            setTimeout(bootQuartzTorus, 220);
+            return;
+        }
+        if (window.quartzTorus && window.quartzTorus.ready) return;
+        var state = {
+            rotX: 0.62,
+            rotY: 0.0,
+            rotZ: 0.18,
+            echo: 0.0,
+            nudge: 0,
+            spinY: 0.00115,
+            pulseUntil: 0,
+            targetRotX: 0.62,
+            targetRotZ: 0.18
+        };
+        var major = 1.0;
+        var minor = 0.36;
+        var uSeg = 36;
+        var vSeg = 18;
+        var cx = 110;
+        var cy = 110;
+        var scale = 78;
+
+        function rotatePoint(x, y, z) {
+            var cx1 = Math.cos(state.rotX), sx1 = Math.sin(state.rotX);
+            var y1 = y * cx1 - z * sx1;
+            var z1 = y * sx1 + z * cx1;
+            var cy1 = Math.cos(state.rotY), sy1 = Math.sin(state.rotY);
+            var x2 = x * cy1 + z1 * sy1;
+            var z2 = -x * sy1 + z1 * cy1;
+            var cz1 = Math.cos(state.rotZ), sz1 = Math.sin(state.rotZ);
+            var x3 = x2 * cz1 - y1 * sz1;
+            var y3 = x2 * sz1 + y1 * cz1;
+            return { x: x3, y: y3, z: z2 };
+        }
+
+        function torusPoint(u, v) {
+            var cu = Math.cos(u), su = Math.sin(u);
+            var cv = Math.cos(v), sv = Math.sin(v);
+            var ring = major + minor * cv;
+            return rotatePoint(ring * cu, ring * su, minor * sv);
+        }
+
+        function echoIntensity(u, v) {
+            var helix = Math.sin(v * 3.0 + u * PHI + state.echo);
+            var coil = Math.cos(u * 6.0 - state.echo * 1.1 + Math.sin(v * 2.0));
+            var triad = ((Math.floor(u * 4.77 + state.echo * 2.0) % 3) === 0) ? 0.22 : 0.0;
+            return Math.min(1.0, Math.max(0.12, 0.28 + 0.42 * Math.max(0, helix * coil) + triad));
+        }
+
+        function lineSvg(x1, y1, x2, y2, u, v) {
+            var glow = echoIntensity(u, v);
+            var width = 0.45 + glow * 0.85;
+            var opacity = 0.35 + glow * 0.6;
+            var hue = 118 + glow * 18;
+            return '<line x1="' + x1.toFixed(2) + '" y1="' + y1.toFixed(2)
+                + '" x2="' + x2.toFixed(2) + '" y2="' + y2.toFixed(2)
+                + '" stroke="hsl(' + hue + ', 88%, 52%)" stroke-width="' + width.toFixed(2)
+                + '" stroke-opacity="' + opacity.toFixed(3) + '" />';
+        }
+
+        function render() {
+            var parts = [];
+            var uStep = (Math.PI * 2) / uSeg;
+            var vStep = (Math.PI * 2) / vSeg;
+            var ui, vi, u, v, p1, p2;
+            for (ui = 0; ui <= uSeg; ui++) {
+                u = ui * uStep;
+                for (vi = 0; vi < vSeg; vi++) {
+                    v = vi * vStep;
+                    p1 = torusPoint(u, v);
+                    p2 = torusPoint(u, v + vStep);
+                    parts.push(lineSvg(
+                        cx + p1.x * scale, cy - p1.y * scale,
+                        cx + p2.x * scale, cy - p2.y * scale,
+                        u, v
+                    ));
+                }
+            }
+            for (vi = 0; vi <= vSeg; vi++) {
+                v = vi * vStep;
+                for (ui = 0; ui < uSeg; ui++) {
+                    u = ui * uStep;
+                    p1 = torusPoint(u, v);
+                    p2 = torusPoint(u + uStep, v);
+                    parts.push(lineSvg(
+                        cx + p1.x * scale, cy - p1.y * scale,
+                        cx + p2.x * scale, cy - p2.y * scale,
+                        u, v
+                    ));
+                }
+            }
+            mesh.innerHTML = parts.join('');
+        }
+
+        function tick() {
+            var now = Date.now();
+            state.rotY += state.spinY;
+            if (now < state.pulseUntil) {
+                state.rotZ += 0.0065;
+                state.rotX += (state.targetRotX - state.rotX) * 0.04;
+            } else {
+                state.rotX += (0.62 + Math.sin(now * 0.00009) * 0.07 - state.rotX) * 0.02;
+                state.rotZ += (state.targetRotZ - state.rotZ) * 0.015;
+            }
+            render();
+            requestAnimationFrame(tick);
+        }
+
+        function absorbBridge(node) {
+            if (!node) return;
+            var echo = parseFloat(node.getAttribute('data-echo') || '0');
+            var nudge = parseInt(node.getAttribute('data-nudge') || '0', 10);
+            if (nudge !== state.nudge) {
+                state.nudge = nudge;
+                state.echo = echo;
+                state.pulseUntil = Date.now() + 1400;
+                state.targetRotX = 0.45 + (nudge % 5) * 0.08;
+                state.targetRotZ = state.rotZ + 0.35 + (echo % 1.0) * 0.5;
+                state.spinY = 0.00115 + (echo % 1.0) * 0.0008;
+            }
+        }
+
+        function watchBridge() {
+            var node = document.getElementById('quartz-torus-bridge');
+            if (!node) return;
+            absorbBridge(node);
+            var obs = new MutationObserver(function() { absorbBridge(node); });
+            obs.observe(node, { attributes: true, childList: true, subtree: true });
+        }
+
+        watchBridge();
+        setInterval(watchBridge, 400);
+        tick();
+        window.quartzTorus = {
+            ready: true,
+            pulse: function() { state.pulseUntil = Date.now() + 1200; }
+        };
+    }
+    bootQuartzTorus();
     fitPanel();
     window.addEventListener('resize', fitPanel);
     document.addEventListener('DOMContentLoaded', fitPanel);
@@ -586,6 +785,10 @@ QUARTZ_CSS = f"""
     --quartz-skin-prog-h: 3rem;
     --quartz-skin-footer-h: 1.4rem;
     --quartz-skin-settings-h: 0px;
+    --torus-line: {_PHOSPHOR};
+    --torus-line-dim: rgba(0, 204, 52, 0.45);
+    --torus-orbit: rgba(0, 255, 65, 0.22);
+    --torus-core: {_PHOSPHOR};
 }}
 html, body {{
     background: #000000 !important;
@@ -968,9 +1171,52 @@ html, body {{
     min-height: 0 !important;
     margin: 0 !important;
 }}
+.gradio-container .quartz-torus-mount {{
+    position: absolute !important;
+    z-index: 3 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+}}
+.gradio-container .quartz-torus-mount > .block,
+.gradio-container .quartz-torus-mount > .form {{
+    position: absolute !important;
+    inset: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+}}
+.gradio-container .quartz-torus-frame {{
+    position: absolute !important;
+    top: 4% !important;
+    right: 2% !important;
+    width: 46% !important;
+    height: 92% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}}
+.gradio-container .quartz-torus-svg {{
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    opacity: 0.92 !important;
+    filter: drop-shadow(0 0 6px rgba(0, 255, 65, 0.25)) !important;
+}}
+.gradio-container .quartz-torus-orbit {{
+    fill: none !important;
+    stroke: var(--torus-orbit) !important;
+    stroke-width: 0.65 !important;
+}}
+.gradio-container .quartz-torus-core {{
+    fill: var(--torus-core) !important;
+    stroke: none !important;
+}}
 .gradio-container .quartz-terminal textarea {{
     position: relative !important;
     z-index: 1 !important;
+    padding-right: 48% !important;
     background: var(--quartz-display) !important;
     background-color: var(--quartz-display) !important;
     color: var(--quartz-phosphor) !important;
@@ -1168,6 +1414,7 @@ def build_app() -> gr.Blocks:
         tab_btns: dict[str, gr.Button] = {}
 
         with gr.Column(elem_classes=_root_classes(True)) as root_col:
+            torus_bridge = gr.HTML(TORUS_STATE_BRIDGE_HTML, visible=False)
             gr.HTML(GRID_LAYER_HTML)
             with gr.Column(elem_classes=["quartz-panel"]):
                 gr.HTML(_panel_skin_html(), elem_classes=["quartz-skin-mount"])
@@ -1184,6 +1431,7 @@ def build_app() -> gr.Blocks:
                         with gr.Column(elem_classes=["quartz-display-shell", "quartz-aperture-zone"]):
                             with gr.Column(elem_classes=["quartz-terminal-col", "quartz-aperture-zone"]):
                                 gr.HTML(DISPLAY_BACKING_HTML)
+                                gr.HTML(GEODESIC_TORUS_HTML, elem_classes=["quartz-torus-mount"])
                                 terminal = gr.Textbox(
                                     value=INITIAL_TERMINAL,
                                     label="Terminal",
@@ -1252,10 +1500,17 @@ def build_app() -> gr.Blocks:
                         "QUARTZ AI SYNTHESIZER</span></div>"
                     )
 
-        core_outputs = [terminal, cmd_input, ui_state]
+        core_outputs = [terminal, cmd_input, ui_state, torus_bridge]
         tune_inputs = [bake_steps, bandwidth, use_vqc, drift_samples, max_facts]
 
-        tab_outputs = [terminal, ui_state, settings_panel, *tab_btns.values(), root_col]
+        tab_outputs = [
+            terminal,
+            ui_state,
+            settings_panel,
+            *tab_btns.values(),
+            root_col,
+            torus_bridge,
+        ]
 
         tab_btns["chat"].click(
             _handle_grid_toggle,
@@ -1274,7 +1529,7 @@ def build_app() -> gr.Blocks:
                 evt.then(
                     _handle_exec,
                     inputs=[cmd_input, terminal, ui_state, *tune_inputs],
-                    outputs=[terminal, cmd_input, ui_state],
+                    outputs=[terminal, cmd_input, ui_state, torus_bridge],
                 )
 
         send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
@@ -1284,20 +1539,28 @@ def build_app() -> gr.Blocks:
             btn.click(
                 _make_prog_handler(prog_id),
                 inputs=[terminal, ui_state],
-                outputs=[terminal, cmd_input, ui_state],
+                outputs=[terminal, cmd_input, ui_state, torus_bridge],
             )
 
-        clear_btn.click(_handle_clear, inputs=[terminal, ui_state], outputs=[terminal, ui_state])
-        help_btn.click(_handle_help, inputs=[terminal, ui_state], outputs=[terminal, ui_state])
+        clear_btn.click(
+            _handle_clear,
+            inputs=[terminal, ui_state],
+            outputs=[terminal, ui_state, torus_bridge],
+        )
+        help_btn.click(
+            _handle_help,
+            inputs=[terminal, ui_state],
+            outputs=[terminal, ui_state, torus_bridge],
+        )
         mode_btn.click(
             _handle_mode,
             inputs=[terminal, ui_state, use_vqc],
-            outputs=[terminal, ui_state],
+            outputs=[terminal, ui_state, torus_bridge],
         )
         exec_btn.click(
             _handle_exec,
             inputs=[cmd_input, terminal, ui_state, *tune_inputs],
-            outputs=[terminal, cmd_input, ui_state],
+            outputs=[terminal, cmd_input, ui_state, torus_bridge],
         )
 
     return demo
