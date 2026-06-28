@@ -74,6 +74,11 @@ _VQC_TAB_ORANGE_TEXT = "#fdba74"
 _VQC_MATRIX_GREEN = "#33ff66"
 _VQC_LOGO_GOLD = "#c9a227"
 _VQC_HOME_KEY_BG = "#000000"
+HU_BUTTON_BASE_COLOR = "#000000"
+HU_BUTTON_ACTIVE_COLOR = "#ff0000"
+HUD_HEADSUP_ID = "01"
+HUD_BUTTON_IDS: tuple[str, ...] = ("hu01", "hu02", "hu03", "hu04")
+HUD_ALL_IDS: tuple[str, ...] = (HUD_HEADSUP_ID, *HUD_BUTTON_IDS)
 
 WEBGL_3D_NOTE = ""  # unused — kept for CSS compat
 
@@ -453,6 +458,39 @@ def _stream_optics_terminal_clear(current: str) -> Iterator[str]:
 TERM_KEYPAD_STREAMERS: dict[str, Callable[[], Iterator[str]]] = {}
 
 
+def _default_hud_state() -> dict[str, bool]:
+    return {btn_id: False for btn_id in HUD_ALL_IDS}
+
+
+def _hu_btn_classes(btn_id: str, hud_state: dict[str, bool]) -> list[str]:
+    classes = ["vqc-hud-btn", f"vqc-hud-btn-{btn_id}"]
+    if btn_id == HUD_HEADSUP_ID:
+        classes.append("vqc-hud-btn-headsup")
+    if hud_state.get(btn_id, False):
+        classes.append("hu-active")
+    return classes
+
+
+def _hud_btn_updates(hud_state: dict[str, bool]) -> tuple:
+    return tuple(
+        gr.update(elem_classes=_hu_btn_classes(btn_id, hud_state))
+        for btn_id in HUD_ALL_IDS
+    )
+
+
+def _toggle_hud_button(btn_id: str, hud_state: dict | None) -> tuple:
+    state = dict(hud_state) if hud_state else _default_hud_state()
+    state[btn_id] = not state.get(btn_id, False)
+    return (*_hud_btn_updates(state), state)
+
+
+def _make_hud_toggle_click(btn_id: str):
+    def handler(hud_state: dict) -> tuple:
+        return _toggle_hud_button(btn_id, hud_state)
+
+    return handler
+
+
 def _term_key_id(index: int) -> str:
     return f"key{index:02d}"
 
@@ -822,7 +860,7 @@ html, body { background-color: #0a0818 !important; }
         var root = document.documentElement;
         root.style.setProperty('--vqc-vh', h + 'px');
         root.style.setProperty('--vqc-vw', w + 'px');
-        root.style.setProperty('--vqc-chrome', '290px');
+        root.style.setProperty('--vqc-chrome', '340px');
     }
     applyViewportFit();
     window.addEventListener('resize', applyViewportFit);
@@ -887,6 +925,132 @@ body {{
     max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    min-height: var(--vqc-vh, 100dvh) !important;
+}}
+.gradio-container .vqc-cockpit,
+.gradio-container .vqc-cockpit > fieldset {{
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: var(--vqc-vh, 100dvh) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: rgba(0, 0, 0, 0.55) !important;
+    border: 1px solid rgba(51, 255, 102, 0.42) !important;
+    box-shadow: inset 0 0 24px rgba(51, 255, 102, 0.06) !important;
+    box-sizing: border-box !important;
+}}
+.gradio-container .vqc-cockpit > .block,
+.gradio-container .vqc-cockpit .block {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}}
+.gradio-container .vqc-hud-bar {{
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    padding: 0.35rem 0.55rem !important;
+    border-bottom: 1px solid rgba(51, 255, 102, 0.28) !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+}}
+.gradio-container .vqc-hud-bar-hu-row {{
+    display: flex !important;
+    flex: 1 1 auto !important;
+    justify-content: space-evenly !important;
+    align-items: center !important;
+    gap: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 0.5rem !important;
+}}
+.gradio-container .vqc-hud-bar-hu-row > .block,
+.gradio-container .vqc-hud-bar-hu-row > .form {{
+    flex: 1 1 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+.gradio-container button.vqc-hud-btn {{
+    width: clamp(1.55rem, 3.2vh, 2rem) !important;
+    height: clamp(1.55rem, 3.2vh, 2rem) !important;
+    min-width: clamp(1.55rem, 3.2vh, 2rem) !important;
+    max-width: clamp(1.55rem, 3.2vh, 2rem) !important;
+    min-height: clamp(1.55rem, 3.2vh, 2rem) !important;
+    max-height: clamp(1.55rem, 3.2vh, 2rem) !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    border: 1px solid rgba(51, 255, 102, 0.55) !important;
+    border-radius: 3px !important;
+    background: rgba(0, 0, 0, 0.35) !important;
+    box-shadow: inset 0 0 8px rgba(51, 255, 102, 0.12) !important;
+    position: relative !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    cursor: pointer !important;
+}}
+.gradio-container button.vqc-hud-btn span {{
+    display: none !important;
+}}
+.gradio-container button.vqc-hud-btn::after {{
+    content: "" !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: clamp(6px, 1.1vh, 9px) !important;
+    height: clamp(6px, 1.1vh, 9px) !important;
+    border-radius: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    background: {HU_BUTTON_BASE_COLOR} !important;
+    box-shadow: 0 0 4px rgba(51, 255, 102, 0.35) !important;
+}}
+.gradio-container button.vqc-hud-btn.hu-active::after {{
+    background: {HU_BUTTON_ACTIVE_COLOR} !important;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.65) !important;
+}}
+.gradio-container button.vqc-hud-btn-headsup {{
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+}}
+.gradio-container .vqc-hud-display {{
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    padding: 0.25rem 0.45rem !important;
+    box-sizing: border-box !important;
+}}
+.gradio-container .vqc-cockpit-tools {{
+    flex-shrink: 0 !important;
+    width: 100% !important;
+    padding: 0 0.45rem !important;
+    border-top: 1px solid rgba(51, 255, 102, 0.18) !important;
+}}
+.gradio-container .vqc-cockpit-keypad {{
+    flex-shrink: 0 !important;
+    width: 100% !important;
+    margin-top: auto !important;
+    padding: 0 0.35rem 0.35rem !important;
+    border-top: 1px solid rgba(51, 255, 102, 0.28) !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+}}
+.gradio-container .vqc-cockpit-title {{
+    color: {_VQC_MATRIX_GREEN} !important;
+    font-weight: 700 !important;
+    font-size: clamp(0.58rem, 1.2vh, 0.68rem) !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+    padding: 0.2rem 0.55rem 0 !important;
+    text-shadow: 0 0 6px rgba(51, 255, 102, 0.35) !important;
 }}
 .gradio-container .vqc-demo-links {{
     display: flex !important;
@@ -1385,15 +1549,17 @@ footer {{
     margin-top: 0.1rem !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-terminal textarea,
-.gradio-container .vqc-optics-panel .vqc-optics-terminal input {{
-    background: rgba(2, 10, 4, 0.1) !important;
-    border: 2px inset #1a4d2a !important;
-    color: #33ff66 !important;
-    -webkit-text-fill-color: #33ff66 !important;
+.gradio-container .vqc-optics-panel .vqc-optics-terminal input,
+.gradio-container .vqc-hud-display .vqc-optics-terminal textarea {{
+    background: rgba(0, 0, 0, 0.22) !important;
+    border: 1px solid rgba(51, 255, 102, 0.38) !important;
+    color: {_VQC_MATRIX_GREEN} !important;
+    -webkit-text-fill-color: {_VQC_MATRIX_GREEN} !important;
     font-family: "Courier New", Courier, monospace !important;
-    font-size: 0.78rem !important;
-    line-height: 1.45 !important;
-    text-shadow: 0 0 6px rgba(51, 255, 102, 0.35) !important;
+    font-size: clamp(0.72rem, 1.55vh, 0.86rem) !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    text-shadow: 0 0 8px rgba(51, 255, 102, 0.45) !important;
     box-shadow:
         inset 0 0 18px rgba(0, 40, 12, 0.65),
         0 0 12px rgba(51, 255, 102, 0.08) !important;
@@ -1405,20 +1571,22 @@ footer {{
     letter-spacing: 0.14em !important;
     text-shadow: 0 0 6px rgba(61, 255, 122, 0.35) !important;
 }}
-.gradio-container .vqc-optics-panel .vqc-optics-terminal-wrap {{
-    background: rgba(2, 10, 4, 0.1) !important;
-    border: 1px solid #1a4d2a !important;
-    border-radius: 10px !important;
-    padding: 0.35rem 0.45rem 0.3rem !important;
-    margin: 0.15rem 0 0.25rem 0 !important;
+.gradio-container .vqc-optics-panel .vqc-optics-terminal-wrap,
+.gradio-container .vqc-hud-display .vqc-optics-terminal-wrap {{
+    background: rgba(0, 0, 0, 0.18) !important;
+    border: 1px solid rgba(51, 255, 102, 0.32) !important;
+    border-radius: 4px !important;
+    padding: 0.3rem 0.4rem !important;
+    margin: 0 !important;
 }}
 .gradio-container .vqc-animations-nav-row {{
     margin: 0.35rem 0 0.65rem 0 !important;
 }}
-.gradio-container .vqc-optics-panel .vqc-optics-terminal textarea {{
-    height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 290px)) !important;
-    min-height: 200px !important;
-    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 290px)) !important;
+.gradio-container .vqc-optics-panel .vqc-optics-terminal textarea,
+.gradio-container .vqc-hud-display .vqc-optics-terminal textarea {{
+    height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 340px)) !important;
+    min-height: 160px !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 340px)) !important;
     white-space: pre !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -1948,16 +2116,34 @@ def build_app() -> gr.Blocks:
         fill_width=True,
     ) as demo:
         with gr.Column(elem_classes=["vqc-fullscreen-shell"]):
-            with gr.Group(elem_classes=["vqc-optics-panel"]):
-                with gr.Row(elem_classes=["vqc-optics-panel-header"]):
-                    gr.HTML(OPTICS_LOGO_HTML)
-                    with gr.Column(elem_classes=["vqc-optics-panel-nav"], scale=1):
-                        gr.HTML(DEMO_LINKS_HTML)
-                with gr.Column(elem_classes=["vqc-terminal-stage"]):
+            with gr.Group(elem_classes=["vqc-cockpit"]):
+                gr.HTML(
+                    '<div class="vqc-cockpit-title">QVPIC · IDENTITY CONDUIT · HUD COCKPIT</div>'
+                )
+                hud_state = gr.State(_default_hud_state())
+                hud_all_btns: dict[str, gr.Button] = {}
+                with gr.Row(elem_classes=["vqc-hud-bar"]):
+                    hud_all_btns[HUD_HEADSUP_ID] = gr.Button(
+                        "",
+                        elem_classes=_hu_btn_classes(HUD_HEADSUP_ID, _default_hud_state()),
+                        scale=0,
+                        min_width=40,
+                        variant="secondary",
+                    )
+                    with gr.Row(elem_classes=["vqc-hud-bar-hu-row"], equal_height=True):
+                        for hu_id in HUD_BUTTON_IDS:
+                            hud_all_btns[hu_id] = gr.Button(
+                                "",
+                                elem_classes=_hu_btn_classes(hu_id, _default_hud_state()),
+                                scale=1,
+                                variant="secondary",
+                            )
+                gr.HTML(DEMO_LINKS_HTML)
+                with gr.Column(elem_classes=["vqc-hud-display"]):
                     optics_terminal = gr.Textbox(
-                        label="Demo terminal",
+                        label="HUD",
                         value="",
-                        lines=12,
+                        lines=10,
                         max_lines=80,
                         show_label=False,
                         interactive=False,
@@ -1969,7 +2155,7 @@ def build_app() -> gr.Blocks:
                         elem_classes=["vqc-oam-helix-host"],
                     )
                     lattice_figure = gr.Image(
-                        label="Braided lattice (after benchmark)",
+                        label="Braided lattice",
                         type="filepath",
                         visible=False,
                         show_label=False,
@@ -1987,7 +2173,7 @@ def build_app() -> gr.Blocks:
                     "clear": "clear",
                 }
 
-                with gr.Column(elem_classes=["vqc-controls-stack"]):
+                with gr.Column(elem_classes=["vqc-cockpit-tools", "vqc-controls-stack"]):
                     with gr.Row(elem_classes=["vqc-action-row"]):
                         benchmark_btn = gr.Button("Run benchmark", variant="primary", scale=1)
                         query_btn = gr.Button("Run query recall", variant="secondary", scale=1)
@@ -2045,7 +2231,7 @@ def build_app() -> gr.Blocks:
                                 elem_classes=["vqc-optics-dial-wrap"],
                             )
 
-                with gr.Column(elem_classes=["vqc-optics-keypad"]):
+                with gr.Column(elem_classes=["vqc-cockpit-keypad", "vqc-optics-keypad"]):
                     with gr.Row(elem_classes=["vqc-optics-dpad-row"], equal_height=True):
                         for nav_key in TERM_NAV_KEYS:
                             term_all_btns[nav_key] = gr.Button(
@@ -2090,6 +2276,14 @@ def build_app() -> gr.Blocks:
                             cancels=term_cancels,
                         )
                     )
+
+            hud_outputs = [hud_all_btns[btn_id] for btn_id in HUD_ALL_IDS] + [hud_state]
+            for btn_id in HUD_ALL_IDS:
+                hud_all_btns[btn_id].click(
+                    _make_hud_toggle_click(btn_id),
+                    inputs=[hud_state],
+                    outputs=hud_outputs,
+                )
 
             helix_key = _term_key_id(8)
             _bind_term_event(
