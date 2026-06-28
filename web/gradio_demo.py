@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 
 _DEFAULTS = default_run_params()
 _PHOSPHOR = "#00FF41"
-_PANEL_BG = "#b8bcc4"
+_PANEL_BG = "#353a42"
+_QUARTZ_GOLD = "#d4af37"
+_QUARTZ_GOLD_BRIGHT = "#f0d878"
+_QUARTZ_GOLD_DIM = "#a88b2e"
 
 TOP_TABS: tuple[str, ...] = ("chat", "settings", "history", "memory", "tools")
 TAB_LABELS: dict[str, str] = {
@@ -442,12 +445,16 @@ QUARTZ_CSS = f"""
     --quartz-phosphor: {_PHOSPHOR};
     --quartz-panel: {_PANEL_BG};
     --quartz-display: #0d0d0d;
-    --quartz-btn-top: #e8eaee;
-    --quartz-btn-mid: #a8adb8;
-    --quartz-btn-bot: #6e7380;
-    --quartz-border: #4a4f5c;
+    --quartz-gold: {_QUARTZ_GOLD};
+    --quartz-gold-bright: {_QUARTZ_GOLD_BRIGHT};
+    --quartz-gold-dim: {_QUARTZ_GOLD_DIM};
+    --quartz-btn-top: #6e7582;
+    --quartz-btn-mid: #4a515c;
+    --quartz-btn-bot: #2e333b;
+    --quartz-border: #1e2228;
+    --quartz-border-hi: #5c6370;
     --quartz-inset: 0.2in;
-    --quartz-mullion: #8a909c;
+    --quartz-mullion: #525862;
 }}
 html, body {{
     background: #1a1c22 !important;
@@ -468,14 +475,21 @@ html, body {{
     box-shadow: none !important;
 }}
 .gradio-container .quartz-panel {{
-    background: linear-gradient(180deg, #d4d8e0 0%, #b0b5c0 8%, #9aa0ac 92%, #7a808c 100%) !important;
-    border: 2px solid #5c616d !important;
+    background: linear-gradient(
+        165deg,
+        #4a5059 0%,
+        #3a3f47 12%,
+        #2e333b 55%,
+        #252930 92%,
+        #1a1d22 100%
+    ) !important;
+    border: 2px solid #1a1d22 !important;
     border-radius: 6px !important;
     padding: 0.45rem 0.55rem 0.35rem !important;
     box-shadow:
-        inset 0 2px 0 rgba(255,255,255,0.55),
-        inset 0 -3px 8px rgba(0,0,0,0.25),
-        0 8px 24px rgba(0,0,0,0.45) !important;
+        inset 0 1px 0 rgba(120,128,140,0.35),
+        inset 0 -4px 12px rgba(0,0,0,0.55),
+        0 8px 28px rgba(0,0,0,0.65) !important;
     height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
     max-height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
     display: flex !important;
@@ -494,25 +508,48 @@ html, body {{
     border: 1px solid var(--quartz-border) !important;
     border-radius: 4px 4px 0 0 !important;
     background: linear-gradient(180deg, var(--quartz-btn-top) 0%, var(--quartz-btn-mid) 55%, var(--quartz-btn-bot) 100%) !important;
-    color: #2a2e36 !important;
+    color: var(--quartz-gold-dim) !important;
+    -webkit-text-fill-color: var(--quartz-gold-dim) !important;
     font-family: "Segoe UI", system-ui, sans-serif !important;
     font-size: clamp(0.52rem, 1.1vh, 0.68rem) !important;
     font-weight: 700 !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
+    text-shadow:
+        0 1px 2px rgba(0,0,0,0.85),
+        0 0 4px rgba(212,175,55,0.2) !important;
     box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.7),
-        0 2px 4px rgba(0,0,0,0.35) !important;
+        inset 0 1px 0 rgba(140,148,160,0.35),
+        0 2px 5px rgba(0,0,0,0.45) !important;
     cursor: pointer !important;
 }}
+.gradio-container button.quartz-tab span {{
+    color: var(--quartz-gold-dim) !important;
+    -webkit-text-fill-color: var(--quartz-gold-dim) !important;
+    text-shadow:
+        0 1px 2px rgba(0,0,0,0.85),
+        0 0 4px rgba(212,175,55,0.2) !important;
+}}
 .gradio-container button.quartz-tab-active {{
-    background: linear-gradient(180deg, #ffffff 0%, #d8dce6 45%, #b8bdc8 100%) !important;
-    color: #101218 !important;
+    background: linear-gradient(180deg, #7a8290 0%, #5a6270 42%, #3d434d 100%) !important;
+    color: var(--quartz-gold-bright) !important;
+    -webkit-text-fill-color: var(--quartz-gold-bright) !important;
+    text-shadow:
+        0 0 10px rgba(240,216,120,0.55),
+        0 1px 2px rgba(0,0,0,0.9),
+        0 0 1px rgba(255,255,255,0.15) !important;
     box-shadow:
-        inset 0 1px 0 #fff,
-        0 0 12px rgba(255,255,255,0.45),
-        0 2px 6px rgba(0,0,0,0.3) !important;
-    border-bottom-color: #c8ccd6 !important;
+        inset 0 1px 0 rgba(180,188,200,0.4),
+        0 0 14px rgba(212,175,55,0.22),
+        0 2px 6px rgba(0,0,0,0.5) !important;
+    border-color: var(--quartz-border-hi) !important;
+}}
+.gradio-container button.quartz-tab-active span {{
+    color: var(--quartz-gold-bright) !important;
+    -webkit-text-fill-color: var(--quartz-gold-bright) !important;
+    text-shadow:
+        0 0 10px rgba(240,216,120,0.55),
+        0 1px 2px rgba(0,0,0,0.9) !important;
 }}
 .gradio-container .quartz-display-bay {{
     flex: 1 1 auto !important;
@@ -532,12 +569,18 @@ html, body {{
     flex-direction: column !important;
     padding: 0.38rem !important;
     border-radius: 4px !important;
-    background: linear-gradient(145deg, #c8ccd6 0%, #9aa0ac 35%, #7a808c 100%) !important;
-    border: 2px solid #5a5f6a !important;
+    background: linear-gradient(
+        155deg,
+        #5a6270 0%,
+        #454b56 30%,
+        #353a42 70%,
+        #2a2e35 100%
+    ) !important;
+    border: 2px solid #1e2228 !important;
     box-shadow:
-        inset 0 2px 0 rgba(255,255,255,0.5),
-        inset 0 -3px 10px rgba(0,0,0,0.35),
-        0 2px 8px rgba(0,0,0,0.25) !important;
+        inset 0 1px 0 rgba(130,138,150,0.3),
+        inset 0 -4px 12px rgba(0,0,0,0.5),
+        0 2px 10px rgba(0,0,0,0.4) !important;
     box-sizing: border-box !important;
 }}
 .gradio-container .quartz-display-shell > .block:first-child {{
