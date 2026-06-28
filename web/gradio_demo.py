@@ -517,19 +517,39 @@ QUARTZ_HEAD = """
                 + '</svg></div>';
             root.appendChild(stage);
         }
-        var frame = stage.querySelector('.quartz-torus-frame');
-        if (frame) {
-            frame.style.position = 'absolute';
-            frame.style.top = '50%';
-            frame.style.right = '5%';
-            frame.style.width = '34%';
-            frame.style.height = '62%';
-            frame.style.transform = 'translateY(-50%)';
-            frame.style.display = 'flex';
-            frame.style.alignItems = 'center';
-            frame.style.justifyContent = 'center';
-        }
         return stage.querySelector('.quartz-torus-mesh');
+    }
+    function fitTorusFrame() {
+        var mount = document.querySelector('.quartz-torus-stage');
+        var frame = mount && mount.querySelector('.quartz-torus-frame');
+        if (!mount || !frame) return;
+        var w = mount.clientWidth;
+        var h = mount.clientHeight;
+        if (w < 40 || h < 40) return;
+        var pad = Math.max(5, Math.round(Math.min(w, h) * 0.035));
+        var halfLeft = w * 0.5;
+        var halfW = w * 0.5 - pad;
+        var availH = h - pad * 2;
+        var size = Math.floor(Math.min(halfW, availH) * 0.94);
+        var originX = halfLeft + halfW * 0.5;
+        var originY = h * 0.5;
+        frame.style.position = 'absolute';
+        frame.style.left = Math.round(originX - size * 0.5) + 'px';
+        frame.style.top = Math.round(originY - size * 0.5) + 'px';
+        frame.style.width = size + 'px';
+        frame.style.height = size + 'px';
+        frame.style.right = 'auto';
+        frame.style.transform = 'none';
+        frame.style.display = 'flex';
+        frame.style.alignItems = 'center';
+        frame.style.justifyContent = 'center';
+    }
+    function torusMeshScale() {
+        var frame = document.querySelector('.quartz-torus-stage .quartz-torus-frame');
+        if (!frame) return 58;
+        var side = Math.min(frame.clientWidth, frame.clientHeight);
+        if (side < 1) return 58;
+        return Math.max(44, Math.min(92, side * 0.34));
     }
     function fitTorusMount() {
         var mount = document.querySelector('.quartz-torus-stage');
@@ -550,6 +570,8 @@ QUARTZ_HEAD = """
         mount.style.width = tr.width + 'px';
         mount.style.height = tr.height + 'px';
         mount.style.zIndex = '99999';
+        mount.style.overflow = 'hidden';
+        fitTorusFrame();
     }
     function fitDisplayBacking() {
         var backing = document.querySelector('.quartz-display-backing');
@@ -633,7 +655,6 @@ QUARTZ_HEAD = """
         var vSeg = 18;
         var cx = 110;
         var cy = 110;
-        var scale = 58;
 
         function rotatePoint(x, y, z) {
             var cx1 = Math.cos(state.rotX), sx1 = Math.sin(state.rotX);
@@ -674,6 +695,7 @@ QUARTZ_HEAD = """
         }
 
         function render() {
+            var scale = torusMeshScale();
             var parts = [];
             var uStep = (Math.PI * 2) / uSeg;
             var vStep = (Math.PI * 2) / vSeg;
@@ -1083,17 +1105,12 @@ html, body {{
     position: fixed !important;
     z-index: 99999 !important;
     pointer-events: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background: transparent !important;
     box-sizing: border-box !important;
 }}
 .quartz-torus-stage .quartz-torus-frame {{
     position: absolute !important;
-    top: 50% !important;
-    right: 5% !important;
-    width: 34% !important;
-    height: 62% !important;
-    transform: translateY(-50%) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -1123,7 +1140,7 @@ html, body {{
 .gradio-container .quartz-terminal textarea {{
     position: relative !important;
     z-index: 1 !important;
-    padding-right: 36% !important;
+    padding-right: 50% !important;
     background: var(--quartz-display) !important;
     background-color: var(--quartz-display) !important;
     color: var(--quartz-phosphor) !important;
