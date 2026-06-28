@@ -62,12 +62,7 @@ PANEL_SKIN_HTML = """
 <div class="quartz-skin quartz-skin--quartz-default" data-skin="quartz-default" aria-hidden="true">
   <div class="quartz-skin-case"></div>
   <div class="quartz-skin-tab-rail"></div>
-  <div class="quartz-skin-display-housing">
-    <span class="quartz-skin-bezel quartz-skin-bezel-top"></span>
-    <span class="quartz-skin-bezel quartz-skin-bezel-bottom"></span>
-    <span class="quartz-skin-bezel quartz-skin-bezel-left"></span>
-    <span class="quartz-skin-bezel quartz-skin-bezel-right"></span>
-  </div>
+  <div class="quartz-skin-display-frame"></div>
   <div class="quartz-skin-prog-tray"></div>
   <div class="quartz-skin-footer-strip"></div>
 </div>
@@ -491,15 +486,12 @@ QUARTZ_HEAD = """
         }
         alignGridWindow();
         fitSkinMetrics();
-        fitDisplayOverlay();
         fitDisplayBacking();
         ensureTorusStage();
         fitTorusMount();
     }
     function ensureTorusStage() {
-        var col = document.querySelector('.quartz-terminal-col');
-        if (!col) return null;
-        var stage = col.querySelector('.quartz-torus-stage');
+        var stage = document.querySelector('.quartz-torus-stage');
         if (!stage) {
             stage = document.createElement('div');
             stage.className = 'quartz-torus-stage';
@@ -511,21 +503,40 @@ QUARTZ_HEAD = """
                 + '<g class="quartz-torus-mesh"></g>'
                 + '<rect class="quartz-torus-core" x="106" y="106" width="8" height="8"></rect>'
                 + '</svg></div>';
-            col.appendChild(stage);
+            document.body.appendChild(stage);
+        }
+        var frame = stage.querySelector('.quartz-torus-frame');
+        if (frame) {
+            frame.style.position = 'absolute';
+            frame.style.top = '4%';
+            frame.style.right = '2%';
+            frame.style.width = '46%';
+            frame.style.height = '92%';
+            frame.style.display = 'flex';
+            frame.style.alignItems = 'center';
+            frame.style.justifyContent = 'center';
         }
         return stage.querySelector('.quartz-torus-mesh');
     }
     function fitTorusMount() {
         var mount = document.querySelector('.quartz-torus-stage');
         var ta = document.querySelector('.quartz-terminal textarea');
-        var col = document.querySelector('.quartz-terminal-col');
-        if (!mount || !ta || !col) return;
-        var cr = col.getBoundingClientRect();
+        if (!mount || !ta) {
+            if (mount) mount.style.display = 'none';
+            return;
+        }
         var tr = ta.getBoundingClientRect();
-        mount.style.top = (tr.top - cr.top) + 'px';
-        mount.style.left = (tr.left - cr.left) + 'px';
+        if (tr.width < 40 || tr.height < 40) {
+            mount.style.display = 'none';
+            return;
+        }
+        mount.style.display = 'block';
+        mount.style.position = 'fixed';
+        mount.style.top = tr.top + 'px';
+        mount.style.left = tr.left + 'px';
         mount.style.width = tr.width + 'px';
         mount.style.height = tr.height + 'px';
+        mount.style.zIndex = '99999';
     }
     function fitDisplayBacking() {
         var backing = document.querySelector('.quartz-display-backing');
@@ -538,40 +549,6 @@ QUARTZ_HEAD = """
         backing.style.left = (tr.left - cr.left) + 'px';
         backing.style.width = tr.width + 'px';
         backing.style.height = tr.height + 'px';
-    }
-    function fitDisplayOverlay() {
-        var panel = document.querySelector('.quartz-panel');
-        var skin = document.querySelector('.quartz-skin');
-        var col = document.querySelector('.quartz-terminal-col');
-        if (!panel || !skin || !col) return;
-        var pr = panel.getBoundingClientRect();
-        var sr = skin.getBoundingClientRect();
-        var cr = col.getBoundingClientRect();
-        var panelTop = Math.round(cr.top - pr.top);
-        var panelLeft = Math.round(cr.left - pr.left);
-        var skinTop = Math.round(cr.top - sr.top);
-        var skinLeft = Math.round(cr.left - sr.left);
-        var width = Math.round(cr.width);
-        var height = Math.round(cr.height);
-        document.documentElement.style.setProperty('--quartz-overlay-top', panelTop + 'px');
-        document.documentElement.style.setProperty('--quartz-overlay-left', panelLeft + 'px');
-        document.documentElement.style.setProperty('--quartz-overlay-width', width + 'px');
-        document.documentElement.style.setProperty('--quartz-overlay-height', height + 'px');
-        document.documentElement.style.setProperty('--quartz-aperture-top', skinTop + 'px');
-        document.documentElement.style.setProperty('--quartz-aperture-left', skinLeft + 'px');
-        document.documentElement.style.setProperty('--quartz-aperture-width', width + 'px');
-        document.documentElement.style.setProperty('--quartz-aperture-height', height + 'px');
-        var right = skinLeft + width;
-        var bottom = skinTop + height;
-        var clip = 'polygon(evenodd,'
-            + '0px 0px, ' + Math.round(sr.width) + 'px 0px, '
-            + Math.round(sr.width) + 'px ' + Math.round(sr.height) + 'px, 0px '
-            + Math.round(sr.height) + 'px, 0px 0px, '
-            + skinLeft + 'px ' + skinTop + 'px, ' + right + 'px ' + skinTop + 'px, '
-            + right + 'px ' + bottom + 'px, ' + skinLeft + 'px ' + bottom + 'px, '
-            + skinLeft + 'px ' + skinTop + 'px)';
-        document.documentElement.style.setProperty('--quartz-skin-clip', clip);
-        document.documentElement.classList.add('quartz-aperture-ready');
     }
     function fitSkinMetrics() {
         var tabs = document.querySelector('.quartz-top-tabs');
@@ -679,7 +656,7 @@ QUARTZ_HEAD = """
             var hue = 118 + glow * 18;
             return '<line x1="' + x1.toFixed(2) + '" y1="' + y1.toFixed(2)
                 + '" x2="' + x2.toFixed(2) + '" y2="' + y2.toFixed(2)
-                + '" stroke="hsl(' + hue + ', 88%, 52%)" stroke-width="' + width.toFixed(2)
+                + '" stroke="#00FF41" stroke-width="' + width.toFixed(2)
                 + '" stroke-opacity="' + opacity.toFixed(3) + '" />';
         }
 
@@ -767,6 +744,11 @@ QUARTZ_HEAD = """
     setTimeout(fitPanel, 800);
     setTimeout(bootQuartzTorus, 300);
     setTimeout(bootQuartzTorus, 1200);
+    setInterval(function() {
+        ensureTorusStage();
+        fitTorusMount();
+        if (!window.quartzTorus || !window.quartzTorus.ready) bootQuartzTorus();
+    }, 1500);
 })();
 </script>
 """
@@ -784,13 +766,10 @@ QUARTZ_CSS = f"""
     --quartz-border: #121418;
     --quartz-border-hi: #3a3f47;
     --quartz-inset: 0.2in;
-    --quartz-mullion: #3a3f47;
     --quartz-grid-line: rgba(90, 96, 104, 0.55);
     --quartz-skin-case-top: #2e333b;
     --quartz-skin-case-mid: #1e2228;
     --quartz-skin-case-bot: #0a0c0e;
-    --quartz-skin-housing-top: #353a42;
-    --quartz-skin-housing-bot: #14171c;
     --quartz-skin-tab-h: 2.5rem;
     --quartz-skin-prog-h: 3rem;
     --quartz-skin-footer-h: 1.4rem;
@@ -838,82 +817,10 @@ html, body {{
 }}
 
 
-.gradio-container .quartz-terminal-col > .block:first-child {{
-    position: absolute !important;
-    inset: 0 !important;
-    z-index: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    overflow: visible !important;
-}}
 .gradio-container .quartz-display-backing {{
     background: var(--quartz-display) !important;
     opacity: 1 !important;
     visibility: visible !important;
-}}
-.gradio-container .quartz-grid-on .quartz-skin {{
-    clip-path: var(--quartz-skin-clip, none) !important;
-    -webkit-clip-path: var(--quartz-skin-clip, none) !important;
-}}
-.gradio-container .quartz-grid-on .quartz-aperture-zone,
-.gradio-container .quartz-grid-on .quartz-aperture-zone > .block,
-.gradio-container .quartz-grid-on .quartz-aperture-zone > .form,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal > .block,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal > .form,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal .wrap,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal [data-testid="textbox"],
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal label,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal .input-container {{
-    background: transparent !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-}}
-.gradio-container .quartz-aperture-zone .quartz-display-backing,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-display-backing {{
-    background: var(--quartz-display) !important;
-    background-color: var(--quartz-display) !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-}}
-.gradio-container .quartz-aperture-zone .quartz-terminal textarea,
-.gradio-container .quartz-grid-on .quartz-aperture-zone .quartz-terminal textarea {{
-    background: var(--quartz-display) !important;
-    background-color: var(--quartz-display) !important;
-    border: 1px solid #1a3a1a !important;
-    box-shadow: inset 0 0 10px rgba(0,255,65,0.08) !important;
-}}
-.gradio-container .quartz-grid-on .quartz-display-bay,
-.gradio-container .quartz-grid-on .quartz-display-bay > .block,
-.gradio-container .quartz-grid-on .quartz-display-bay > .form,
-.gradio-container .quartz-grid-on .quartz-display-shell,
-.gradio-container .quartz-grid-on .quartz-display-shell > .block:not(:first-child),
-.gradio-container .quartz-grid-on .quartz-display-shell > .form,
-.gradio-container .quartz-grid-on .quartz-terminal-col > .block,
-.gradio-container .quartz-grid-on .quartz-terminal-col > .form,
-.gradio-container .quartz-grid-on .quartz-terminal,
-.gradio-container .quartz-grid-on .quartz-terminal > .block,
-.gradio-container .quartz-grid-on .quartz-terminal > .form,
-.gradio-container .quartz-grid-on .quartz-terminal .wrap,
-.gradio-container .quartz-grid-on .quartz-terminal [data-testid="textbox"],
-.gradio-container .quartz-grid-on .quartz-terminal label,
-.gradio-container .quartz-grid-on .quartz-terminal .input-container {{
-    background: transparent !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-}}
-.gradio-container .quartz-grid-on .quartz-content,
-.gradio-container .quartz-grid-on .quartz-content > .block,
-.gradio-container .quartz-grid-on .quartz-content > .form {{
-    background: transparent !important;
-    background-color: transparent !important;
-}}
-.gradio-container .quartz-grid-on .quartz-display-shell {{
-    background: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
 }}
 .gradio-container .block, .gradio-container .form {{
     background: transparent !important;
@@ -924,7 +831,6 @@ html, body {{
     position: relative !important;
     z-index: 1 !important;
     background: transparent !important;
-    isolation: isolate !important;
     border: none !important;
     border-radius: 0 !important;
     padding: 0.45rem 0.55rem 0.35rem !important;
@@ -933,17 +839,18 @@ html, body {{
     max-height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: hidden !important;
+    overflow: visible !important;
 }}
+.gradio-container .quartz-panel > .block.quartz-content-wrap,
 .gradio-container .quartz-panel > .block:not(.quartz-skin-mount),
 .gradio-container .quartz-panel > .form:not(.quartz-skin-mount) {{
     position: relative !important;
-    z-index: 10 !important;
+    z-index: 5 !important;
 }}
 .gradio-container .quartz-skin-mount {{
     position: absolute !important;
     inset: 0 !important;
-    z-index: 2 !important;
+    z-index: 1 !important;
     pointer-events: none !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -970,6 +877,7 @@ html, body {{
 .gradio-container .quartz-skin-case {{
     position: absolute !important;
     inset: 0 !important;
+    z-index: 1 !important;
     border-radius: 6px !important;
     background: linear-gradient(
         165deg,
@@ -985,9 +893,11 @@ html, body {{
         inset 0 -4px 12px rgba(0,0,0,0.55),
         0 8px 28px rgba(0,0,0,0.65) !important;
 }}
-.gradio-container .quartz-grid-off .quartz-skin {{
-    clip-path: none !important;
-    -webkit-clip-path: none !important;
+.gradio-container .quartz-skin-tab-rail,
+.gradio-container .quartz-skin-display-frame,
+.gradio-container .quartz-skin-prog-tray,
+.gradio-container .quartz-skin-footer-strip {{
+    z-index: 2 !important;
 }}
 .gradio-container .quartz-skin-tab-rail {{
     position: absolute !important;
@@ -1000,7 +910,7 @@ html, body {{
     border: 1px solid #121418 !important;
     box-shadow: inset 0 1px 0 rgba(90,98,110,0.22) !important;
 }}
-.gradio-container .quartz-skin-display-housing {{
+.gradio-container .quartz-skin-display-frame {{
     position: absolute !important;
     top: calc(0.45rem + var(--quartz-skin-tab-h) + 0.35rem) !important;
     left: calc(0.55rem + var(--quartz-inset)) !important;
@@ -1011,30 +921,12 @@ html, body {{
     ) !important;
     border-radius: 4px !important;
     background: transparent !important;
-    border: 2px solid #121418 !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.4) !important;
+    border: 2px solid #3a3f47 !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(0,0,0,0.65),
+        0 2px 10px rgba(0,0,0,0.4) !important;
+    pointer-events: none !important;
 }}
-.gradio-container .quartz-skin-bezel {{
-    position: absolute !important;
-    background: linear-gradient(180deg, #6a707a 0%, #3d434d 100%) !important;
-    box-shadow: inset 0 1px 0 rgba(120,128,140,0.3) !important;
-}}
-.gradio-container .quartz-skin-bezel-top,
-.gradio-container .quartz-skin-bezel-bottom {{
-    left: 0 !important;
-    right: 0 !important;
-    height: 0.42rem !important;
-}}
-.gradio-container .quartz-skin-bezel-top {{ top: 0 !important; }}
-.gradio-container .quartz-skin-bezel-bottom {{ bottom: 0 !important; }}
-.gradio-container .quartz-skin-bezel-left,
-.gradio-container .quartz-skin-bezel-right {{
-    top: 0 !important;
-    bottom: 0 !important;
-    width: 0.42rem !important;
-}}
-.gradio-container .quartz-skin-bezel-left {{ left: 0 !important; }}
-.gradio-container .quartz-skin-bezel-right {{ right: 0 !important; }}
 .gradio-container .quartz-skin-prog-tray {{
     position: absolute !important;
     left: 0.55rem !important;
@@ -1057,7 +949,7 @@ html, body {{
 }}
 .gradio-container .quartz-content {{
     position: relative !important;
-    z-index: 10 !important;
+    z-index: 5 !important;
     background: transparent !important;
     display: flex !important;
     flex-direction: column !important;
@@ -1128,20 +1020,9 @@ html, body {{
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
-}}
-.gradio-container .quartz-display-shell {{
     position: relative !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    padding: 0.38rem !important;
-    border-radius: 4px !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    box-sizing: border-box !important;
+    z-index: 5 !important;
+    overflow: visible !important;
 }}
 .gradio-container .quartz-display-backing {{
     position: absolute !important;
@@ -1164,7 +1045,7 @@ html, body {{
     border-radius: 2px !important;
     padding: 0.22rem 0.26rem 0.18rem !important;
     box-shadow: none !important;
-    margin: 0.42rem !important;
+    margin: 0.3rem !important;
     overflow: visible !important;
 }}
 .gradio-container .quartz-grid-off .quartz-terminal-col {{
@@ -1182,13 +1063,15 @@ html, body {{
     min-height: 0 !important;
     margin: 0 !important;
 }}
-.gradio-container .quartz-torus-stage {{
-    position: absolute !important;
-    z-index: 25 !important;
+.quartz-torus-stage {{
+    position: fixed !important;
+    z-index: 99999 !important;
     pointer-events: none !important;
     overflow: visible !important;
+    background: transparent !important;
+    box-sizing: border-box !important;
 }}
-.gradio-container .quartz-torus-frame {{
+.quartz-torus-stage .quartz-torus-frame {{
     position: absolute !important;
     top: 4% !important;
     right: 2% !important;
@@ -1197,24 +1080,26 @@ html, body {{
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    pointer-events: none !important;
 }}
-.gradio-container .quartz-torus-svg {{
+.quartz-torus-stage .quartz-torus-svg {{
     width: 100% !important;
     height: 100% !important;
     max-width: 100% !important;
     max-height: 100% !important;
     opacity: 1 !important;
+    overflow: visible !important;
     filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.45)) !important;
 }}
-.gradio-container .quartz-torus-mesh line {{
+.quartz-torus-stage .quartz-torus-mesh line {{
     vector-effect: non-scaling-stroke !important;
 }}
-.gradio-container .quartz-torus-orbit {{
+.quartz-torus-stage .quartz-torus-orbit {{
     fill: none !important;
     stroke: var(--torus-orbit) !important;
     stroke-width: 0.65 !important;
 }}
-.gradio-container .quartz-torus-core {{
+.quartz-torus-stage .quartz-torus-core {{
     fill: var(--torus-core) !important;
     stroke: none !important;
 }}
@@ -1423,7 +1308,7 @@ def build_app() -> gr.Blocks:
             gr.HTML(GRID_LAYER_HTML)
             with gr.Column(elem_classes=["quartz-panel"]):
                 gr.HTML(_panel_skin_html(), elem_classes=["quartz-skin-mount"])
-                with gr.Column(elem_classes=["quartz-content"]):
+                with gr.Column(elem_classes=["quartz-content", "quartz-content-wrap"]):
                     with gr.Row(elem_classes=["quartz-top-tabs"]):
                         for tab_id in TOP_TABS:
                             tab_btns[tab_id] = gr.Button(
@@ -1432,32 +1317,31 @@ def build_app() -> gr.Blocks:
                                 variant="secondary",
                             )
 
-                    with gr.Column(elem_classes=["quartz-display-bay", "quartz-aperture-zone"]):
-                        with gr.Column(elem_classes=["quartz-display-shell", "quartz-aperture-zone"]):
-                            with gr.Column(elem_classes=["quartz-terminal-col", "quartz-aperture-zone"]):
-                                gr.HTML(DISPLAY_BACKING_HTML)
-                                terminal = gr.Textbox(
-                                    value=INITIAL_TERMINAL,
-                                    label="Terminal",
+                    with gr.Column(elem_classes=["quartz-display-bay"]):
+                        with gr.Column(elem_classes=["quartz-terminal-col"]):
+                            gr.HTML(DISPLAY_BACKING_HTML)
+                            terminal = gr.Textbox(
+                                value=INITIAL_TERMINAL,
+                                label="Terminal",
+                                show_label=False,
+                                interactive=False,
+                                lines=12,
+                                max_lines=80,
+                                elem_classes=["quartz-terminal"],
+                            )
+                            with gr.Row(elem_classes=["quartz-input-row"]):
+                                cmd_input = gr.Textbox(
+                                    placeholder="Type command or message...",
                                     show_label=False,
-                                    interactive=False,
-                                    lines=12,
-                                    max_lines=80,
-                                    elem_classes=["quartz-terminal"],
+                                    max_lines=1,
+                                    scale=5,
+                                    elem_classes=["quartz-cmd-input"],
                                 )
-                                with gr.Row(elem_classes=["quartz-input-row"]):
-                                    cmd_input = gr.Textbox(
-                                        placeholder="Type command or message...",
-                                        show_label=False,
-                                        max_lines=1,
-                                        scale=5,
-                                        elem_classes=["quartz-cmd-input"],
-                                    )
-                                    send_btn = gr.Button(
-                                        "SEND",
-                                        scale=0,
-                                        elem_classes=_metallic_btn("quartz-send"),
-                                    )
+                                send_btn = gr.Button(
+                                    "SEND",
+                                    scale=0,
+                                    elem_classes=_metallic_btn("quartz-send"),
+                                )
 
                     with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
                         with gr.Row():
