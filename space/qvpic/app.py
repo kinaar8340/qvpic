@@ -69,13 +69,6 @@ PANEL_SKIN_HTML = """
 </div>
 """
 
-DISPLAY_OVERLAY_HTML = """
-<div class="quartz-display-overlay" aria-hidden="true">
-  <span class="quartz-skin-mullion quartz-skin-mullion-h"></span>
-  <span class="quartz-skin-mullion quartz-skin-mullion-v"></span>
-</div>
-"""
-
 PANEL_SKINS: dict[str, str] = {
     "quartz-default": PANEL_SKIN_HTML,
 }
@@ -617,10 +610,7 @@ html, body {{
     opacity: 0 !important;
     visibility: hidden !important;
 }}
-.gradio-container .quartz-grid-off .quartz-display-overlay-mount {{
-    opacity: 0 !important;
-    visibility: hidden !important;
-}}
+
 
 .gradio-container .quartz-terminal-col > .block:first-child {{
     position: absolute !important;
@@ -712,8 +702,8 @@ html, body {{
     flex-direction: column !important;
     overflow: hidden !important;
 }}
-.gradio-container .quartz-panel > .block:not(.quartz-skin-mount):not(.quartz-display-overlay-mount),
-.gradio-container .quartz-panel > .form:not(.quartz-skin-mount):not(.quartz-display-overlay-mount) {{
+.gradio-container .quartz-panel > .block:not(.quartz-skin-mount),
+.gradio-container .quartz-panel > .form:not(.quartz-skin-mount) {{
     position: relative !important;
     z-index: 10 !important;
 }}
@@ -791,35 +781,6 @@ html, body {{
     border: 2px solid #121418 !important;
     box-shadow: 0 2px 10px rgba(0,0,0,0.4) !important;
 }}
-.gradio-container .quartz-display-overlay-mount {{
-    position: absolute !important;
-    top: var(--quartz-overlay-top, 30%) !important;
-    left: var(--quartz-overlay-left, 12%) !important;
-    width: var(--quartz-overlay-width, 76%) !important;
-    height: var(--quartz-overlay-height, 40%) !important;
-    z-index: 15 !important;
-    pointer-events: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    overflow: visible !important;
-}}
-.gradio-container .quartz-display-overlay-mount > .block,
-.gradio-container .quartz-display-overlay-mount > .form {{
-    position: absolute !important;
-    inset: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    overflow: visible !important;
-}}
-.gradio-container .quartz-display-overlay {{
-    position: absolute !important;
-    inset: 0 !important;
-    pointer-events: none !important;
-}}
 .gradio-container .quartz-skin-bezel {{
     position: absolute !important;
     background: linear-gradient(180deg, #6a707a 0%, #3d434d 100%) !important;
@@ -841,43 +802,6 @@ html, body {{
 }}
 .gradio-container .quartz-skin-bezel-left {{ left: 0 !important; }}
 .gradio-container .quartz-skin-bezel-right {{ right: 0 !important; }}
-.gradio-container .quartz-skin-mullion {{
-    position: absolute !important;
-    z-index: 12 !important;
-    background: linear-gradient(
-        90deg,
-        #3a3f47 0%,
-        #6e7582 18%,
-        #525862 50%,
-        #6e7582 82%,
-        #3a3f47 100%
-    ) !important;
-    box-shadow:
-        0 0 0 1px rgba(0,0,0,0.65),
-        inset 0 1px 0 rgba(140,148,160,0.28) !important;
-}}
-.gradio-container .quartz-skin-mullion-h {{
-    left: 0.42rem !important;
-    right: 0.42rem !important;
-    top: 50% !important;
-    height: 0.38rem !important;
-    transform: translateY(-50%) !important;
-}}
-.gradio-container .quartz-skin-mullion-v {{
-    top: 0.42rem !important;
-    bottom: 0.42rem !important;
-    left: 50% !important;
-    width: 0.38rem !important;
-    transform: translateX(-50%) !important;
-    background: linear-gradient(
-        180deg,
-        #3a3f47 0%,
-        #6e7582 18%,
-        #525862 50%,
-        #6e7582 82%,
-        #3a3f47 100%
-    ) !important;
-}}
 .gradio-container .quartz-skin-prog-tray {{
     position: absolute !important;
     left: 0.55rem !important;
@@ -1312,8 +1236,6 @@ def build_app() -> gr.Blocks:
                         '<div class="quartz-footer-wrap"><span class="quartz-footer">'
                         "QUARTZ AI SYNTHESIZER</span></div>"
                     )
-
-                gr.HTML(DISPLAY_OVERLAY_HTML, elem_classes=["quartz-display-overlay-mount"])
 
         core_outputs = [terminal, cmd_input, ui_state]
         tune_inputs = [bake_steps, bandwidth, use_vqc, drift_samples, max_facts]
