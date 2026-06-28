@@ -44,6 +44,17 @@ PROG_PROMPTS: dict[str, str] = {
     "prog4": "Show topology braiding and drift protection",
 }
 
+DISPLAY_FRAME_HTML = """
+<div class="quartz-display-frame" aria-hidden="true">
+  <span class="quartz-bezel quartz-bezel-top"></span>
+  <span class="quartz-bezel quartz-bezel-bottom"></span>
+  <span class="quartz-bezel quartz-bezel-left"></span>
+  <span class="quartz-bezel quartz-bezel-right"></span>
+  <span class="quartz-mullion quartz-mullion-h"></span>
+  <span class="quartz-mullion quartz-mullion-v"></span>
+</div>
+"""
+
 INITIAL_TERMINAL = "\n".join(
     [
         "> SYSTEM READY — QVPIC v10.2 CONDUIT",
@@ -61,7 +72,7 @@ HELP_TEXT = "\n".join(
         "> SETTINGS: tune bake steps, bandwidth, drift samples",
         "> MEMORY: run full benchmark (bake → recall → drift)",
         "> TOOLS: repo links and CLI pointers",
-        "> NAV ENTER / SEND: submit command · EXEC: run recall/benchmark",
+        "> SEND / Enter key: submit command · EXEC: run recall/benchmark",
         "> PROG 1–4: load sample prompts into input",
         "> CLEAR: wipe terminal · MODE: toggle VQCEnhanced flag",
         f"> Repo: {GITHUB_URL}",
@@ -387,10 +398,17 @@ QUARTZ_HEAD = """
             if (el) chrome += el.offsetHeight;
         });
         chrome += 36;
+        var bay = document.querySelector('.quartz-display-bay');
+        if (bay) {
+            var rs = getComputedStyle(bay);
+            chrome += parseFloat(rs.marginTop) + parseFloat(rs.marginBottom);
+        }
         document.documentElement.style.setProperty('--quartz-chrome', chrome + 'px');
         var ta = document.querySelector('.quartz-terminal textarea');
         if (ta) {
-            var th = Math.max(120, h - chrome - 52);
+            var inputRow = document.querySelector('.quartz-input-row');
+            var inputH = inputRow ? inputRow.offsetHeight : 52;
+            var th = Math.max(120, h - chrome - inputH - 8);
             ta.style.height = th + 'px';
             ta.style.maxHeight = th + 'px';
         }
@@ -428,6 +446,8 @@ QUARTZ_CSS = f"""
     --quartz-btn-mid: #a8adb8;
     --quartz-btn-bot: #6e7380;
     --quartz-border: #4a4f5c;
+    --quartz-inset: 0.2in;
+    --quartz-mullion: #8a909c;
 }}
 html, body {{
     background: #1a1c22 !important;
@@ -494,23 +514,119 @@ html, body {{
         0 2px 6px rgba(0,0,0,0.3) !important;
     border-bottom-color: #c8ccd6 !important;
 }}
-.gradio-container .quartz-main {{
+.gradio-container .quartz-display-bay {{
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    gap: 0.35rem !important;
-    align-items: stretch !important;
+    width: 100% !important;
+    margin: var(--quartz-inset) !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.gradio-container .quartz-display-shell {{
+    position: relative !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0.38rem !important;
+    border-radius: 4px !important;
+    background: linear-gradient(145deg, #c8ccd6 0%, #9aa0ac 35%, #7a808c 100%) !important;
+    border: 2px solid #5a5f6a !important;
+    box-shadow:
+        inset 0 2px 0 rgba(255,255,255,0.5),
+        inset 0 -3px 10px rgba(0,0,0,0.35),
+        0 2px 8px rgba(0,0,0,0.25) !important;
+    box-sizing: border-box !important;
+}}
+.gradio-container .quartz-display-shell > .block:first-child {{
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 6 !important;
+    pointer-events: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+.gradio-container .quartz-display-frame {{
+    position: absolute !important;
+    inset: 0.38rem !important;
+    pointer-events: none !important;
+    z-index: 6 !important;
+}}
+.gradio-container .quartz-bezel {{
+    position: absolute !important;
+    background: linear-gradient(180deg, #b8bdc8 0%, #6e7380 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.45) !important;
+}}
+.gradio-container .quartz-bezel-top,
+.gradio-container .quartz-bezel-bottom {{
+    left: 0 !important;
+    right: 0 !important;
+    height: 0.42rem !important;
+}}
+.gradio-container .quartz-bezel-top {{ top: 0 !important; }}
+.gradio-container .quartz-bezel-bottom {{ bottom: 0 !important; }}
+.gradio-container .quartz-bezel-left,
+.gradio-container .quartz-bezel-right {{
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 0.42rem !important;
+}}
+.gradio-container .quartz-bezel-left {{ left: 0 !important; }}
+.gradio-container .quartz-bezel-right {{ right: 0 !important; }}
+.gradio-container .quartz-mullion {{
+    position: absolute !important;
+    background: linear-gradient(
+        90deg,
+        #6a707a 0%,
+        #d0d4dc 18%,
+        #9aa0ac 50%,
+        #d0d4dc 82%,
+        #6a707a 100%
+    ) !important;
+    box-shadow:
+        0 0 0 1px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.35) !important;
+}}
+.gradio-container .quartz-mullion-h {{
+    left: 0.42rem !important;
+    right: 0.42rem !important;
+    top: 50% !important;
+    height: 0.38rem !important;
+    transform: translateY(-50%) !important;
+}}
+.gradio-container .quartz-mullion-v {{
+    top: 0.42rem !important;
+    bottom: 0.42rem !important;
+    left: 50% !important;
+    width: 0.38rem !important;
+    transform: translateX(-50%) !important;
+    background: linear-gradient(
+        180deg,
+        #6a707a 0%,
+        #d0d4dc 18%,
+        #9aa0ac 50%,
+        #d0d4dc 82%,
+        #6a707a 100%
+    ) !important;
 }}
 .gradio-container .quartz-terminal-col {{
     position: relative !important;
+    z-index: 1 !important;
     min-width: 0 !important;
     min-height: 0 !important;
+    flex: 1 1 auto !important;
     display: flex !important;
     flex-direction: column !important;
-    background: #1a1a1a !important;
-    border: 3px solid #080808 !important;
-    border-radius: 4px !important;
-    padding: 0.28rem 0.32rem 0.22rem !important;
-    box-shadow: inset 0 0 18px rgba(0,0,0,0.85) !important;
+    background: var(--quartz-display) !important;
+    border: 2px solid #050505 !important;
+    border-radius: 2px !important;
+    padding: 0.22rem 0.26rem 0.18rem !important;
+    box-shadow: inset 0 0 22px rgba(0,0,0,0.92) !important;
+    margin: 0.42rem !important;
 }}
 .gradio-container .quartz-terminal {{
     flex: 1 1 auto !important;
@@ -538,6 +654,7 @@ html, body {{
     pointer-events: none !important;
     position: absolute !important;
     inset: 0 !important;
+    z-index: 4 !important;
     background: repeating-linear-gradient(
         0deg,
         transparent 0px,
@@ -545,7 +662,7 @@ html, body {{
         rgba(0,0,0,0.12) 2px,
         rgba(0,0,0,0.12) 3px
     ) !important;
-    opacity: 0.35 !important;
+    opacity: 0.3 !important;
     border-radius: 2px !important;
 }}
 .gradio-container .quartz-input-row {{
@@ -573,24 +690,6 @@ html, body {{
     font-size: clamp(0.48rem, 1vh, 0.58rem) !important;
     letter-spacing: 0.1em !important;
 }}
-.gradio-container .quartz-nav-col {{
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 0.22rem !important;
-    padding: 0.15rem 0.1rem !important;
-    min-width: clamp(5.5rem, 14vw, 8rem) !important;
-}}
-.gradio-container .quartz-nav-label {{
-    color: #3a3e48 !important;
-    font-size: clamp(0.48rem, 1vh, 0.58rem) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.2em !important;
-    margin-bottom: 0.15rem !important;
-    text-align: center !important;
-    width: 100% !important;
-}}
 .gradio-container button.quartz-btn {{
     border: 1px solid var(--quartz-border) !important;
     border-radius: 4px !important;
@@ -611,29 +710,6 @@ html, body {{
 .gradio-container button.quartz-btn-pulse {{
     filter: brightness(0.92) !important;
     box-shadow: inset 0 2px 6px rgba(0,0,0,0.35) !important;
-}}
-.gradio-container button.quartz-nav {{
-    width: clamp(3.2rem, 7.5vw, 4.5rem) !important;
-    min-height: clamp(1.35rem, 2.8vh, 1.75rem) !important;
-    font-size: clamp(0.42rem, 0.88vh, 0.52rem) !important;
-    letter-spacing: 0.06em !important;
-    white-space: pre-line !important;
-    line-height: 1.15 !important;
-    padding: 0.15rem 0.1rem !important;
-}}
-.gradio-container button.quartz-nav-mid {{
-    width: clamp(2.8rem, 6.5vw, 3.8rem) !important;
-}}
-.gradio-container button.quartz-enter {{
-    width: clamp(3.2rem, 7.5vw, 4.5rem) !important;
-    min-height: clamp(1.55rem, 3.2vh, 2rem) !important;
-    margin-top: 0.12rem !important;
-    font-size: clamp(0.5rem, 1.05vh, 0.62rem) !important;
-    letter-spacing: 0.14em !important;
-}}
-.gradio-container .quartz-nav-mid-row {{
-    gap: 0.22rem !important;
-    justify-content: center !important;
 }}
 .gradio-container .quartz-prog-row {{
     gap: 0.22rem !important;
@@ -720,54 +796,32 @@ def build_app() -> gr.Blocks:
                         variant="secondary",
                     )
 
-            with gr.Row(elem_classes=["quartz-main"]):
-                with gr.Column(scale=7, elem_classes=["quartz-terminal-col"]):
-                    terminal = gr.Textbox(
-                        value=INITIAL_TERMINAL,
-                        label="Terminal",
-                        show_label=False,
-                        interactive=False,
-                        lines=12,
-                        max_lines=80,
-                        elem_classes=["quartz-terminal"],
-                    )
-                    with gr.Row(elem_classes=["quartz-input-row"]):
-                        cmd_input = gr.Textbox(
-                            placeholder="Type command or message...",
+            with gr.Column(elem_classes=["quartz-display-bay"]):
+                with gr.Column(elem_classes=["quartz-display-shell"]):
+                    gr.HTML(DISPLAY_FRAME_HTML)
+                    with gr.Column(elem_classes=["quartz-terminal-col"]):
+                        terminal = gr.Textbox(
+                            value=INITIAL_TERMINAL,
+                            label="Terminal",
                             show_label=False,
-                            max_lines=1,
-                            scale=5,
-                            elem_classes=["quartz-cmd-input"],
+                            interactive=False,
+                            lines=12,
+                            max_lines=80,
+                            elem_classes=["quartz-terminal"],
                         )
-                        send_btn = gr.Button(
-                            "SEND",
-                            scale=0,
-                            elem_classes=_metallic_btn("quartz-send"),
-                        )
-
-                with gr.Column(scale=3, elem_classes=["quartz-nav-col"]):
-                    gr.HTML('<div class="quartz-nav-label">NAV</div>')
-                    nav_up = gr.Button(
-                        "▲\nUP",
-                        elem_classes=_metallic_btn("quartz-nav"),
-                    )
-                    with gr.Row(elem_classes=["quartz-nav-mid-row"]):
-                        nav_left = gr.Button(
-                            "◀\nLEFT",
-                            elem_classes=_metallic_btn("quartz-nav", "quartz-nav-mid"),
-                        )
-                        nav_right = gr.Button(
-                            "▶\nRIGHT",
-                            elem_classes=_metallic_btn("quartz-nav", "quartz-nav-mid"),
-                        )
-                    nav_down = gr.Button(
-                        "▼\nDOWN",
-                        elem_classes=_metallic_btn("quartz-nav"),
-                    )
-                    nav_enter = gr.Button(
-                        "ENTER",
-                        elem_classes=_metallic_btn("quartz-nav", "quartz-enter"),
-                    )
+                        with gr.Row(elem_classes=["quartz-input-row"]):
+                            cmd_input = gr.Textbox(
+                                placeholder="Type command or message...",
+                                show_label=False,
+                                max_lines=1,
+                                scale=5,
+                                elem_classes=["quartz-cmd-input"],
+                            )
+                            send_btn = gr.Button(
+                                "SEND",
+                                scale=0,
+                                elem_classes=_metallic_btn("quartz-send"),
+                            )
 
             with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
                 with gr.Row():
@@ -834,34 +888,6 @@ def build_app() -> gr.Blocks:
 
         send_btn.click(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
         cmd_input.submit(_handle_send, inputs=[cmd_input, terminal, ui_state], outputs=core_outputs)
-
-        nav_enter.click(
-            _make_nav_handler("enter"),
-            inputs=[terminal, ui_state, cmd_input],
-            outputs=core_outputs,
-        )
-        nav_up.click(
-            _make_nav_handler("up"),
-            inputs=[terminal, ui_state, cmd_input],
-            outputs=core_outputs,
-            js="() => { window.quartzScrollUp && window.quartzScrollUp(); }",
-        )
-        nav_down.click(
-            _make_nav_handler("down"),
-            inputs=[terminal, ui_state, cmd_input],
-            outputs=core_outputs,
-            js="() => { window.quartzScrollDown && window.quartzScrollDown(); }",
-        )
-        nav_left.click(
-            _make_nav_handler("left"),
-            inputs=[terminal, ui_state, cmd_input],
-            outputs=core_outputs,
-        )
-        nav_right.click(
-            _make_nav_handler("right"),
-            inputs=[terminal, ui_state, cmd_input],
-            outputs=core_outputs,
-        )
 
         for prog_id, btn in prog_btns.items():
             btn.click(
