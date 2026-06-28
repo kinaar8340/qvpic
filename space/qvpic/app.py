@@ -474,10 +474,18 @@ QUARTZ_HEAD = """
         if (!panel || !col) return;
         var pr = panel.getBoundingClientRect();
         var cr = col.getBoundingClientRect();
-        document.documentElement.style.setProperty('--quartz-overlay-top', (cr.top - pr.top) + 'px');
-        document.documentElement.style.setProperty('--quartz-overlay-left', (cr.left - pr.left) + 'px');
-        document.documentElement.style.setProperty('--quartz-overlay-width', cr.width + 'px');
-        document.documentElement.style.setProperty('--quartz-overlay-height', cr.height + 'px');
+        var top = Math.round(cr.top - pr.top);
+        var left = Math.round(cr.left - pr.left);
+        var width = Math.round(cr.width);
+        var height = Math.round(cr.height);
+        document.documentElement.style.setProperty('--quartz-overlay-top', top + 'px');
+        document.documentElement.style.setProperty('--quartz-overlay-left', left + 'px');
+        document.documentElement.style.setProperty('--quartz-overlay-width', width + 'px');
+        document.documentElement.style.setProperty('--quartz-overlay-height', height + 'px');
+        document.documentElement.style.setProperty('--quartz-aperture-top', top + 'px');
+        document.documentElement.style.setProperty('--quartz-aperture-left', left + 'px');
+        document.documentElement.style.setProperty('--quartz-aperture-width', width + 'px');
+        document.documentElement.style.setProperty('--quartz-aperture-height', height + 'px');
     }
     function fitSkinMetrics() {
         var tabs = document.querySelector('.quartz-top-tabs');
@@ -581,7 +589,7 @@ html, body {{
 .gradio-container .quartz-grid-layer {{
     position: fixed !important;
     inset: 0 !important;
-    z-index: 1 !important;
+    z-index: 0 !important;
     pointer-events: none !important;
     background-color: #000000 !important;
     background-image:
@@ -640,10 +648,18 @@ html, body {{
 .gradio-container .quartz-grid-on .quartz-terminal > .block,
 .gradio-container .quartz-grid-on .quartz-terminal > .form,
 .gradio-container .quartz-grid-on .quartz-terminal .wrap,
-.gradio-container .quartz-grid-on .quartz-terminal [data-testid="textbox"] {{
+.gradio-container .quartz-grid-on .quartz-terminal [data-testid="textbox"],
+.gradio-container .quartz-grid-on .quartz-terminal label,
+.gradio-container .quartz-grid-on .quartz-terminal .input-container {{
     background: transparent !important;
     background-color: transparent !important;
     box-shadow: none !important;
+}}
+.gradio-container .quartz-grid-on .quartz-content,
+.gradio-container .quartz-grid-on .quartz-content > .block,
+.gradio-container .quartz-grid-on .quartz-content > .form {{
+    background: transparent !important;
+    background-color: transparent !important;
 }}
 .gradio-container .quartz-grid-on .quartz-display-shell {{
     background: transparent !important;
@@ -657,8 +673,9 @@ html, body {{
 }}
 .gradio-container .quartz-panel {{
     position: relative !important;
-    z-index: 2 !important;
+    z-index: 1 !important;
     background: transparent !important;
+    isolation: isolate !important;
     border: none !important;
     border-radius: 0 !important;
     padding: 0.45rem 0.55rem 0.35rem !important;
@@ -669,10 +686,15 @@ html, body {{
     flex-direction: column !important;
     overflow: hidden !important;
 }}
+.gradio-container .quartz-panel > .block:not(.quartz-skin-mount):not(.quartz-display-overlay-mount),
+.gradio-container .quartz-panel > .form:not(.quartz-skin-mount):not(.quartz-display-overlay-mount) {{
+    position: relative !important;
+    z-index: 10 !important;
+}}
 .gradio-container .quartz-skin-mount {{
     position: absolute !important;
     inset: 0 !important;
-    z-index: 8 !important;
+    z-index: 2 !important;
     pointer-events: none !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -713,6 +735,32 @@ html, body {{
         inset 0 1px 0 rgba(120,128,140,0.35),
         inset 0 -4px 12px rgba(0,0,0,0.55),
         0 8px 28px rgba(0,0,0,0.65) !important;
+    -webkit-mask-image:
+        linear-gradient(#fff 0 0),
+        linear-gradient(#fff 0 0) !important;
+    -webkit-mask-size:
+        100% 100%,
+        var(--quartz-aperture-width, 0px) var(--quartz-aperture-height, 0px) !important;
+    -webkit-mask-position:
+        0 0,
+        var(--quartz-aperture-left, 50%) var(--quartz-aperture-top, 50%) !important;
+    -webkit-mask-repeat: no-repeat !important;
+    -webkit-mask-composite: xor !important;
+    mask-image:
+        linear-gradient(#fff 0 0),
+        linear-gradient(#fff 0 0) !important;
+    mask-size:
+        100% 100%,
+        var(--quartz-aperture-width, 0px) var(--quartz-aperture-height, 0px) !important;
+    mask-position:
+        0 0,
+        var(--quartz-aperture-left, 50%) var(--quartz-aperture-top, 50%) !important;
+    mask-repeat: no-repeat !important;
+    mask-composite: exclude !important;
+}}
+.gradio-container .quartz-grid-off .quartz-skin-case {{
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
 }}
 .gradio-container .quartz-skin-tab-rail {{
     position: absolute !important;
@@ -745,7 +793,7 @@ html, body {{
     left: var(--quartz-overlay-left, 12%) !important;
     width: var(--quartz-overlay-width, 76%) !important;
     height: var(--quartz-overlay-height, 40%) !important;
-    z-index: 12 !important;
+    z-index: 15 !important;
     pointer-events: none !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -849,6 +897,7 @@ html, body {{
 .gradio-container .quartz-content {{
     position: relative !important;
     z-index: 10 !important;
+    background: transparent !important;
     display: flex !important;
     flex-direction: column !important;
     flex: 1 1 auto !important;
@@ -950,16 +999,21 @@ html, body {{
     flex: 1 1 auto !important;
     display: flex !important;
     flex-direction: column !important;
-    background: var(--quartz-display) !important;
-    border: 2px solid #050505 !important;
+    background: transparent !important;
+    border: none !important;
     border-radius: 2px !important;
     padding: 0.22rem 0.26rem 0.18rem !important;
-    box-shadow: inset 0 0 22px rgba(0,0,0,0.92) !important;
+    box-shadow: none !important;
     margin: 0.42rem !important;
+}}
+.gradio-container .quartz-grid-off .quartz-terminal-col {{
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }}
 .gradio-container .quartz-grid-on .quartz-terminal-col {{
     background: transparent !important;
-    border-color: transparent !important;
+    border: none !important;
     box-shadow: none !important;
 }}
 .gradio-container .quartz-terminal {{
@@ -968,7 +1022,7 @@ html, body {{
     margin: 0 !important;
 }}
 .gradio-container .quartz-terminal textarea {{
-    background: var(--quartz-display) !important;
+    background: transparent !important;
     color: var(--quartz-phosphor) !important;
     -webkit-text-fill-color: var(--quartz-phosphor) !important;
     font-family: "Courier New", Courier, monospace !important;
@@ -988,7 +1042,7 @@ html, body {{
     box-shadow: none !important;
 }}
 .gradio-container .quartz-grid-off .quartz-terminal textarea {{
-    background: var(--quartz-display) !important;
+    background: transparent !important;
 }}
 .gradio-container .quartz-terminal-col::after {{
     content: "" !important;
