@@ -822,15 +822,7 @@ html, body { background-color: #0a0818 !important; }
         var root = document.documentElement;
         root.style.setProperty('--vqc-vh', h + 'px');
         root.style.setProperty('--vqc-vw', w + 'px');
-        root.style.setProperty('--vqc-vh-num', String(h));
-        var targets = [document.documentElement, document.body];
-        var gc = document.querySelector('.gradio-container');
-        if (gc) targets.push(gc);
-        targets.forEach(function(el) {
-            el.style.height = h + 'px';
-            el.style.maxHeight = h + 'px';
-            el.style.overflow = 'hidden';
-        });
+        root.style.setProperty('--vqc-chrome', '290px');
     }
     applyViewportFit();
     window.addEventListener('resize', applyViewportFit);
@@ -866,66 +858,35 @@ HFB_CSS = f"""
 }}
 html {{
     background-color: #0a0818 !important;
-    height: var(--vqc-vh, 100dvh) !important;
-    max-height: var(--vqc-vh, 100dvh) !important;
-    overflow: hidden !important;
 }}
 body {{
     background: transparent !important;
     background-color: transparent !important;
     color: #e8e0f8 !important;
-    height: var(--vqc-vh, 100dvh) !important;
-    max-height: var(--vqc-vh, 100dvh) !important;
     width: 100% !important;
-    overflow: hidden !important;
-    position: relative !important;
+    overflow-x: hidden !important;
     margin: 0 !important;
 }}
 #root, .app {{
     background: #0a0818 !important;
     background-color: #0a0818 !important;
-    height: var(--vqc-vh, 100dvh) !important;
-    max-height: var(--vqc-vh, 100dvh) !important;
     width: 100% !important;
-    overflow: hidden !important;
 }}
 .gradio-container {{
     position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: var(--vqc-vh, 100dvh) !important;
-    max-height: var(--vqc-vh, 100dvh) !important;
     padding: 0 !important;
     margin: 0 !important;
     background: #0a0818 !important;
     background-color: #0a0818 !important;
-    overflow: hidden !important;
     box-sizing: border-box !important;
 }}
-.gradio-container .main,
-.gradio-container .wrap,
-.gradio-container .contain {{
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-}}
-.gradio-container .vqc-fullscreen-shell,
-.gradio-container .vqc-fullscreen-shell > .block,
-.gradio-container .vqc-fullscreen-shell > .form,
-.gradio-container .vqc-fullscreen-shell > .column {{
+.gradio-container .vqc-fullscreen-shell {{
     width: 100% !important;
     max-width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-    flex: 1 1 auto !important;
 }}
 .gradio-container .vqc-demo-links {{
     display: flex !important;
@@ -936,32 +897,8 @@ body {{
     padding: 0 !important;
 }}
 .gradio-container .vqc-terminal-stage {{
-    flex: 1 1 58% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: clamp(180px, 46vh, 520px) !important;
     width: 100% !important;
-    overflow: hidden !important;
-}}
-.gradio-container .vqc-terminal-stage > .block,
-.gradio-container .vqc-terminal-stage > .form,
-.gradio-container .vqc-terminal-stage > .column {{
-    flex: 1 1 auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    overflow: hidden !important;
-}}
-.gradio-container .vqc-terminal-stage .vqc-optics-terminal,
-.gradio-container .vqc-terminal-stage .vqc-optics-terminal > .form,
-.gradio-container .vqc-terminal-stage .vqc-optics-terminal .wrap,
-.gradio-container .vqc-terminal-stage .vqc-optics-terminal-wrap {{
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
+    margin: 0.2rem 0 !important;
 }}
 .gradio-container .vqc-lattice-compact {{
     flex: 0 0 auto !important;
@@ -974,10 +911,7 @@ body {{
     object-fit: contain !important;
 }}
 .gradio-container .vqc-controls-stack {{
-    flex: 0 0 auto !important;
-    flex-shrink: 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
+    width: 100% !important;
 }}
 .gradio-container .vqc-tune-accordion {{
     flex: 0 0 auto !important;
@@ -1290,9 +1224,7 @@ footer {{
     background: rgba(10, 8, 24, 0.35) !important;
 }}
 .gradio-container .vqc-optics-panel,
-.gradio-container .vqc-optics-panel > fieldset,
-.gradio-container .vqc-optics-panel > .form,
-.gradio-container .vqc-optics-panel > .block {{
+.gradio-container .vqc-optics-panel > fieldset {{
     background: linear-gradient(165deg, #2a1810 0%, #1a1008 38%, #120c06 100%) !important;
     border: none !important;
     border-top: 3px solid #6b4f1d !important;
@@ -1300,25 +1232,11 @@ footer {{
     box-shadow:
         inset 0 2px 8px rgba(255, 220, 150, 0.08),
         inset 0 -4px 14px rgba(0, 0, 0, 0.55) !important;
-    padding: 0 clamp(0.45rem, 1.2vw, 0.85rem) clamp(0.35rem, 1vh, 0.65rem) !important;
+    padding: 0 clamp(0.45rem, 1.2vw, 0.85rem) 0.5rem !important;
     margin: 0 !important;
-    gap: 0 !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
     width: 100% !important;
     max-width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
     box-sizing: border-box !important;
-    overflow: hidden !important;
-}}
-.gradio-container .vqc-optics-panel > .gap {{
-    display: none !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
 }}
 .gradio-container .vqc-optics-panel > .block,
 .gradio-container .vqc-optics-panel .block {{
@@ -1492,28 +1410,22 @@ footer {{
     border: 1px solid #1a4d2a !important;
     border-radius: 10px !important;
     padding: 0.35rem 0.45rem 0.3rem !important;
-    margin: 0.25rem 0 0.3rem 0 !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
+    margin: 0.15rem 0 0.25rem 0 !important;
 }}
 .gradio-container .vqc-animations-nav-row {{
     margin: 0.35rem 0 0.65rem 0 !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-terminal textarea {{
-    min-height: 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    flex: 1 1 auto !important;
+    height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 290px)) !important;
+    min-height: 200px !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 290px)) !important;
     white-space: pre !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     resize: none !important;
     font-size: clamp(0.68rem, 1.45vh, 0.78rem) !important;
     line-height: 1.35 !important;
+    box-sizing: border-box !important;
 }}
 .gradio-container .vqc-oam-helix-scan {{
     position: relative !important;
@@ -1609,8 +1521,6 @@ footer {{
     box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.55) !important;
     flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    max-height: clamp(108px, 21vh, 168px) !important;
-    overflow: hidden !important;
 }}
 .gradio-container .vqc-optics-keypad > .block,
 .gradio-container .vqc-optics-keypad .block {{
@@ -1804,16 +1714,7 @@ footer {{
     font-size: 0.62rem !important;
     padding: 0.05rem !important;
 }}
-.gradio-container .vqc-fullscreen-shell .gap,
-.gradio-container .vqc-optics-panel .gap,
-.gradio-container .vqc-terminal-stage .gap,
-.gradio-container .vqc-controls-stack .gap,
-.gradio-container .vqc-optics-keypad .gap {{
-    display: none !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}}
+
 .gradio-container .vqc-optics-panel .vqc-optics-dial-row {{
     gap: 0.65rem !important;
     align-items: stretch !important;
@@ -2038,13 +1939,6 @@ def run_query_terminal(
 
 
 def build_app() -> gr.Blocks:
-    on_hf = is_hf_space()
-    lattice_info = (
-        "Lattice render on HF uses reduced samples — first run downloads embedder weights"
-        if on_hf
-        else "Renders braided lattice PNG after benchmark completes"
-    )
-
     with gr.Blocks(
         title="QVPIC — Identity Conduit Demo",
         analytics_enabled=False,
