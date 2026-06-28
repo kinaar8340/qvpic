@@ -2,7 +2,13 @@
 
 How to use **Quaternion Vortex Persistent Identity Conduit (QVPIC)** as a drift-resistant memory layer in real agent systems — with benchmarks, topology context, and copy-paste entry points.
 
-**Live demo:** [huggingface.co/spaces/kinaar111/qvpic](https://huggingface.co/spaces/kinaar111/qvpic) → HOME → page 2 → **Guided Tour**
+## Try the live demo
+
+**[Open QUARTZ AI SYNTHESIZER →](https://huggingface.co/spaces/kinaar111/qvpic)** (no install)
+
+`HOME` → `9` SEND → `1` SEND (Guided Tour) → **MEMORY** → `benchmark` SEND
+
+Local equivalent: `python examples/agent_memory_integration.py`
 
 ---
 

@@ -4,15 +4,27 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![Coverage](https://codecov.io/gh/kinaar8340/qvpic/branch/main/graph/badge.svg)
+[![HF Space](https://img.shields.io/badge/🤗%20Live%20Demo-kinaar111%2Fqvpic-yellow)](https://huggingface.co/spaces/kinaar111/qvpic)
 
 ![Banner](images/qvpic.png)
 
 **Geometric deep-learning memory architecture for drift-resistant persistent identity in AI agents**  
 **Software embodiment of the Vortex Quaternion Conduit (VQC) patent**
 
-**Current date context: June 2026**
+## Try the live demo (no install)
 
-**Try it now (no install):** [QUARTZ AI SYNTHESIZER HF Space](https://huggingface.co/spaces/kinaar111/qvpic) — HOME → page 2 → **Guided Tour (Onboarding)**
+**[QUARTZ AI SYNTHESIZER on Hugging Face →](https://huggingface.co/spaces/kinaar111/qvpic)**
+
+| Step | Action |
+|------|--------|
+| 1 | Open the Space → click **HOME** (red LED under CHAT) |
+| 2 | Type `9` → **SEND** (next menu page) |
+| 3 | Type `1` → **SEND** → **Guided Tour (Onboarding)** |
+| 4 | Switch to **MEMORY** → type `benchmark` → **SEND** |
+
+You get bake → recall → drift metrics (recall cosine, protection factor, winding, braiding_phase) in ~60 seconds. No GPU or local LLM required.
+
+**Prefer local?** `python examples/agent_memory_integration.py` after clone + `pip install -r requirements.txt`.
 
 ## Abstract
 
@@ -73,6 +85,7 @@ The patent abstract and full specification are included in the repository as `do
     pip install -r requirements.txt
     ```
 
+> **Quick start in Space (skip install):** [huggingface.co/spaces/kinaar111/qvpic](https://huggingface.co/spaces/kinaar111/qvpic) → HOME → `9` SEND → `1` SEND (Guided Tour) → MEMORY → `benchmark` SEND. Same pipeline as `examples/agent_memory_integration.py`, runs in the browser.
 
 3. Set up your identity, do this before your first run.
     Save & Exit: Ctrl+O → Enter → Ctrl+X
@@ -213,6 +226,17 @@ External feedback is welcome — especially from **geometric deep learning**, **
 1. Reproduce metrics in the [HF Space](https://huggingface.co/spaces/kinaar111/qvpic) (Guided Tour → `benchmark`).
 2. Compare against your vector DB on the same facts JSON using the drift protocol in `demo_core._drift_test`.
 3. Share results via HF Community, GitHub Issues/Discussions, or your lab channel.
+
+**Report format:** recall cosine · protection factor · topology invariants (winding, braiding_phase) · baseline system compared.
+
+### Community validations
+
+Independent runs using the drift protocol on `web/demo_public_facts.json`. Submit via [GitHub Issues](https://github.com/kinaar8340/qvpic/issues) or the [HF Space Community](https://huggingface.co/spaces/kinaar111/qvpic/discussions) tab.
+
+| Submitter | Baseline | Recall cos | Protection | Topology held | Notes |
+|-----------|----------|------------|------------|---------------|-------|
+| QVPIC (internal) | naive flat cosine | 0.98–1.00 | ~5.7× | yes | `qvpic_test.py` / HF Space |
+| *Your lab* | *e.g. Chroma, FAISS* | — | — | — | *PR or issue welcome* |
 
 Contact: kinaar0@protonmail.com · X: @kinaar8340
 
