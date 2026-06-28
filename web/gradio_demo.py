@@ -439,6 +439,19 @@ QUARTZ_HEAD = """
             ta.style.height = th + 'px';
             ta.style.maxHeight = th + 'px';
         }
+        alignGridWindow();
+    }
+    function alignGridWindow() {
+        var root = document.querySelector('.quartz-grid-on');
+        var aperture = document.querySelector('.quartz-terminal-col');
+        if (!root || !aperture) {
+            document.documentElement.style.removeProperty('--quartz-grid-x');
+            document.documentElement.style.removeProperty('--quartz-grid-y');
+            return;
+        }
+        var rect = aperture.getBoundingClientRect();
+        document.documentElement.style.setProperty('--quartz-grid-x', Math.round(-rect.left) + 'px');
+        document.documentElement.style.setProperty('--quartz-grid-y', Math.round(-rect.top) + 'px');
     }
     function scrollTerminal(delta) {
         var ta = document.querySelector('.quartz-terminal textarea');
@@ -503,14 +516,14 @@ html, body {{
 .gradio-container .quartz-grid-layer {{
     position: fixed !important;
     inset: 0 !important;
-    z-index: 0 !important;
+    z-index: 1 !important;
     pointer-events: none !important;
     background-color: #000000 !important;
     background-image:
         linear-gradient(var(--quartz-grid-line) 1px, transparent 1px),
         linear-gradient(90deg, var(--quartz-grid-line) 1px, transparent 1px) !important;
     background-size: 14px 14px !important;
-    background-position: center center !important;
+    background-position: var(--quartz-grid-x, 0px) var(--quartz-grid-y, 0px) !important;
 }}
 .gradio-container .quartz-grid-off .quartz-grid-layer {{
     opacity: 0 !important;
@@ -519,6 +532,37 @@ html, body {{
 .gradio-container .quartz-grid-off .quartz-display-frame {{
     opacity: 0 !important;
     visibility: hidden !important;
+}}
+.gradio-container .quartz-grid-on .quartz-panel {{
+    background: transparent !important;
+    box-shadow:
+        inset 0 1px 0 rgba(120,128,140,0.22),
+        0 8px 28px rgba(0,0,0,0.65) !important;
+}}
+.gradio-container .quartz-grid-on .quartz-display-bay,
+.gradio-container .quartz-grid-on .quartz-display-bay > .block,
+.gradio-container .quartz-grid-on .quartz-display-bay > .form,
+.gradio-container .quartz-grid-on .quartz-display-shell,
+.gradio-container .quartz-grid-on .quartz-display-shell > .block:not(:first-child),
+.gradio-container .quartz-grid-on .quartz-display-shell > .form,
+.gradio-container .quartz-grid-on .quartz-terminal-col > .block,
+.gradio-container .quartz-grid-on .quartz-terminal-col > .form,
+.gradio-container .quartz-grid-on .quartz-terminal,
+.gradio-container .quartz-grid-on .quartz-terminal > .block,
+.gradio-container .quartz-grid-on .quartz-terminal > .form,
+.gradio-container .quartz-grid-on .quartz-terminal .wrap,
+.gradio-container .quartz-grid-on .quartz-terminal [data-testid="textbox"] {{
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+}}
+.gradio-container .quartz-grid-on .quartz-display-shell {{
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}}
+.gradio-container .quartz-grid-on .quartz-footer-wrap {{
+    background: linear-gradient(180deg, #252930 0%, #14171c 100%) !important;
 }}
 .gradio-container .block, .gradio-container .form {{
     background: transparent !important;
@@ -774,7 +818,7 @@ html, body {{
     border-radius: 2px !important;
 }}
 .gradio-container .quartz-grid-on .quartz-terminal-col::after {{
-    opacity: 0.12 !important;
+    opacity: 0 !important;
 }}
 .gradio-container .quartz-input-row {{
     gap: 0.28rem !important;
