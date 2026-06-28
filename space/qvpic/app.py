@@ -46,7 +46,7 @@ STARTUP_POST_DELAY_MS = 2000
 HOME_MENU_PAGES: tuple[tuple[tuple[str, str], ...], ...] = (
     (
         ("Quick Diagnostic", "quick_diagnostic"),
-        ("Topology Explorer", "topology"),
+        ("Games", "games"),
         ("Quaternion Vortex Controls", "vortex"),
         ("Persistent Identity Settings", "identity"),
         ("VQC Tuning Panel", "vqc"),
@@ -178,6 +178,8 @@ def _default_ui_state() -> dict:
         "home_active": True,
         "menu_page": 0,
         "pending_startup_replay": False,
+        "game_active": False,
+        "pending_game_start": False,
     }
 
 
@@ -193,10 +195,11 @@ def _torus_bridge_html(state: dict) -> str:
     nudge = int(state.get("torus_nudge", 0))
     visible = 1 if state.get("torus_visible", True) else 0
     replay = 1 if state.get("pending_startup_replay") else 0
+    game_start = 1 if state.get("pending_game_start") else 0
     return (
         f'<div class="quartz-torus-bridge" data-echo="{echo}" '
         f'data-nudge="{nudge}" data-visible="{visible}" '
-        f'data-startup-replay="{replay}" hidden></div>'
+        f'data-startup-replay="{replay}" data-game-start="{game_start}" hidden></div>'
     )
 
 
@@ -259,6 +262,21 @@ def _effective_terminal(terminal: str, state: dict) -> str:
         if not text or "SELECTION MENU" in text:
             return menu
     return text
+
+
+def _handle_game_quit(state: dict) -> tuple:
+    state = dict(state) if state else _default_ui_state()
+    state["game_active"] = False
+    state["pending_game_start"] = False
+    state["home_active"] = True
+    state["active_tab"] = "home"
+    state["menu_page"] = 0
+    return (
+        _home_menu_text(0),
+        state,
+        gr.update(elem_classes=_home_btn_classes(True)),
+        gr.update(value=_torus_bridge_html(state)),
+    )
 
 
 def _handle_startup_replay_done(state: dict) -> tuple:
@@ -355,6 +373,8 @@ def _deactivate_home(state: dict) -> dict:
 
 def _handle_home_toggle(terminal: str, state: dict) -> tuple:
     state = dict(state) if state else _default_ui_state()
+    state["game_active"] = False
+    state["pending_game_start"] = False
     state = _touch_torus(state, 0.25)
     active = not bool(state.get("home_active", False))
     state["home_active"] = active
@@ -397,14 +417,16 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
         state["menu_page"] = 0
         terminal = _append_terminal(terminal, "> QUICK DIAGNOSTIC: centered startup + LED sync…")
         return terminal, state, "home", False
-    if action == "topology":
+    if action == "games":
+        state["game_active"] = True
+        state["pending_game_start"] = True
+        state["home_active"] = False
         terminal = _append_terminal(
             terminal,
-            "> MENU: Topology Explorer",
-            "> QVPIC: ShellCube braiding_phase shields persistent identity from drift.",
-            "> _",
+            "> GAMES: SPACE INVADERS",
+            "> Arrows move · Space shoot · Esc quit",
         )
-        return terminal, state, "chat", False
+        return terminal, state, "games", False
     if action == "vortex":
         terminal = _append_terminal(terminal, "> MENU: Quaternion Vortex Controls", "> SETTINGS: tune conduit dials below.")
         return terminal, state, "settings", True
@@ -533,6 +555,28 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
             *_tab_updates("home"),
             gr.update(elem_classes=_root_classes(grid_on)),
         )
+    if action == "games":
+        state["game_active"] = True
+        state["pending_game_start"] = True
+        state["home_active"] = False
+        state["active_tab"] = "games"
+        terminal = _append_terminal(
+            terminal,
+            f"> SELECT: {index} — {title}",
+            "> SPACE INVADERS loading…",
+            "> Arrows move · Space shoot · Esc quit",
+        )
+        grid_on = bool(state.get("grid_view", True))
+        return (
+            terminal,
+            "",
+            state,
+            gr.update(value=_torus_bridge_html(state)),
+            gr.update(elem_classes=_home_btn_classes(False)),
+            gr.update(visible=False),
+            *_tab_updates("games"),
+            gr.update(elem_classes=_root_classes(grid_on)),
+        )
     if action in {"next_page", "prev_page"}:
         terminal, state, active_tab, show_settings = _route_menu_action(action, terminal, state)
     else:
@@ -642,6 +686,21 @@ def _handle_send(
     state = dict(state) if state else _default_ui_state()
     cmd = (cmd or "").strip()
     if not cmd:
+        return (
+            terminal,
+            "",
+            state,
+            gr.update(value=_torus_bridge_html(state)),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
+    if state.get("game_active"):
         return (
             terminal,
             "",
@@ -949,6 +1008,184 @@ window.quartzClickStartupDone = function() {{
     var btn = document.querySelector('button.quartz-startup-done-btn');
     if (btn) btn.click();
 }};
+</script>
+"""
+
+
+def _quartz_games_js_block() -> str:
+    return """
+<script>
+window.quartzMeasureGameGrid = function(ta) {
+    var style = window.getComputedStyle(ta);
+    var fontSize = parseFloat(style.fontSize) || 12;
+    var lineHeight = parseFloat(style.lineHeight);
+    if (!lineHeight || isNaN(lineHeight)) lineHeight = fontSize * 1.38;
+    var charW = Math.max(6, fontSize * 0.58);
+    var cols = Math.max(34, Math.min(72, Math.floor(ta.clientWidth / charW) - 1));
+    var rows = Math.max(10, Math.min(22, Math.floor(ta.clientHeight / lineHeight) - 3));
+    return { cols: cols, rows: rows };
+};
+window.quartzInitInvaders = function(cols, rows) {
+    var invaders = [];
+    var r, c;
+    for (r = 0; r < 3; r++) {
+        for (c = 0; c < 8; c++) {
+            invaders.push({ x: 3 + c * Math.max(4, Math.floor((cols - 8) / 8)), y: 2 + r * 2, alive: true });
+        }
+    }
+    return invaders;
+};
+window.quartzRenderSpaceInvaders = function(ta, g) {
+    var grid = [];
+    var r, c, row;
+    for (r = 0; r < g.rows; r++) {
+        row = new Array(g.cols);
+        for (c = 0; c < g.cols; c++) row[c] = ' ';
+        grid[r] = row;
+    }
+    g.scroll = (g.scroll + 1) % g.cols;
+    for (r = 0; r < g.rows - 3; r++) {
+        c = (r * 5 + g.scroll) % g.cols;
+        if (r % 2 === 0) grid[r][c] = '.';
+        if ((r + 3) % 5 === 0) grid[r][(c + Math.floor(g.cols / 2)) % g.cols] = '*';
+    }
+    g.invaders.forEach(function(inv) {
+        if (!inv.alive) return;
+        if (inv.y >= 0 && inv.y < g.rows && inv.x >= 0 && inv.x < g.cols) grid[inv.y][inv.x] = 'W';
+    });
+    g.bullets.forEach(function(b) {
+        if (b.y >= 0 && b.y < g.rows && b.x >= 0 && b.x < g.cols) grid[b.y][b.x] = '|';
+    });
+    if (g.player.y >= 0 && g.player.y < g.rows && g.player.x >= 0 && g.player.x < g.cols) {
+        grid[g.player.y][g.player.x] = 'A';
+    }
+    var lines = [];
+    var hud = (' SCORE ' + g.score + '  WAVE ' + g.wave + '  ARROWS MOVE  SPACE SHOOT  ESC QUIT ');
+    while (hud.length < g.cols) hud += ' ';
+    lines.push(hud.substring(0, g.cols));
+    lines.push(Array(g.cols + 1).join('-').substring(0, g.cols));
+    for (r = 0; r < g.rows; r++) lines.push(grid[r].join(''));
+    window.quartzPaintTerminal(ta, lines.join('\\n'), true);
+};
+window.quartzTickSpaceInvaders = function(ta, g) {
+    if (!g.running) return;
+    if (g.keys.ArrowLeft && g.player.x > 0) g.player.x -= 1;
+    if (g.keys.ArrowRight && g.player.x < g.cols - 1) g.player.x += 1;
+    if (g.keys.ArrowUp && g.player.y > 0) g.player.y -= 1;
+    if (g.keys.ArrowDown && g.player.y < g.rows - 1) g.player.y += 1;
+    g.bullets = g.bullets.filter(function(b) {
+        b.y -= 1;
+        if (b.y < 0) return false;
+        var hit = false;
+        g.invaders.forEach(function(inv) {
+            if (!inv.alive || hit) return;
+            if (inv.x === b.x && inv.y === b.y) {
+                inv.alive = false;
+                g.score += 10;
+                hit = true;
+            }
+        });
+        return !hit;
+    });
+    g.invaderTick += 1;
+    if (g.invaderTick % 3 === 0) {
+        var edge = false;
+        g.invaders.forEach(function(inv) {
+            if (!inv.alive) return;
+            if (inv.x + g.invaderDir >= g.cols - 2 || inv.x + g.invaderDir <= 1) edge = true;
+        });
+        if (edge) {
+            g.invaderDir *= -1;
+            g.invaders.forEach(function(inv) {
+                if (inv.alive) inv.y += 1;
+            });
+        } else {
+            g.invaders.forEach(function(inv) {
+                if (inv.alive) inv.x += g.invaderDir;
+            });
+        }
+    }
+    var alive = g.invaders.some(function(inv) { return inv.alive; });
+    if (!alive) {
+        g.wave += 1;
+        g.invaders = window.quartzInitInvaders(g.cols, g.rows);
+        g.invaderDir = 1;
+    }
+    var breached = g.invaders.some(function(inv) {
+        return inv.alive && inv.y >= g.player.y;
+    });
+    if (breached) {
+        window.quartzStopSpaceInvaders();
+        return;
+    }
+    window.quartzRenderSpaceInvaders(ta, g);
+};
+window.quartzStartSpaceInvaders = function() {
+    var ta = document.querySelector('.quartz-terminal textarea');
+    if (!ta || (window.quartzGame && window.quartzGame.running)) return;
+    var dims = window.quartzMeasureGameGrid(ta);
+    var cmd = document.querySelector('.quartz-cmd-input textarea');
+    if (cmd) cmd.blur();
+    if (typeof window.quartzBeginTypewriter === 'function') window.quartzBeginTypewriter(ta);
+    ta.classList.add('quartz-game-active');
+    window.quartzGame = {
+        running: true,
+        cols: dims.cols,
+        rows: dims.rows,
+        scroll: 0,
+        wave: 1,
+        player: { x: Math.floor(dims.cols / 2), y: dims.rows - 1 },
+        invaders: window.quartzInitInvaders(dims.cols, dims.rows),
+        bullets: [],
+        invaderDir: 1,
+        invaderTick: 0,
+        score: 0,
+        keys: {},
+        loopId: null
+    };
+    var g = window.quartzGame;
+    g.keyDown = function(e) {
+        if (!g.running) return;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' ||
+            e.key === 'ArrowDown' || e.key === ' ' || e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (e.key === ' ') {
+            if (g.bullets.length < 4) {
+                g.bullets.push({ x: g.player.x, y: g.player.y - 1 });
+            }
+        } else if (e.key === 'Escape') {
+            window.quartzStopSpaceInvaders();
+        } else if (e.key.indexOf('Arrow') === 0) {
+            g.keys[e.key] = true;
+        }
+    };
+    g.keyUp = function(e) {
+        if (e.key.indexOf('Arrow') === 0) g.keys[e.key] = false;
+    };
+    document.addEventListener('keydown', g.keyDown, true);
+    document.addEventListener('keyup', g.keyUp, true);
+    g.loopId = setInterval(function() { window.quartzTickSpaceInvaders(ta, g); }, 130);
+    window.quartzRenderSpaceInvaders(ta, g);
+};
+window.quartzStopSpaceInvaders = function() {
+    var g = window.quartzGame;
+    if (!g) return;
+    g.running = false;
+    if (g.loopId) clearInterval(g.loopId);
+    document.removeEventListener('keydown', g.keyDown, true);
+    document.removeEventListener('keyup', g.keyUp, true);
+    window.quartzGame = null;
+    if (typeof window.quartzEndTypewriter === 'function') window.quartzEndTypewriter();
+    var ta = document.querySelector('.quartz-terminal textarea');
+    if (ta) ta.classList.remove('quartz-game-active');
+    if (typeof window.quartzClickGameQuit === 'function') window.quartzClickGameQuit();
+};
+window.quartzClickGameQuit = function() {
+    var btn = document.querySelector('button.quartz-game-quit-btn');
+    if (btn) btn.click();
+};
 </script>
 """
 
@@ -1629,6 +1866,22 @@ _QUARTZ_HEAD_TEMPLATE = """
         });
     }
     setInterval(watchStartupReplay, 200);
+    var quartzLastGameNudge = -1;
+    function watchGameStart() {
+        if (window.quartzGame && window.quartzGame.running) return;
+        var node = document.querySelector('.quartz-torus-bridge');
+        if (!node) return;
+        var start = parseInt(node.getAttribute('data-game-start') || '0', 10);
+        var nudge = parseInt(node.getAttribute('data-nudge') || '0', 10);
+        if (!start || nudge === quartzLastGameNudge) return;
+        quartzLastGameNudge = nudge;
+        setTimeout(function() {
+            if (typeof window.quartzStartSpaceInvaders === 'function') {
+                window.quartzStartSpaceInvaders();
+            }
+        }, 100);
+    }
+    setInterval(watchGameStart, 200);
     whenBodyReady(function() {
         initProgToggles();
         syncTorusInteractionMode();
@@ -1636,6 +1889,7 @@ _QUARTZ_HEAD_TEMPLATE = """
         fitPanel();
         initTorusInteraction();
         watchStartupReplay();
+        watchGameStart();
     });
     window.addEventListener('resize', debouncedFitPanel);
     if (window.visualViewport) {
@@ -1669,7 +1923,7 @@ _QUARTZ_HEAD_TEMPLATE = """
 </script>
 """
 
-QUARTZ_HEAD = _quartz_startup_js_block() + _QUARTZ_HEAD_TEMPLATE
+QUARTZ_HEAD = _quartz_startup_js_block() + _quartz_games_js_block() + _QUARTZ_HEAD_TEMPLATE
 
 QUARTZ_CSS = f"""
 :root {{
@@ -2170,6 +2424,12 @@ html, body {{
 .gradio-container .quartz-terminal textarea.quartz-startup-centered {{
     text-align: center !important;
 }}
+.gradio-container .quartz-terminal textarea.quartz-game-active {{
+    font-family: "Courier New", Courier, monospace !important;
+    letter-spacing: 0.04em !important;
+    line-height: 1.25 !important;
+    cursor: default !important;
+}}
 .gradio-container .quartz-terminal textarea::-webkit-scrollbar {{
     width: 5px !important;
     height: 0 !important;
@@ -2387,7 +2647,8 @@ html, body {{
     accent-color: var(--quartz-phosphor) !important;
 }}
 footer {{ visibility: hidden !important; }}
-.gradio-container button.quartz-startup-done-btn {{
+.gradio-container button.quartz-startup-done-btn,
+.gradio-container button.quartz-game-quit-btn {{
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
@@ -2424,6 +2685,10 @@ def build_app() -> gr.Blocks:
         startup_done_btn = gr.Button(
             "StartupDone",
             elem_classes=["quartz-startup-done-btn"],
+        )
+        game_quit_btn = gr.Button(
+            "GameQuit",
+            elem_classes=["quartz-game-quit-btn"],
         )
 
         with gr.Column(elem_classes=_root_classes(True)) as root_col:
@@ -2576,6 +2841,11 @@ def build_app() -> gr.Blocks:
 
         startup_done_btn.click(
             _handle_startup_replay_done,
+            inputs=[ui_state],
+            outputs=[terminal, ui_state, home_btn, torus_bridge],
+        )
+        game_quit_btn.click(
+            _handle_game_quit,
             inputs=[ui_state],
             outputs=[terminal, ui_state, home_btn, torus_bridge],
         )
