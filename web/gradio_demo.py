@@ -105,9 +105,32 @@ DEMO_LINKS_HTML = f"""
 
 COCKPIT_TITLE_HTML = """
 <div class="vqc-cockpit-title">
-  <span class="vqc-hud-status-dot" aria-hidden="true"></span>
-  <span class="vqc-hud-title-main">QVPIC · IDENTITY CONDUIT</span>
-  <span class="vqc-hud-title-tag">AR VISOR · ONLINE</span>
+  <span class="vqc-hud-title-main">QVPIC</span>
+  <span class="vqc-hud-title-tag">CONDUIT</span>
+</div>
+"""
+
+DEVICE_SCREEN_DECOR_HTML = """
+<div class="vqc-device-wave" aria-hidden="true">
+  <svg class="vqc-device-wave-svg" viewBox="0 0 800 120" preserveAspectRatio="none">
+    <line class="vqc-wave-baseline" x1="0" y1="60" x2="800" y2="60"/>
+    <path class="vqc-wave-path" d="M0,60 C40,20 80,100 120,60 S200,20 240,60 S320,100 360,60 S440,20 480,60 S560,100 600,60 S680,20 720,60 S760,100 800,60"/>
+  </svg>
+  <span class="vqc-bracket vqc-bracket-tl"></span>
+  <span class="vqc-bracket vqc-bracket-tr"></span>
+  <span class="vqc-bracket vqc-bracket-bl"></span>
+  <span class="vqc-bracket vqc-bracket-br"></span>
+  <span class="vqc-wave-tick vqc-wave-tick-top"></span>
+  <span class="vqc-wave-tick vqc-wave-tick-bottom"></span>
+</div>
+"""
+
+DEVICE_DIAL_HTML = """
+<div class="vqc-device-dial" role="img" aria-label="Tune dial">
+  <div class="vqc-dial-outer">
+    <div class="vqc-dial-ticks" aria-hidden="true"></div>
+    <div class="vqc-dial-inner"></div>
+  </div>
 </div>
 """
 
@@ -470,6 +493,10 @@ def _default_hud_state() -> dict[str, bool]:
 
 def _hu_btn_classes(btn_id: str, hud_state: dict[str, bool]) -> list[str]:
     classes = ["vqc-hud-btn", f"vqc-hud-btn-{btn_id}"]
+    if btn_id in HUD_BUTTON_IDS[:3]:
+        classes.append("vqc-hud-shape-square")
+    else:
+        classes.append("vqc-hud-shape-circle")
     if btn_id == HUD_HEADSUP_ID:
         classes.append("vqc-hud-btn-headsup")
     if hud_state.get(btn_id, False):
@@ -519,16 +546,25 @@ def _term_key_is_defined_prog(key: str) -> bool:
 
 
 def _term_key_btn_classes(key: str, active: str) -> list[str]:
-    """Black/white idle caps; matrix-green latch on active keys (never home)."""
-    classes = ["vqc-optics-key"]
+    """Line-art device controls — white outline shapes on the right rail."""
+    classes = ["vqc-optics-key", "vqc-device-ctrl"]
     if key in TERM_NAV_KEYS:
         classes.append("vqc-optics-dpad-key")
     if key == TERM_KEYPAD_HOME_KEY:
         classes.append("vqc-optics-key-home")
     elif key.startswith("dpad_"):
         classes.append("vqc-optics-key-dpad")
+        shape = {
+            "dpad_select": "vqc-ctrl-rect",
+            "dpad_up": "vqc-ctrl-bar",
+            "dpad_down": "vqc-ctrl-bar",
+            "dpad_left": "vqc-ctrl-circle",
+            "dpad_right": "vqc-ctrl-circle",
+        }
+        classes.append(shape.get(key, "vqc-ctrl-bar"))
     if key == "clear":
         classes.append("vqc-optics-key-clear")
+        classes.append("vqc-ctrl-circle-sm")
     if _term_key_is_defined_prog(key):
         classes.append("vqc-optics-key-defined")
     if key == active and key != TERM_KEYPAD_HOME_KEY:
@@ -847,7 +883,7 @@ def _build_vqc_theme() -> gr.themes.Base:
 # Viewport-fit shell — JS sets --vqc-vh/--vqc-vw from detected display (HF iframe-safe).
 WALLPAPER_HEAD = """
 <style id="vqc-fullscreen-style">
-html, body { background-color: #0a0818 !important; }
+html, body { background-color: #0b1520 !important; }
 </style>
 <script>
 (function() {
@@ -881,7 +917,6 @@ html, body { background-color: #0a0818 !important; }
         var hud = document.querySelector('.vqc-hud-display');
         [
             '.vqc-cockpit-title',
-            '.vqc-hud-bar',
             '.vqc-demo-links',
             '.vqc-cockpit-tools',
             '.vqc-cockpit-prompt',
@@ -913,8 +948,22 @@ html, body { background-color: #0a0818 !important; }
     setTimeout(applyViewportFit, 120);
     setTimeout(applyViewportFit, 450);
     setTimeout(applyViewportFit, 1200);
+    function bindDeckTune() {
+        var btn = document.querySelector('button.vqc-deck-tune');
+        var details = document.querySelector('.vqc-device-tune details');
+        if (btn && details && !btn._vqcTuneBound) {
+            btn._vqcTuneBound = true;
+            btn.addEventListener('click', function() {
+                details.open = !details.open;
+            });
+        }
+    }
+    bindDeckTune();
     if (window.MutationObserver) {
-        var mo = new MutationObserver(function() { applyViewportFit(); });
+        var mo = new MutationObserver(function() {
+            applyViewportFit();
+            bindDeckTune();
+        });
         document.addEventListener('DOMContentLoaded', function() {
             var cockpit = document.querySelector('.vqc-cockpit');
             if (cockpit) mo.observe(cockpit, { childList: true, subtree: true, attributes: true });
@@ -943,14 +992,11 @@ HFB_CSS = f"""
     color-scheme: dark;
 }}
 html {{
-    background-color: #020408 !important;
+    background-color: #0b1520 !important;
 }}
 body {{
-    background:
-        radial-gradient(ellipse 120% 80% at 50% 42%, rgba(0, 48, 28, 0.18) 0%, transparent 55%),
-        radial-gradient(ellipse 90% 70% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.88) 100%),
-        #020408 !important;
-    background-color: #020408 !important;
+    background: #0b1520 !important;
+    background-color: #0b1520 !important;
     color: #e8e0f8 !important;
     width: 100% !important;
     height: var(--vqc-vh, 100dvh) !important;
@@ -959,8 +1005,8 @@ body {{
     margin: 0 !important;
 }}
 #root, .app {{
-    background: #0a0818 !important;
-    background-color: #0a0818 !important;
+    background: #0b1520 !important;
+    background-color: #0b1520 !important;
     width: 100% !important;
 }}
 .gradio-container {{
@@ -971,8 +1017,8 @@ body {{
     max-height: var(--vqc-vh, 100dvh) !important;
     padding: 0 !important;
     margin: 0 !important;
-    background: #0a0818 !important;
-    background-color: #0a0818 !important;
+    background: #0b1520 !important;
+    background-color: #0b1520 !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
 }}
@@ -996,44 +1042,31 @@ body {{
 .gradio-container .vqc-cockpit,
 .gradio-container .vqc-cockpit > fieldset {{
     position: relative !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: var(--vqc-vh, 100dvh) !important;
-    max-height: var(--vqc-vh, 100dvh) !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    width: calc(100% - 1.2rem) !important;
+    max-width: calc(100% - 1.2rem) !important;
+    height: calc(var(--vqc-vh, 100dvh) - 0.6rem) !important;
+    max-height: calc(var(--vqc-vh, 100dvh) - 0.6rem) !important;
+    margin: 0.3rem auto !important;
+    padding: 0.35rem 0.45rem 0.3rem !important;
     display: flex !important;
     flex-direction: column !important;
-    background:
-        linear-gradient(180deg, rgba(0, 255, 140, 0.04) 0%, transparent 12%),
-        linear-gradient(0deg, rgba(234, 88, 12, 0.05) 0%, transparent 10%),
-        rgba(0, 4, 8, 0.72) !important;
-    border: 1px solid rgba(0, 255, 160, 0.28) !important;
-    box-shadow:
-        inset 0 0 80px rgba(0, 255, 120, 0.04),
-        inset 0 1px 0 rgba(0, 255, 160, 0.35),
-        0 0 24px rgba(0, 255, 100, 0.06) !important;
-    backdrop-filter: blur(3px) !important;
-    -webkit-backdrop-filter: blur(3px) !important;
+    background: transparent !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     min-height: 0 !important;
 }}
 .gradio-container .vqc-cockpit::before {{
-    content: "" !important;
-    position: absolute !important;
-    inset: 0 !important;
-    pointer-events: none !important;
-    z-index: 0 !important;
-    background:
-        repeating-linear-gradient(
-            0deg,
-            transparent 0px,
-            transparent 2px,
-            rgba(0, 255, 120, 0.018) 2px,
-            rgba(0, 255, 120, 0.018) 3px
-        ) !important;
-    opacity: 0.65 !important;
+    content: none !important;
+    display: none !important;
+}}
+.gradio-container .vqc-device-body {{
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    align-items: stretch !important;
 }}
 .gradio-container .vqc-cockpit > fieldset > * {{
     position: relative !important;
@@ -1045,109 +1078,156 @@ body {{
     border: none !important;
     box-shadow: none !important;
 }}
-.gradio-container .vqc-hud-bar {{
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: 0.5rem !important;
-    width: 100% !important;
-    padding: 0.4rem 0.65rem 0.35rem !important;
-    border-bottom: 1px solid rgba(0, 255, 160, 0.22) !important;
-    background: linear-gradient(90deg, rgba(0, 255, 120, 0.06), transparent 40%, rgba(234, 88, 12, 0.04)) !important;
-    flex-shrink: 0 !important;
-    box-sizing: border-box !important;
-}}
-.gradio-container .vqc-hud-bar-hu-row {{
-    display: flex !important;
-    flex: 1 1 auto !important;
-    justify-content: space-evenly !important;
-    align-items: center !important;
-    gap: 0 !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 0.5rem !important;
-}}
-.gradio-container .vqc-hud-bar-hu-row > .block,
-.gradio-container .vqc-hud-bar-hu-row > .form {{
-    flex: 1 1 0 !important;
-    display: flex !important;
-    justify-content: center !important;
-    min-width: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-}}
 .gradio-container button.vqc-hud-btn {{
-    width: clamp(1.45rem, 2.8vh, 1.85rem) !important;
-    height: clamp(1.45rem, 2.8vh, 1.85rem) !important;
-    min-width: clamp(1.45rem, 2.8vh, 1.85rem) !important;
-    max-width: clamp(1.45rem, 2.8vh, 1.85rem) !important;
-    min-height: clamp(1.45rem, 2.8vh, 1.85rem) !important;
-    max-height: clamp(1.45rem, 2.8vh, 1.85rem) !important;
     padding: 0 !important;
     margin: 0 auto !important;
-    border: 1px solid rgba(0, 255, 170, 0.5) !important;
-    border-radius: 2px !important;
-    background: rgba(0, 0, 0, 0.55) !important;
-    box-shadow:
-        inset 0 0 10px rgba(0, 255, 140, 0.1),
-        0 0 6px rgba(0, 255, 120, 0.12) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    background: transparent !important;
+    box-shadow: none !important;
     position: relative !important;
     color: transparent !important;
     -webkit-text-fill-color: transparent !important;
     font-size: 0 !important;
     line-height: 0 !important;
     cursor: pointer !important;
-    transition: box-shadow 0.15s ease, border-color 0.15s ease !important;
+    transition: background 0.15s ease, border-color 0.15s ease !important;
 }}
 .gradio-container button.vqc-hud-btn:hover {{
-    border-color: rgba(0, 255, 200, 0.75) !important;
-    box-shadow:
-        inset 0 0 12px rgba(0, 255, 160, 0.18),
-        0 0 10px rgba(0, 255, 140, 0.25) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
 }}
 .gradio-container button.vqc-hud-btn.hu-active {{
-    border-color: rgba(255, 60, 40, 0.85) !important;
-    box-shadow:
-        inset 0 0 14px rgba(255, 0, 0, 0.2),
-        0 0 12px rgba(255, 40, 20, 0.45) !important;
+    background: rgba(255, 255, 255, 0.14) !important;
 }}
 .gradio-container button.vqc-hud-btn span {{
     display: none !important;
 }}
-.gradio-container button.vqc-hud-btn::after {{
-    content: "" !important;
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    width: clamp(6px, 1.1vh, 9px) !important;
-    height: clamp(6px, 1.1vh, 9px) !important;
-    border-radius: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    background: {HU_BUTTON_BASE_COLOR} !important;
-    box-shadow: 0 0 4px rgba(51, 255, 102, 0.35) !important;
+.gradio-container button.vqc-hud-shape-square {{
+    width: clamp(0.85rem, 1.8vh, 1.05rem) !important;
+    height: clamp(0.85rem, 1.8vh, 1.05rem) !important;
+    min-width: clamp(0.85rem, 1.8vh, 1.05rem) !important;
+    max-width: clamp(0.85rem, 1.8vh, 1.05rem) !important;
+    min-height: clamp(0.85rem, 1.8vh, 1.05rem) !important;
+    max-height: clamp(0.85rem, 1.8vh, 1.05rem) !important;
+    border-radius: 2px !important;
 }}
-.gradio-container button.vqc-hud-btn.hu-active::after {{
-    background: {HU_BUTTON_ACTIVE_COLOR} !important;
-    box-shadow: 0 0 8px rgba(255, 0, 0, 0.65) !important;
+.gradio-container button.vqc-hud-shape-circle {{
+    width: clamp(1rem, 2.1vh, 1.25rem) !important;
+    height: clamp(1rem, 2.1vh, 1.25rem) !important;
+    min-width: clamp(1rem, 2.1vh, 1.25rem) !important;
+    max-width: clamp(1rem, 2.1vh, 1.25rem) !important;
+    min-height: clamp(1rem, 2.1vh, 1.25rem) !important;
+    max-height: clamp(1rem, 2.1vh, 1.25rem) !important;
+    border-radius: 50% !important;
 }}
 .gradio-container button.vqc-hud-btn-headsup {{
-    flex-shrink: 0 !important;
+    width: clamp(0.75rem, 1.55vh, 0.92rem) !important;
+    height: clamp(0.75rem, 1.55vh, 0.92rem) !important;
+    min-width: clamp(0.75rem, 1.55vh, 0.92rem) !important;
+    max-width: clamp(0.75rem, 1.55vh, 0.92rem) !important;
+    min-height: clamp(0.75rem, 1.55vh, 0.92rem) !important;
+    max-height: clamp(0.75rem, 1.55vh, 0.92rem) !important;
+}}
+.gradio-container button.vqc-hud-btn::after {{
+    content: none !important;
+    display: none !important;
+}}
+.gradio-container .vqc-rail-hu-squares {{
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    width: 100% !important;
+    margin: 0 0 0.35rem 0 !important;
+    padding: 0 !important;
+}}
+.gradio-container .vqc-rail-hu-squares > .block,
+.gradio-container .vqc-rail-hu-squares > .form {{
+    flex: 0 0 auto !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
     margin: 0 !important;
 }}
-.gradio-container .vqc-hud-display {{
+.gradio-container .vqc-device-rail > .block > button.vqc-hud-btn,
+.gradio-container .vqc-device-rail > .form > button.vqc-hud-btn {{
+    margin: 0 0 0.28rem auto !important;
+    display: block !important;
+}}
+.gradio-container .vqc-hud-display,
+.gradio-container .vqc-device-screen {{
     flex: 1 1 auto !important;
     width: 100% !important;
     min-height: 0 !important;
     max-height: calc(var(--vqc-vh, 100dvh) - var(--vqc-chrome, 280px)) !important;
-    padding: 0.3rem 0.45rem 0.2rem !important;
+    padding: 0.15rem 0.2rem 0.1rem !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     position: relative !important;
     display: flex !important;
     flex-direction: column !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    border-radius: 6px !important;
+    background: transparent !important;
 }}
+.gradio-container .vqc-device-screen > .block:first-child,
+.gradio-container .vqc-device-screen > .form:first-child {{
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+.gradio-container .vqc-device-wave {{
+    position: absolute !important;
+    inset: 0.35rem 0.3rem 0.25rem 0.3rem !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+    overflow: hidden !important;
+}}
+.gradio-container .vqc-device-wave-svg {{
+    width: 100% !important;
+    height: 55% !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 0 !important;
+    transform: translateY(-50%) !important;
+    opacity: 0.55 !important;
+}}
+.gradio-container .vqc-wave-baseline {{
+    stroke: rgba(255, 255, 255, 0.35) !important;
+    stroke-width: 1 !important;
+    stroke-dasharray: 5 5 !important;
+}}
+.gradio-container .vqc-wave-path {{
+    fill: none !important;
+    stroke: rgba(255, 255, 255, 0.72) !important;
+    stroke-width: 1.5 !important;
+}}
+.gradio-container .vqc-bracket {{
+    position: absolute !important;
+    width: 12px !important;
+    height: 12px !important;
+    border-color: rgba(255, 255, 255, 0.78) !important;
+    border-style: solid !important;
+    border-width: 0 !important;
+}}
+.gradio-container .vqc-bracket-tl {{ top: 0; left: 0; border-top-width: 1.5px; border-left-width: 1.5px; }}
+.gradio-container .vqc-bracket-tr {{ top: 0; right: 0; border-top-width: 1.5px; border-right-width: 1.5px; }}
+.gradio-container .vqc-bracket-bl {{ bottom: 0; left: 0; border-bottom-width: 1.5px; border-left-width: 1.5px; }}
+.gradio-container .vqc-bracket-br {{ bottom: 0; right: 0; border-bottom-width: 1.5px; border-right-width: 1.5px; }}
+.gradio-container .vqc-wave-tick {{
+    position: absolute !important;
+    left: 8% !important;
+    right: 8% !important;
+    height: 1px !important;
+    background: rgba(255, 255, 255, 0.28) !important;
+}}
+.gradio-container .vqc-wave-tick-top {{ top: 14%; }}
+.gradio-container .vqc-wave-tick-bottom {{ bottom: 14%; }}
 .gradio-container .vqc-hud-stage {{
     display: flex !important;
     flex-direction: row !important;
@@ -1171,15 +1251,16 @@ body {{
     display: flex !important;
     flex-direction: column !important;
 }}
-.gradio-container .vqc-hud-dpad-rail {{
-    flex: 0 0 clamp(3.25rem, 7.5vw, 4.75rem) !important;
-    width: clamp(3.25rem, 7.5vw, 4.75rem) !important;
-    min-width: clamp(3.25rem, 7.5vw, 4.75rem) !important;
+.gradio-container .vqc-hud-dpad-rail,
+.gradio-container .vqc-device-rail {{
+    flex: 0 0 clamp(3.5rem, 8vw, 5.25rem) !important;
+    width: clamp(3.5rem, 8vw, 5.25rem) !important;
+    min-width: clamp(3.5rem, 8vw, 5.25rem) !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     align-items: flex-end !important;
-    padding: 0.2rem 0.2rem 0.15rem 0 !important;
+    padding: 0.15rem 0.1rem 0.1rem 0.25rem !important;
     box-sizing: border-box !important;
 }}
 .gradio-container .vqc-hud-dpad-rail > .block,
@@ -1208,75 +1289,50 @@ body {{
     gap: 0.1rem !important;
     width: 100% !important;
 }}
-.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key {{
-    width: clamp(1.65rem, 3.6vh, 2.1rem) !important;
-    min-width: clamp(1.65rem, 3.6vh, 2.1rem) !important;
-    max-width: clamp(1.65rem, 3.6vh, 2.1rem) !important;
-    min-height: clamp(1.1rem, 2.4vh, 1.4rem) !important;
-    height: clamp(1.1rem, 2.4vh, 1.4rem) !important;
-    max-height: clamp(1.1rem, 2.4vh, 1.4rem) !important;
-    flex: 0 0 auto !important;
-    padding: 0.1rem !important;
-    margin: 0 auto !important;
-    border: 1px solid rgba(0, 255, 140, 0.28) !important;
-    border-radius: 3px !important;
-    background: rgba(0, 0, 0, 0.65) !important;
-    font-size: clamp(0.52rem, 1.1vh, 0.62rem) !important;
+.gradio-container .vqc-device-rail button.vqc-device-ctrl {{
+    padding: 0 !important;
+    margin: 0 auto 0.18rem auto !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    font-size: 0 !important;
 }}
-.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key-dpad,
-.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key-dpad span {{
-    font-size: clamp(0.78rem, 1.65vh, 0.95rem) !important;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
+.gradio-container .vqc-device-rail button.vqc-ctrl-rect {{
+    width: clamp(2rem, 4.2vh, 2.5rem) !important;
+    height: clamp(0.55rem, 1.15vh, 0.7rem) !important;
+    min-height: clamp(0.55rem, 1.15vh, 0.7rem) !important;
+    border-radius: 2px !important;
 }}
-.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key-clear {{
-    font-size: clamp(0.46rem, 0.95vh, 0.54rem) !important;
-    letter-spacing: 0.04em !important;
-    text-transform: lowercase !important;
+.gradio-container .vqc-device-rail button.vqc-ctrl-bar {{
+    width: clamp(1.35rem, 2.8vh, 1.65rem) !important;
+    height: clamp(0.45rem, 0.95vh, 0.55rem) !important;
+    min-height: clamp(0.45rem, 0.95vh, 0.55rem) !important;
+    border-radius: 2px !important;
 }}
-.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key.active {{
-    background: {_VQC_MATRIX_GREEN} !important;
-    border-color: {_VQC_MATRIX_GREEN} !important;
-    box-shadow: 0 0 8px rgba(51, 255, 102, 0.35) !important;
+.gradio-container .vqc-device-rail button.vqc-ctrl-circle {{
+    width: clamp(0.95rem, 2vh, 1.15rem) !important;
+    height: clamp(0.95rem, 2vh, 1.15rem) !important;
+    min-height: clamp(0.95rem, 2vh, 1.15rem) !important;
+    border-radius: 50% !important;
 }}
-.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key.active,
-.gradio-container .vqc-hud-dpad-rail button.vqc-optics-key.active span {{
-    color: #000000 !important;
-    -webkit-text-fill-color: #000000 !important;
+.gradio-container .vqc-device-rail button.vqc-ctrl-circle-sm {{
+    width: clamp(0.7rem, 1.45vh, 0.85rem) !important;
+    height: clamp(0.7rem, 1.45vh, 0.85rem) !important;
+    min-height: clamp(0.7rem, 1.45vh, 0.85rem) !important;
+    border-radius: 50% !important;
 }}
-.gradio-container .vqc-hud-display::before {{
-    content: "◢ HUD DISPLAY ◣" !important;
-    position: absolute !important;
-    top: 0.42rem !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    font-family: "Courier New", Courier, monospace !important;
-    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.28em !important;
-    color: rgba(0, 255, 160, 0.45) !important;
-    text-shadow: 0 0 6px rgba(0, 255, 140, 0.35) !important;
-    pointer-events: none !important;
-    z-index: 3 !important;
+.gradio-container .vqc-device-rail button.vqc-device-ctrl:hover {{
+    background: rgba(255, 255, 255, 0.1) !important;
 }}
+.gradio-container .vqc-device-rail button.vqc-device-ctrl.active {{
+    background: rgba(255, 255, 255, 0.22) !important;
+}}
+.gradio-container .vqc-hud-display::before,
 .gradio-container .vqc-hud-display::after {{
-    content: "" !important;
-    position: absolute !important;
-    inset: 0.28rem clamp(3.6rem, 8vw, 5.2rem) 0.18rem 0.42rem !important;
-    pointer-events: none !important;
-    z-index: 2 !important;
-    border: 1px solid rgba(234, 88, 12, 0.42) !important;
-    border-radius: 3px !important;
-    box-shadow:
-        inset 0 0 24px rgba(0, 255, 120, 0.04),
-        inset 0 1px 0 rgba(234, 88, 12, 0.25),
-        0 0 14px rgba(0, 255, 140, 0.06) !important;
-    background:
-        linear-gradient(135deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) top left,
-        linear-gradient(225deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) top right,
-        linear-gradient(45deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) bottom left,
-        linear-gradient(315deg, rgba(234, 88, 12, 0.55) 0, transparent 10px) bottom right !important;
-    background-size: 14px 14px !important;
-    background-repeat: no-repeat !important;
+    content: none !important;
+    display: none !important;
 }}
 .gradio-container .vqc-hud-display > .block,
 .gradio-container .vqc-hud-display > .form {{
@@ -1308,9 +1364,9 @@ body {{
     flex-shrink: 0 !important;
     width: 100% !important;
     margin-top: auto !important;
-    padding: 0.3rem 0.55rem 0.42rem !important;
-    border-top: 1px solid rgba(0, 255, 140, 0.18) !important;
-    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.5)) !important;
+    padding: 0.22rem 0 0.05rem 0 !important;
+    border-top: none !important;
+    background: transparent !important;
     box-sizing: border-box !important;
 }}
 .gradio-container .vqc-cockpit-prompt > .block,
@@ -1323,87 +1379,179 @@ body {{
 }}
 .gradio-container .vqc-grok-prompt textarea,
 .gradio-container .vqc-grok-prompt input {{
-    background: rgba(0, 0, 0, 0.62) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    border-radius: 1.35rem !important;
-    color: #e8e0f8 !important;
-    -webkit-text-fill-color: #e8e0f8 !important;
-    font-size: clamp(0.68rem, 1.42vh, 0.82rem) !important;
-    line-height: 1.45 !important;
-    padding: 0.55rem 1rem 0.55rem 1.1rem !important;
-    min-height: clamp(2.1rem, 4.5vh, 2.65rem) !important;
-    box-shadow:
-        inset 0 0 18px rgba(0, 0, 0, 0.45),
-        0 0 12px rgba(0, 255, 120, 0.04) !important;
+    background: transparent !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
+    border-radius: 1.1rem !important;
+    color: rgba(255, 255, 255, 0.88) !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.88) !important;
+    font-size: clamp(0.62rem, 1.28vh, 0.74rem) !important;
+    line-height: 1.4 !important;
+    padding: 0.45rem 0.85rem !important;
+    min-height: clamp(1.85rem, 3.8vh, 2.35rem) !important;
+    box-shadow: none !important;
     resize: none !important;
 }}
 .gradio-container .vqc-grok-prompt textarea::placeholder,
 .gradio-container .vqc-grok-prompt input::placeholder {{
-    color: rgba(200, 190, 220, 0.45) !important;
+    color: rgba(255, 255, 255, 0.32) !important;
     opacity: 1 !important;
 }}
 .gradio-container .vqc-grok-prompt textarea:focus,
 .gradio-container .vqc-grok-prompt input:focus {{
-    border-color: rgba(0, 255, 160, 0.45) !important;
-    box-shadow:
-        inset 0 0 18px rgba(0, 0, 0, 0.45),
-        0 0 14px rgba(0, 255, 140, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.72) !important;
     outline: none !important;
 }}
 .gradio-container .vqc-cockpit-title {{
     display: flex !important;
     align-items: center !important;
-    gap: 0.45rem !important;
-    color: {_VQC_MATRIX_GREEN} !important;
+    gap: 0.35rem !important;
+    color: rgba(255, 255, 255, 0.72) !important;
     font-family: "Courier New", Courier, monospace !important;
-    font-weight: 700 !important;
-    font-size: clamp(0.52rem, 1.05vh, 0.62rem) !important;
-    letter-spacing: 0.18em !important;
+    font-weight: 400 !important;
+    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
+    letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
-    padding: 0.24rem 0.55rem 0.16rem !important;
-    text-shadow: 0 0 8px rgba(0, 255, 140, 0.4) !important;
-    border-bottom: 1px solid rgba(0, 255, 160, 0.12) !important;
-    flex-shrink: 0 !important;
-}}
-.gradio-container .vqc-hud-status-dot {{
-    width: 6px !important;
-    height: 6px !important;
-    border-radius: 50% !important;
-    background: {_VQC_MATRIX_GREEN} !important;
-    box-shadow: 0 0 8px rgba(0, 255, 140, 0.8) !important;
-    animation: vqc-hud-pulse 2.2s ease-in-out infinite !important;
+    padding: 0 0 0.12rem 0 !important;
     flex-shrink: 0 !important;
 }}
 .gradio-container .vqc-hud-title-main {{
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
 }}
 .gradio-container .vqc-hud-title-tag {{
-    color: rgba(0, 255, 180, 0.65) !important;
-    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
-    letter-spacing: 0.22em !important;
-    padding: 0.1rem 0.35rem !important;
-    border: 1px solid rgba(0, 255, 160, 0.25) !important;
-    border-radius: 2px !important;
-    background: rgba(0, 0, 0, 0.35) !important;
+    color: rgba(255, 255, 255, 0.38) !important;
+    font-size: clamp(0.44rem, 0.88vh, 0.52rem) !important;
+    letter-spacing: 0.18em !important;
 }}
 .gradio-container .vqc-hud-telemetry {{
-    color: rgba(0, 255, 160, 0.5) !important;
-    font-family: "Courier New", Courier, monospace !important;
-    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.2em !important;
-    padding: 0.05rem 0.25rem !important;
-    border: 1px solid rgba(0, 255, 140, 0.2) !important;
-    border-radius: 2px !important;
+    color: rgba(255, 255, 255, 0.38) !important;
+    font-size: clamp(0.42rem, 0.85vh, 0.5rem) !important;
+    letter-spacing: 0.16em !important;
 }}
 .gradio-container .vqc-demo-links {{
     display: flex !important;
     flex-wrap: wrap !important;
     align-items: center !important;
-    gap: 0.3rem 0.55rem !important;
+    gap: 0.25rem 0.45rem !important;
     margin: 0 !important;
-    padding: 0.15rem 0.55rem 0.2rem !important;
-    font-size: clamp(0.5rem, 1vh, 0.58rem) !important;
+    padding: 0 0 0.18rem 0 !important;
+    font-size: clamp(0.42rem, 0.85vh, 0.5rem) !important;
+}}
+.gradio-container .vqc-device-deck {{
+    flex-shrink: 0 !important;
+    width: 100% !important;
+    padding: 0.35rem 0 0.15rem 0 !important;
+    border-top: none !important;
+    background: transparent !important;
+}}
+.gradio-container .vqc-deck-row {{
+    align-items: center !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    margin: 0 !important;
+}}
+.gradio-container .vqc-deck-circles {{
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.35rem !important;
+    align-items: center !important;
+}}
+.gradio-container .vqc-deck-toggle label {{
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.15rem !important;
+}}
+.gradio-container .vqc-deck-toggle input[type="checkbox"] {{
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: clamp(0.85rem, 1.75vh, 1rem) !important;
+    height: clamp(0.85rem, 1.75vh, 1rem) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+}}
+.gradio-container .vqc-deck-toggle input[type="checkbox"]:checked {{
+    background: rgba(255, 255, 255, 0.22) !important;
+}}
+.gradio-container .vqc-deck-toggle label span {{
+    color: rgba(255, 255, 255, 0.38) !important;
+    font-size: clamp(0.38rem, 0.75vh, 0.44rem) !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+}}
+.gradio-container .vqc-deck-bars {{
+    justify-content: center !important;
+    gap: 0.35rem !important;
+    margin: 0 !important;
+}}
+.gradio-container button.vqc-deck-rect {{
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: clamp(3.5rem, 8vw, 5rem) !important;
+    height: clamp(0.55rem, 1.15vh, 0.7rem) !important;
+    min-height: clamp(0.55rem, 1.15vh, 0.7rem) !important;
+    max-height: clamp(0.55rem, 1.15vh, 0.7rem) !important;
+    padding: 0 !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    border-radius: 2px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}}
+.gradio-container button.vqc-deck-rect:hover {{
+    background: rgba(255, 255, 255, 0.1) !important;
+}}
+.gradio-container .vqc-deck-dial {{
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    padding-right: 0.15rem !important;
+}}
+.gradio-container .vqc-device-dial {{
+    width: clamp(3rem, 6.5vh, 4.25rem) !important;
+    height: clamp(3rem, 6.5vh, 4.25rem) !important;
+    flex-shrink: 0 !important;
+}}
+.gradio-container .vqc-dial-outer {{
+    position: relative !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    border-radius: 50% !important;
+    box-sizing: border-box !important;
+}}
+.gradio-container .vqc-dial-ticks {{
+    position: absolute !important;
+    inset: 5px !important;
+    border-radius: 50% !important;
+    background: repeating-conic-gradient(
+        from -90deg,
+        rgba(255, 255, 255, 0.78) 0deg 2deg,
+        transparent 2deg 22.5deg
+    ) !important;
+    opacity: 0.85 !important;
+}}
+.gradio-container .vqc-dial-inner {{
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 36% !important;
+    height: 36% !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+}}
+.gradio-container .vqc-device-tune {{
+    margin: 0.2rem 0 0 0 !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+}}
+.gradio-container .vqc-device-tune > .label-wrap,
+.gradio-container .vqc-device-tune summary {{
+    display: none !important;
 }}
 @keyframes vqc-hud-pulse {{
     0%, 100% {{ opacity: 1; transform: scale(1); }}
@@ -1462,34 +1610,7 @@ body {{
     padding: 0.12rem 0.3rem !important;
     border-radius: 3px !important;
 }}
-.gradio-container .vqc-cockpit-tools .vqc-action-row button.primary {{
-    background: rgba(0, 0, 0, 0.55) !important;
-    border: 1px solid rgba(0, 255, 160, 0.55) !important;
-    color: {_VQC_MATRIX_GREEN} !important;
-    -webkit-text-fill-color: {_VQC_MATRIX_GREEN} !important;
-    box-shadow:
-        inset 0 0 10px rgba(0, 255, 120, 0.12),
-        0 0 8px rgba(0, 255, 140, 0.15) !important;
-}}
-.gradio-container .vqc-cockpit-tools .vqc-action-row button.primary:hover {{
-    border-color: rgba(0, 255, 200, 0.75) !important;
-    box-shadow:
-        inset 0 0 14px rgba(0, 255, 160, 0.2),
-        0 0 12px rgba(0, 255, 140, 0.3) !important;
-}}
-.gradio-container .vqc-cockpit-tools .vqc-action-row button.secondary {{
-    background: rgba(0, 0, 0, 0.45) !important;
-    border: 1px solid rgba(234, 88, 12, 0.45) !important;
-    color: #fdba74 !important;
-    -webkit-text-fill-color: #fdba74 !important;
-    box-shadow: inset 0 0 8px rgba(234, 88, 12, 0.1) !important;
-}}
-.gradio-container .vqc-cockpit-tools .vqc-action-row button.secondary:hover {{
-    border-color: rgba(234, 88, 12, 0.7) !important;
-    box-shadow:
-        inset 0 0 12px rgba(234, 88, 12, 0.18),
-        0 0 10px rgba(234, 88, 12, 0.2) !important;
-}}
+
 .gradio-container .vqc-query-inline .wrap input {{
     min-height: clamp(1.35rem, 2.9vh, 1.75rem) !important;
     font-size: clamp(0.56rem, 1.15vh, 0.66rem) !important;
@@ -1545,8 +1666,16 @@ body {{
     font-weight: 600 !important;
 }}
 .gradio-container .vqc-demo-links .vqc-source-tab {{
-    font-size: clamp(0.48rem, 0.95vh, 0.56rem) !important;
-    font-weight: 600 !important;
+    font-size: clamp(0.42rem, 0.85vh, 0.5rem) !important;
+    font-weight: 400 !important;
+    color: rgba(255, 255, 255, 0.42) !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.42) !important;
+    text-decoration-color: rgba(255, 255, 255, 0.28) !important;
+    text-shadow: none !important;
+}}
+.gradio-container .vqc-demo-links a.vqc-source-tab:hover {{
+    color: rgba(255, 255, 255, 0.72) !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.72) !important;
 }}
 .gradio-container .vqc-check-row {{
     gap: 0.35rem !important;
@@ -2010,18 +2139,21 @@ footer {{
     text-shadow: 0 0 6px rgba(61, 255, 122, 0.35) !important;
 }}
 .gradio-container .vqc-optics-panel .vqc-optics-terminal-wrap,
-.gradio-container .vqc-hud-display .vqc-optics-terminal-wrap {{
-    background: rgba(0, 0, 0, 0.42) !important;
-    border: none !important;
-    border-top: 2px solid rgba(234, 88, 12, 0.5) !important;
-    border-radius: 2px !important;
-    padding: 0.55rem 0.45rem 0.35rem !important;
-    margin: 0.15rem 0.1rem 0.1rem !important;
+.gradio-container .vqc-hud-terminal-col {{
     position: relative !important;
     z-index: 1 !important;
-    box-shadow:
-        inset 0 0 32px rgba(0, 255, 120, 0.05),
-        inset 0 2px 12px rgba(0, 0, 0, 0.55) !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+}}
+.gradio-container .vqc-hud-display .vqc-optics-terminal-wrap {{
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0.4rem 0.35rem 0.25rem !important;
+    margin: 0 !important;
+    position: relative !important;
+    z-index: 1 !important;
+    box-shadow: none !important;
 }}
 .gradio-container .vqc-hud-display .vqc-optics-terminal .label-wrap {{
     display: none !important;
@@ -2038,13 +2170,17 @@ footer {{
     overflow-x: hidden !important;
     overflow-y: auto !important;
     resize: none !important;
-    font-size: clamp(0.62rem, 1.32vh, 0.72rem) !important;
-    line-height: 1.32 !important;
+    font-size: clamp(0.58rem, 1.22vh, 0.68rem) !important;
+    line-height: 1.35 !important;
     box-sizing: border-box !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    padding: 0.15rem 0.1rem !important;
+    padding: 0.1rem 0.05rem !important;
+    color: rgba(255, 255, 255, 0.88) !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.88) !important;
+    text-shadow: none !important;
+    font-weight: 400 !important;
 }}
 .gradio-container .vqc-oam-helix-scan {{
     position: relative !important;
@@ -2639,33 +2775,21 @@ def build_app() -> gr.Blocks:
         fill_width=True,
     ) as demo:
         with gr.Column(elem_classes=["vqc-fullscreen-shell"]):
-            with gr.Group(elem_classes=["vqc-cockpit"]):
+            with gr.Group(elem_classes=["vqc-cockpit", "vqc-device-panel"]):
                 gr.HTML(COCKPIT_TITLE_HTML)
+                gr.HTML(DEMO_LINKS_HTML)
                 hud_state = gr.State(_default_hud_state())
                 hud_all_btns: dict[str, gr.Button] = {}
-                with gr.Row(elem_classes=["vqc-hud-bar"]):
-                    hud_all_btns[HUD_HEADSUP_ID] = gr.Button(
-                        "",
-                        elem_classes=_hu_btn_classes(HUD_HEADSUP_ID, _default_hud_state()),
-                        scale=0,
-                        min_width=40,
-                        variant="secondary",
-                    )
-                    with gr.Row(elem_classes=["vqc-hud-bar-hu-row"], equal_height=True):
-                        for hu_id in HUD_BUTTON_IDS:
-                            hud_all_btns[hu_id] = gr.Button(
-                                "",
-                                elem_classes=_hu_btn_classes(hu_id, _default_hud_state()),
-                                scale=1,
-                                variant="secondary",
-                            )
-                gr.HTML(DEMO_LINKS_HTML)
                 term_active_key = gr.State("")
                 term_ui_state = gr.State(_default_term_ui_state())
                 term_all_btns: dict[str, gr.Button] = {}
-                with gr.Column(elem_classes=["vqc-hud-display"]):
-                    with gr.Row(elem_classes=["vqc-hud-stage"]):
-                        with gr.Column(elem_classes=["vqc-hud-terminal-col"], scale=1):
+                with gr.Row(elem_classes=["vqc-device-body", "vqc-hud-stage"]):
+                    with gr.Column(
+                        elem_classes=["vqc-hud-display", "vqc-device-screen"],
+                        scale=3,
+                    ):
+                        gr.HTML(DEVICE_SCREEN_DECOR_HTML)
+                        with gr.Column(elem_classes=["vqc-hud-terminal-col"]):
                             optics_terminal = gr.Textbox(
                                 label="HUD",
                                 value="",
@@ -2690,66 +2814,116 @@ def build_app() -> gr.Blocks:
                                 show_label=False,
                                 elem_classes=["vqc-lattice-compact"],
                             )
-                        with gr.Column(
-                            elem_classes=["vqc-hud-dpad-rail"],
-                            scale=0,
-                            min_width=72,
-                        ):
-                            with gr.Column(elem_classes=["vqc-hud-dpad-stack"]):
-                                term_all_btns["dpad_select"] = gr.Button(
-                                    "enter",
-                                    elem_classes=_term_key_btn_classes(
-                                        "dpad_select", ""
+                    with gr.Column(
+                        elem_classes=["vqc-hud-dpad-rail", "vqc-device-rail"],
+                        scale=0,
+                        min_width=88,
+                    ):
+                        with gr.Row(elem_classes=["vqc-rail-hu-squares"]):
+                            for hu_id in HUD_BUTTON_IDS[:3]:
+                                hud_all_btns[hu_id] = gr.Button(
+                                    "",
+                                    elem_classes=_hu_btn_classes(
+                                        hu_id, _default_hud_state()
                                     ),
                                     variant="secondary",
                                 )
-                                term_all_btns["dpad_up"] = gr.Button(
-                                    "▲",
-                                    elem_classes=_term_key_btn_classes("dpad_up", ""),
+                        hud_all_btns[HUD_HEADSUP_ID] = gr.Button(
+                            "",
+                            elem_classes=_hu_btn_classes(
+                                HUD_HEADSUP_ID, _default_hud_state()
+                            ),
+                            variant="secondary",
+                        )
+                        hud_all_btns[HUD_BUTTON_IDS[3]] = gr.Button(
+                            "",
+                            elem_classes=_hu_btn_classes(
+                                HUD_BUTTON_IDS[3], _default_hud_state()
+                            ),
+                            variant="secondary",
+                        )
+                        with gr.Column(elem_classes=["vqc-hud-dpad-stack"]):
+                            term_all_btns["dpad_select"] = gr.Button(
+                                "",
+                                elem_classes=_term_key_btn_classes(
+                                    "dpad_select", ""
+                                ),
+                                variant="secondary",
+                            )
+                            term_all_btns["dpad_up"] = gr.Button(
+                                "",
+                                elem_classes=_term_key_btn_classes("dpad_up", ""),
+                                variant="secondary",
+                            )
+                            with gr.Row(elem_classes=["vqc-hud-dpad-mid"]):
+                                term_all_btns["dpad_left"] = gr.Button(
+                                    "",
+                                    elem_classes=_term_key_btn_classes(
+                                        "dpad_left", ""
+                                    ),
                                     variant="secondary",
                                 )
-                                with gr.Row(elem_classes=["vqc-hud-dpad-mid"]):
-                                    term_all_btns["dpad_left"] = gr.Button(
-                                        "◀",
-                                        elem_classes=_term_key_btn_classes(
-                                            "dpad_left", ""
-                                        ),
-                                        variant="secondary",
-                                    )
-                                    term_all_btns["dpad_right"] = gr.Button(
-                                        "▶",
-                                        elem_classes=_term_key_btn_classes(
-                                            "dpad_right", ""
-                                        ),
-                                        variant="secondary",
-                                    )
-                                term_all_btns["dpad_down"] = gr.Button(
-                                    "▼",
-                                    elem_classes=_term_key_btn_classes("dpad_down", ""),
+                                term_all_btns["dpad_right"] = gr.Button(
+                                    "",
+                                    elem_classes=_term_key_btn_classes(
+                                        "dpad_right", ""
+                                    ),
                                     variant="secondary",
                                 )
-                                term_all_btns["clear"] = gr.Button(
-                                    "clear",
-                                    elem_classes=_term_key_btn_classes("clear", ""),
-                                    variant="secondary",
-                                )
+                            term_all_btns["dpad_down"] = gr.Button(
+                                "",
+                                elem_classes=_term_key_btn_classes("dpad_down", ""),
+                                variant="secondary",
+                            )
+                            term_all_btns["clear"] = gr.Button(
+                                "",
+                                elem_classes=_term_key_btn_classes("clear", ""),
+                                variant="secondary",
+                            )
 
-                with gr.Column(elem_classes=["vqc-cockpit-tools", "vqc-controls-stack"]):
-                    with gr.Row(elem_classes=["vqc-action-row"]):
-                        benchmark_btn = gr.Button("Run benchmark", variant="primary", scale=1)
-                        query_btn = gr.Button("Run query recall", variant="secondary", scale=1)
-                    with gr.Row(elem_classes=["vqc-check-row"]):
-                        use_vqc = gr.Checkbox(
-                            label="VQCEnhanced",
-                            value=_DEFAULTS["use_vqc"],
-                            scale=1,
-                        )
-                        include_lattice = gr.Checkbox(
-                            label="Lattice PNG",
-                            value=True,
-                            scale=1,
-                        )
-                    with gr.Accordion("Tune dials (optional)", open=False, elem_classes=["vqc-tune-accordion"]):
+                with gr.Column(elem_classes=["vqc-cockpit-tools", "vqc-device-deck"]):
+                    with gr.Row(elem_classes=["vqc-deck-row"]):
+                        with gr.Column(elem_classes=["vqc-deck-circles"], scale=0):
+                            use_vqc = gr.Checkbox(
+                                label="VQC",
+                                value=_DEFAULTS["use_vqc"],
+                                scale=1,
+                                elem_classes=["vqc-deck-toggle"],
+                            )
+                            include_lattice = gr.Checkbox(
+                                label="Lattice",
+                                value=True,
+                                scale=1,
+                                elem_classes=["vqc-deck-toggle"],
+                            )
+                        with gr.Column(elem_classes=["vqc-deck-actions"], scale=1):
+                            with gr.Row(elem_classes=["vqc-action-row", "vqc-deck-bars"]):
+                                benchmark_btn = gr.Button(
+                                    "",
+                                    variant="secondary",
+                                    scale=1,
+                                    elem_classes=["vqc-deck-rect"],
+                                )
+                                query_btn = gr.Button(
+                                    "",
+                                    variant="secondary",
+                                    scale=1,
+                                    elem_classes=["vqc-deck-rect"],
+                                )
+                                tune_toggle = gr.Button(
+                                    "",
+                                    variant="secondary",
+                                    scale=1,
+                                    elem_classes=["vqc-deck-rect", "vqc-deck-tune"],
+                                )
+                        with gr.Column(elem_classes=["vqc-deck-dial"], scale=0):
+                            gr.HTML(DEVICE_DIAL_HTML)
+                    with gr.Accordion(
+                        "Tune",
+                        open=False,
+                        elem_classes=["vqc-tune-accordion", "vqc-device-tune"],
+                        visible=True,
+                    ):
                         with gr.Row(elem_classes=["vqc-optics-tune-row"]):
                             bake_steps = gr.Slider(
                                 10,
