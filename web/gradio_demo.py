@@ -486,14 +486,8 @@ QUARTZ_HEAD = """
             chrome += parseFloat(rs.marginTop) + parseFloat(rs.marginBottom);
         }
         document.documentElement.style.setProperty('--quartz-chrome', chrome + 'px');
-        var ta = document.querySelector('.quartz-terminal textarea');
-        if (ta) {
-            var inputRow = document.querySelector('.quartz-input-row');
-            var inputH = inputRow ? inputRow.offsetHeight : 52;
-            var th = Math.max(120, h - chrome - inputH - 8);
-            ta.style.height = th + 'px';
-            ta.style.maxHeight = th + 'px';
-        }
+        window.quartzChromePx = chrome;
+        syncTerminalOverflow(h);
         alignGridWindow();
         fitSkinMetrics();
         fitDisplayBacking();
@@ -519,6 +513,17 @@ QUARTZ_HEAD = """
         }
         return stage.querySelector('.quartz-torus-mesh');
     }
+    function syncTerminalOverflow(viewportH) {
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (!ta) return;
+        var inputRow = document.querySelector('.quartz-input-row');
+        var inputH = inputRow ? inputRow.offsetHeight : 52;
+        var th = Math.max(120, viewportH - (window.quartzChromePx || 220) - inputH - 8);
+        ta.style.height = th + 'px';
+        ta.style.maxHeight = th + 'px';
+        ta.style.overflowX = 'hidden';
+        ta.style.overflowY = ta.scrollHeight > ta.clientHeight + 2 ? 'auto' : 'hidden';
+    }
     function fitTorusFrame() {
         var mount = document.querySelector('.quartz-torus-stage');
         var frame = mount && mount.querySelector('.quartz-torus-frame');
@@ -530,7 +535,7 @@ QUARTZ_HEAD = """
         var halfLeft = w * 0.5;
         var halfW = w * 0.5 - pad;
         var availH = h - pad * 2;
-        var size = Math.floor(Math.min(halfW, availH) * 0.94);
+        var size = Math.floor(Math.min(halfW, availH) * 0.85);
         var originX = halfLeft + halfW * 0.5;
         var originY = h * 0.5;
         frame.style.position = 'absolute';
@@ -549,7 +554,7 @@ QUARTZ_HEAD = """
         if (!frame) return 58;
         var side = Math.min(frame.clientWidth, frame.clientHeight);
         if (side < 1) return 58;
-        return Math.max(44, Math.min(92, side * 0.34));
+        return Math.max(40, Math.min(83, side * 0.306));
     }
     function fitTorusMount() {
         var mount = document.querySelector('.quartz-torus-stage');
@@ -782,11 +787,22 @@ QUARTZ_HEAD = """
     setTimeout(function() { whenBodyReady(bootQuartzTorus); }, 300);
     setTimeout(function() { whenBodyReady(bootQuartzTorus); }, 1200);
     setInterval(function() {
+        var h = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (h > 0) syncTerminalOverflow(h);
         if (!torusMountRoot()) return;
         ensureTorusStage();
         fitTorusMount();
         if (!window.quartzTorus || !window.quartzTorus.ready) bootQuartzTorus();
     }, 1500);
+    whenBodyReady(function() {
+        var ta = document.querySelector('.quartz-terminal textarea');
+        if (!ta || ta._quartzOverflowObs) return;
+        ta._quartzOverflowObs = true;
+        new MutationObserver(function() {
+            var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+            if (vh > 0) syncTerminalOverflow(vh);
+        }).observe(ta, { childList: true, characterData: true, subtree: true });
+    });
 })();
 </script>
 """
@@ -1100,6 +1116,17 @@ html, body {{
     flex: 1 1 auto !important;
     min-height: 0 !important;
     margin: 0 !important;
+    overflow: hidden !important;
+}}
+.gradio-container .quartz-terminal > .block,
+.gradio-container .quartz-terminal > div,
+.gradio-container .quartz-terminal .wrap,
+.gradio-container .quartz-terminal label {{
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
 }}
 .quartz-torus-stage {{
     position: fixed !important;
@@ -1153,9 +1180,21 @@ html, body {{
     box-shadow: inset 0 0 10px rgba(0,255,65,0.08) !important;
     text-shadow: 0 0 6px rgba(0,255,65,0.35) !important;
     resize: none !important;
-    overflow-y: auto !important;
-    height: calc(var(--quartz-vh, 100dvh) - var(--quartz-chrome, 220px) - 52px) !important;
-    max-height: calc(var(--quartz-vh, 100dvh) - var(--quartz-chrome, 220px) - 52px) !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    box-sizing: border-box !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(0, 255, 65, 0.22) transparent !important;
+}}
+.gradio-container .quartz-terminal textarea::-webkit-scrollbar {{
+    width: 5px !important;
+}}
+.gradio-container .quartz-terminal textarea::-webkit-scrollbar-track {{
+    background: transparent !important;
+}}
+.gradio-container .quartz-terminal textarea::-webkit-scrollbar-thumb {{
+    background: rgba(0, 255, 65, 0.22) !important;
+    border-radius: 3px !important;
 }}
 .gradio-container .quartz-terminal-col::after {{
     content: none !important;
