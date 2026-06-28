@@ -564,7 +564,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
             terminal,
             f"> SELECT: {index} — {title}",
             "> SPACE INVADERS loading…",
-            "> Arrows move · Space shoot · Esc quit",
+            "> Side-scroll: you <-  invaders ->  · Space shoot · Esc quit",
         )
         grid_on = bool(state.get("grid_view", True))
         return (
@@ -1019,63 +1019,85 @@ window.quartzMeasureGameGrid = function(ta) {
     var style = window.getComputedStyle(ta);
     var fontSize = parseFloat(style.fontSize) || 12;
     var lineHeight = parseFloat(style.lineHeight);
-    if (!lineHeight || isNaN(lineHeight)) lineHeight = fontSize * 1.38;
-    var charW = Math.max(6, fontSize * 0.58);
-    var cols = Math.max(34, Math.min(72, Math.floor(ta.clientWidth / charW) - 1));
-    var rows = Math.max(10, Math.min(22, Math.floor(ta.clientHeight / lineHeight) - 3));
+    if (!lineHeight || isNaN(lineHeight)) lineHeight = fontSize * 1.25;
+    var charW = Math.max(5.5, fontSize * 0.56);
+    var cols = Math.max(40, Math.min(96, Math.floor(ta.clientWidth / charW)));
+    var rows = Math.max(14, Math.min(30, Math.floor(ta.clientHeight / lineHeight) - 2));
     return { cols: cols, rows: rows };
 };
-window.quartzInitInvaders = function(cols, rows) {
+window.quartzInitStarField = function(cols, rows) {
+    var stars = [];
+    var i, n = Math.max(cols, rows * 4);
+    for (i = 0; i < n; i++) {
+        stars.push({
+            y: i % rows,
+            x: (i * 7 + (i % 5) * 11) % (cols * 2)
+        });
+    }
+    return stars;
+};
+window.quartzInitInvaders = function(cols, rows, wave) {
     var invaders = [];
+    var invCols = 7;
+    var invRows = Math.max(4, Math.min(rows, 8 + Math.min(wave, 4)));
+    var spacingX = 3;
+    var spacingY = Math.max(1, Math.floor(rows / invRows));
+    var startX = cols - 2;
     var r, c;
-    for (r = 0; r < 3; r++) {
-        for (c = 0; c < 8; c++) {
-            invaders.push({ x: 3 + c * Math.max(4, Math.floor((cols - 8) / 8)), y: 2 + r * 2, alive: true });
+    for (r = 0; r < invRows; r++) {
+        for (c = 0; c < invCols; c++) {
+            invaders.push({
+                x: startX - c * spacingX,
+                y: Math.min(rows - 1, r * spacingY),
+                alive: true
+            });
         }
     }
     return invaders;
 };
 window.quartzRenderSpaceInvaders = function(ta, g) {
     var grid = [];
-    var r, c, row;
+    var r, c, row, sx;
     for (r = 0; r < g.rows; r++) {
         row = new Array(g.cols);
         for (c = 0; c < g.cols; c++) row[c] = ' ';
         grid[r] = row;
     }
-    g.scroll = (g.scroll + 1) % g.cols;
-    for (r = 0; r < g.rows - 3; r++) {
-        c = (r * 5 + g.scroll) % g.cols;
-        if (r % 2 === 0) grid[r][c] = '.';
-        if ((r + 3) % 5 === 0) grid[r][(c + Math.floor(g.cols / 2)) % g.cols] = '*';
-    }
+    g.scroll = (g.scroll + 1) % (g.cols * 2);
+    g.stars.forEach(function(s) {
+        sx = ((s.x - g.scroll) % g.cols + g.cols) % g.cols;
+        if (s.y >= 0 && s.y < g.rows && sx >= 0 && sx < g.cols && grid[s.y][sx] === ' ') {
+            grid[s.y][sx] = (s.y + sx) % 3 === 0 ? '*' : '.';
+        }
+    });
     g.invaders.forEach(function(inv) {
         if (!inv.alive) return;
         if (inv.y >= 0 && inv.y < g.rows && inv.x >= 0 && inv.x < g.cols) grid[inv.y][inv.x] = 'W';
     });
     g.bullets.forEach(function(b) {
-        if (b.y >= 0 && b.y < g.rows && b.x >= 0 && b.x < g.cols) grid[b.y][b.x] = '|';
+        if (b.y >= 0 && b.y < g.rows && b.x >= 0 && b.x < g.cols) grid[b.y][b.x] = '=';
     });
     if (g.player.y >= 0 && g.player.y < g.rows && g.player.x >= 0 && g.player.x < g.cols) {
-        grid[g.player.y][g.player.x] = 'A';
+        grid[g.player.y][g.player.x] = '>';
     }
     var lines = [];
-    var hud = (' SCORE ' + g.score + '  WAVE ' + g.wave + '  ARROWS MOVE  SPACE SHOOT  ESC QUIT ');
+    var hud = (' SCORE ' + g.score + '  WAVE ' + g.wave + '  FLY ->  ARROWS MOVE  SPACE SHOOT  ESC QUIT ');
     while (hud.length < g.cols) hud += ' ';
     lines.push(hud.substring(0, g.cols));
-    lines.push(Array(g.cols + 1).join('-').substring(0, g.cols));
+    lines.push(Array(g.cols + 1).join('=').substring(0, g.cols));
     for (r = 0; r < g.rows; r++) lines.push(grid[r].join(''));
     window.quartzPaintTerminal(ta, lines.join('\\n'), true);
 };
 window.quartzTickSpaceInvaders = function(ta, g) {
     if (!g.running) return;
-    if (g.keys.ArrowLeft && g.player.x > 0) g.player.x -= 1;
-    if (g.keys.ArrowRight && g.player.x < g.cols - 1) g.player.x += 1;
+    var maxPlayerX = Math.max(4, Math.floor(g.cols * 0.42));
     if (g.keys.ArrowUp && g.player.y > 0) g.player.y -= 1;
     if (g.keys.ArrowDown && g.player.y < g.rows - 1) g.player.y += 1;
+    if (g.keys.ArrowLeft && g.player.x > 1) g.player.x -= 1;
+    if (g.keys.ArrowRight && g.player.x < maxPlayerX) g.player.x += 1;
     g.bullets = g.bullets.filter(function(b) {
-        b.y -= 1;
-        if (b.y < 0) return false;
+        b.x += 1;
+        if (b.x >= g.cols) return false;
         var hit = false;
         g.invaders.forEach(function(inv) {
             if (!inv.alive || hit) return;
@@ -1088,31 +1110,18 @@ window.quartzTickSpaceInvaders = function(ta, g) {
         return !hit;
     });
     g.invaderTick += 1;
-    if (g.invaderTick % 3 === 0) {
-        var edge = false;
+    if (g.invaderTick % 2 === 0) {
         g.invaders.forEach(function(inv) {
-            if (!inv.alive) return;
-            if (inv.x + g.invaderDir >= g.cols - 2 || inv.x + g.invaderDir <= 1) edge = true;
+            if (inv.alive) inv.x -= 1;
         });
-        if (edge) {
-            g.invaderDir *= -1;
-            g.invaders.forEach(function(inv) {
-                if (inv.alive) inv.y += 1;
-            });
-        } else {
-            g.invaders.forEach(function(inv) {
-                if (inv.alive) inv.x += g.invaderDir;
-            });
-        }
     }
     var alive = g.invaders.some(function(inv) { return inv.alive; });
     if (!alive) {
         g.wave += 1;
-        g.invaders = window.quartzInitInvaders(g.cols, g.rows);
-        g.invaderDir = 1;
+        g.invaders = window.quartzInitInvaders(g.cols, g.rows, g.wave);
     }
     var breached = g.invaders.some(function(inv) {
-        return inv.alive && inv.y >= g.player.y;
+        return inv.alive && inv.x <= g.player.x + 1;
     });
     if (breached) {
         window.quartzStopSpaceInvaders();
@@ -1134,10 +1143,10 @@ window.quartzStartSpaceInvaders = function() {
         rows: dims.rows,
         scroll: 0,
         wave: 1,
-        player: { x: Math.floor(dims.cols / 2), y: dims.rows - 1 },
-        invaders: window.quartzInitInvaders(dims.cols, dims.rows),
+        player: { x: 2, y: Math.floor(dims.rows / 2) },
+        invaders: window.quartzInitInvaders(dims.cols, dims.rows, 1),
+        stars: window.quartzInitStarField(dims.cols, dims.rows),
         bullets: [],
-        invaderDir: 1,
         invaderTick: 0,
         score: 0,
         keys: {},
@@ -1152,8 +1161,8 @@ window.quartzStartSpaceInvaders = function() {
             e.stopPropagation();
         }
         if (e.key === ' ') {
-            if (g.bullets.length < 4) {
-                g.bullets.push({ x: g.player.x, y: g.player.y - 1 });
+            if (g.bullets.length < 5) {
+                g.bullets.push({ x: g.player.x + 1, y: g.player.y });
             }
         } else if (e.key === 'Escape') {
             window.quartzStopSpaceInvaders();
@@ -1166,7 +1175,7 @@ window.quartzStartSpaceInvaders = function() {
     };
     document.addEventListener('keydown', g.keyDown, true);
     document.addEventListener('keyup', g.keyUp, true);
-    g.loopId = setInterval(function() { window.quartzTickSpaceInvaders(ta, g); }, 130);
+    g.loopId = setInterval(function() { window.quartzTickSpaceInvaders(ta, g); }, 120);
     window.quartzRenderSpaceInvaders(ta, g);
 };
 window.quartzStopSpaceInvaders = function() {
