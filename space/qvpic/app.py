@@ -260,10 +260,27 @@ def _home_menu_text(page: int = 0) -> str:
 HOME_MENU_TEXT = _home_menu_text(0)
 
 
+def _terminal_shows_menu(terminal: str) -> bool:
+    return "SELECTION MENU" in (terminal or "")
+
+
+def _game_running(state: dict) -> bool:
+    """Player game launched on canvas (not merely queued from menu)."""
+    return bool(state.get("game_active")) and not bool(state.get("pending_game_start"))
+
+
+def _should_route_menu(state: dict, terminal: str) -> bool:
+    if _game_running(state):
+        return False
+    if state.get("home_active"):
+        return True
+    return _terminal_shows_menu(terminal)
+
+
 def _effective_terminal(terminal: str, state: dict) -> str:
     """Use server menu text when the TUI was painted client-side only."""
     text = (terminal or "").rstrip()
-    if state.get("home_active"):
+    if state.get("home_active") or _terminal_shows_menu(text):
         page = int(state.get("menu_page", 0))
         menu = _home_menu_text(page)
         if not text or "SELECTION MENU" in text:
@@ -459,7 +476,7 @@ def _route_menu_action(action: str, terminal: str, state: dict) -> tuple[str, di
         return _home_menu_text(state["menu_page"]), state, "home", False
     if action == "quick_diagnostic":
         state["pending_startup_replay"] = True
-        state["home_active"] = False
+        state["home_active"] = True
         state["menu_page"] = 0
         terminal = _append_terminal(terminal, "> QUICK DIAGNOSTIC: centered startup + LED sync…")
         return terminal, state, "home", False
@@ -593,7 +610,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
     state = _touch_torus(state, 0.4)
     if action == "quick_diagnostic":
         state["pending_startup_replay"] = True
-        state["home_active"] = False
+        state["home_active"] = True
         state["menu_page"] = 0
         state["active_tab"] = "home"
         terminal = _append_terminal(
@@ -607,7 +624,7 @@ def _handle_menu_selection(cmd: str, terminal: str, state: dict) -> tuple:
             "",
             state,
             gr.update(value=_torus_bridge_html(state)),
-            gr.update(elem_classes=_home_btn_classes(False)),
+            gr.update(elem_classes=_home_btn_classes(True)),
             gr.update(visible=False),
             *_tab_updates("home"),
             gr.update(elem_classes=_root_classes(grid_on)),
@@ -757,6 +774,10 @@ def _handle_send(
             gr.update(),
             gr.update(),
         )
+    if _should_route_menu(state, terminal):
+        if _terminal_shows_menu(terminal) and not state.get("home_active"):
+            state["home_active"] = True
+        return _handle_menu_selection(cmd, _effective_terminal(terminal, state), state)
     if state.get("game_active"):
         if cmd == "2":
             state["pending_game_start"] = True
@@ -780,8 +801,6 @@ def _handle_send(
             gr.update(),
             gr.update(),
         )
-    if state.get("home_active"):
-        return _handle_menu_selection(cmd, _effective_terminal(terminal, state), state)
     state = _push_history(state, cmd)
     state = _touch_torus(state, 1.0)
     terminal = _append_terminal(terminal, f"> USER: {cmd}", _simulate_chat_response(cmd), "> _")
@@ -1633,6 +1652,9 @@ def _quartz_games_js_block() -> str:
         bootGameSurface(g, 0, function(ok) {
             if (ok || !g.running) return;
             abortGameAttempt();
+            if (!g.attractMode && typeof window.quartzClickGameQuit === 'function') {
+                window.quartzClickGameQuit();
+            }
         });
         g.keyDown = function(e) {
             if (!g.running) return;
