@@ -25,7 +25,75 @@ GITHUB_URL = "https://github.com/kinaar8340/qvpic"
 VQC_URL = "https://github.com/kinaar8340/vqc_proto"
 HFB_URL = "https://github.com/kinaar8340/hfb"
 HF_SPACE_URL = "https://huggingface.co/spaces/kinaar111/qvpic"
+HFB_RAW_URL = "https://raw.githubusercontent.com/kinaar8340/vqc_proto/main/hfb.png"
 QVPIC_WALLPAPER_URL = "https://raw.githubusercontent.com/kinaar8340/qvpic/main/images/qvpic.png"
+GALLERY_BANNER_URL = "https://raw.githubusercontent.com/kinaar8340/qvpic/main/images/qvpic.png"
+GALLERY_BANNER2_URL = "https://raw.githubusercontent.com/kinaar8340/qvpic/main/images/qvpic_banner.png"
+
+BOOT_QUOTE_STRING = "QUATERNION VORTEX · PERSISTENT IDENTITY · VQC"
+
+DEFAULT_QUERY_TEXT = "Quaternion vortex persistent identity conduit recall test."
+
+SIMULATION_BANNER_MD = """
+> **Simulation demo** — browser-based bake → recall → drift benchmark on demo facts.
+> Uses RubikConeConduit / RingConeChain (no local LLM on HF). Full agent chat runs locally
+> via `python scripts/main.py`.
+"""
+
+ONBOARDING_MD = """
+### Think persistent identity, not flat vectors
+**QVPIC** (Quaternion Vortex Persistent Identity Conduit) stores facts as **geometric memory** on a
+**RingConeChain** — each fact is baked into a cube with quaternion orientation, depth coordinate `s`,
+and ShellCube topology. Recall uses **primal cosine** on the braided lattice, not naive flat embedding
+search.
+
+### Three steps (60 seconds)
+1. **Run benchmark** — embed demo facts with SentenceTransformer, bake into RingConeChain, measure
+   primal recall and topology invariants (winding, braiding phase).
+2. **Run query recall** — type a query string; top-k cube recall reports cosine + braiding phase.
+3. **Tune dials** — bake steps, read bandwidth, drift samples. Enable **VQCEnhanced** for the
+   experimental helical variant aligned with the VQC patent vision.
+
+### What the metrics mean
+| Metric | Plain English |
+|--------|----------------|
+| **avg recall cosine** | Mean primal recall after bake — higher → stronger identity persistence. |
+| **protection factor** | Drift recovery vs naive cosine after noisy vector + coordinate perturbation. |
+| **geometric_winding** | Topological winding from `monitor_topological_winding()`. |
+| **braiding_phase** | ShellCube braid invariant — encodes multi-fact entanglement geometry. |
+
+**Tip:** HF Space caps facts/samples for speed; run locally for full lattice renders and agent chat.
+"""
+
+VQC_CLAIMS_MD = """
+| VQC claim element | QVPIC demo shows… |
+|-------------------|-------------------|
+| **Quaternion encoding** | `quat_logical_dim` + Clifford projection on each baked cube orientation. |
+| **Helical / vortex geometry** | Depth coordinate `s` + twist_rate helical read path; optional VQCEnhanced conduit. |
+| **Nested shielding** | Drift protection factor — coordinate + vector noise recovery vs naive cosine. |
+| **Topological multiplex** | RingConeChain cubes with braiding_phase + geometric_winding invariants. |
+| **OAM / orbital analogy** | Shared VQC vision family with [orbital-braille-vqc](https://huggingface.co/spaces/kinaar111/orbital-braille-vqc) — light-carrier ↔ geometric-carrier. |
+| **Persistent identity** | Facts survive bake → recall → drift test without flat-vector collapse. |
+| **Braided lattice** | `render_braided_lattice_style()` PNG — ShellCube topology visualization. |
+| **Agent embodiment** | Local `scripts/main.py` full LLM agent; HF Space is simulation-only benchmark. |
+
+Full VQC optical prototype: [vqc_proto](https://github.com/kinaar8340/vqc_proto) · QVPIC memory layer: [qvpic](https://github.com/kinaar8340/qvpic)
+"""
+
+TERM_KEY_ACTIONS: dict[int, tuple[str, str]] = {
+    1: ("home", "Return to selection menu"),
+    2: ("status", "Live pipeline & environment"),
+    3: ("conduit", "RubikCone → identity conduit analogy"),
+    4: ("pipeline", "Bake → recall → drift loop"),
+    5: ("metrics", "Benchmark metrics baseline"),
+    6: ("build", "Build stamp & deploy info"),
+    7: ("help", "D-pad / keypad navigation"),
+    8: ("helix", "VQC conduit helix — any key exits"),
+    9: ("claims", "VQC claim ↔ QVPIC demo map"),
+    10: ("topology", "ShellCube / braiding invariants"),
+    11: ("recall", "Query recall & RingConeChain"),
+    12: ("presets", "Default run params catalog"),
+}
 
 _CFG_CANDIDATES = (
     _BUNDLE / "configs" / "default.yaml",
@@ -72,8 +140,157 @@ def default_run_params() -> dict[str, Any]:
         "use_vqc": False,
         "drift_samples": 20 if is_hf_space() else 40,
         "max_facts": 6 if is_hf_space() else 12,
-        "query_text": "Quaternion vortex persistent identity conduit recall test.",
+        "query_text": DEFAULT_QUERY_TEXT,
     }
+
+
+def terminal_keypad_map() -> str:
+    lines = ["Assigned prog keys (01–12):", ""]
+    for index in sorted(TERM_KEY_ACTIONS):
+        _action, desc = TERM_KEY_ACTIONS[index]
+        tag = "01 Home" if index == 1 else f"{index:02d}"
+        lines.append(f"  [{tag}]  {desc}")
+    lines.extend(
+        [
+            "",
+            "D-pad: ▲▼◀▶ move menu · enter confirm · clear blank",
+            "Keys 13–24: reserved (latch only)",
+            "Menu items 01–08 mirror d-pad selection.",
+            "08 / menu 08 → VQC conduit helix screensaver (any key stops).",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def terminal_conduit_analogy() -> str:
+    return "\n".join(
+        [
+            "Flat vector DB  →  QVPIC geometric identity conduit:",
+            "",
+            "  embedding index   →  RingConeChain cube bake (orientation × depth s)",
+            "  cosine search     →  primal recall on braided ShellCube lattice",
+            "  noise / drift     →  coordinate + vector perturbation recovery",
+            "  flat collapse     →  winding + braiding_phase topology shield",
+            "  chat memory       →  persistent identity across agent sessions",
+            "",
+            f"Default query: {DEFAULT_QUERY_TEXT!r}",
+            "Sweet spot: RubikCone on HF · VQCEnhanced experimental locally.",
+            "",
+            "Run benchmark below → recall table + braided lattice PNG.",
+        ]
+    )
+
+
+def terminal_pipeline_scope() -> str:
+    on_hf = is_hf_space()
+    llm = "disabled on HF (local agent only)" if on_hf else "available via scripts/main.py"
+    return "\n".join(
+        [
+            "THIS SPACE — browser simulation (you are here):",
+            "  · SentenceTransformer embed → RingConeChain bake",
+            "  · primal cosine recall + topology invariants",
+            "  · drift protection factor vs naive cosine",
+            "  · optional braided lattice PNG render",
+            "",
+            "GITHUB REPO — full QVPIC depth:",
+            "  · scripts/main.py · scripts/qvpic_test.py",
+            "  · src/conduit.py · VQCEnhancedHelicalConduit",
+            "  · configs/default.yaml · demo_public_facts.json",
+            "",
+            f"LLM agent: {llm}",
+            "Ecosystem: vqc_proto (optical) · qvpic (identity memory).",
+        ]
+    )
+
+
+def terminal_metrics_baseline() -> str:
+    defaults = default_run_params()
+    return "\n".join(
+        [
+            "HF Space defaults (CPU, reduced samples):",
+            "",
+            f"  bake_steps      {defaults['bake_steps']}",
+            f"  max_facts       {defaults['max_facts']}",
+            f"  drift_samples   {defaults['drift_samples']}",
+            f"  bandwidth       {defaults['bandwidth']}",
+            "",
+            "Metrics block after Run benchmark reports:",
+            "  · avg recall cosine — primal fidelity after bake",
+            "  · drift before/after — noisy vector perturbation",
+            "  · protection factor — recovery vs naive cosine",
+            "  · geometric_winding · braiding_phase — topology",
+            "",
+            "Enable VQCEnhanced for helical patent-aligned variant.",
+        ]
+    )
+
+
+def terminal_claims_snapshot() -> str:
+    lines = [
+        "VQC claim element  →  QVPIC demo output:",
+        "",
+        "  Quaternion encode  →  quat_logical_dim + cube orientation",
+        "  Helical geometry   →  depth s + twist_rate read path",
+        "  Nested shielding   →  drift protection factor",
+        "  Topological mux    →  RingConeChain + braiding_phase",
+        "  Persistent ID      →  bake → recall survives perturbation",
+        "  Braided lattice    →  render_braided_lattice_style PNG",
+        "  VQC optical link   →  orbital-braille-vqc Space (carrier layer)",
+        "  Agent embodiment   →  local scripts/main.py (not on HF)",
+        "",
+        "Expand Claims tab for full table · 09 Claims keypad shortcut.",
+    ]
+    return "\n".join(lines)
+
+
+def terminal_topology_shards() -> str:
+    return "\n".join(
+        [
+            "ShellCube topology + braiding invariants:",
+            "",
+            "  geometric_winding  — monitor_topological_winding() scalar",
+            "  effective_winding  — depth-averaged winding estimate",
+            "  braiding_phase     — multi-cube entanglement phase",
+            "  RingConeChain      — NUM_RINGS × cubes per ring layout",
+            "  orientation bake   — 24 cube orientations (Rubik group)",
+            "",
+            "Drift test perturbs depth s + vector noise — protection",
+            "factor reports recovery vs flat cosine baseline.",
+            "Braided lattice PNG visualizes ShellCube braid geometry.",
+        ]
+    )
+
+
+def terminal_recall_export() -> str:
+    return "\n".join(
+        [
+            "Query recall (Run query recall button):",
+            "",
+            "  1. Bake demo facts into RingConeChain (same dials)",
+            "  2. Embed query via all-MiniLM-L6-v2",
+            "  3. Top-k cube recall — cosine + primal_cos + braiding",
+            "",
+            f"Default query: {DEFAULT_QUERY_TEXT!r}",
+            "",
+            "Run benchmark first for full recall table + lattice.",
+            f"Local agent: {GITHUB_URL}/blob/main/scripts/main.py",
+        ]
+    )
+
+
+def terminal_presets_catalog() -> str:
+    defaults = default_run_params()
+    lines = ["Default run params (HF vs local):", ""]
+    for key, value in defaults.items():
+        lines.append(f"  {key:<16} {value!r}")
+    lines.extend(
+        [
+            "",
+            "Tune sliders below · VQCEnhanced checkbox for helical variant.",
+            "Include braided lattice PNG for topology visualization.",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _resolve_device() -> str:
@@ -209,7 +426,7 @@ def _bake_facts(
     is_rubik = hasattr(conduit, "ring_cone")
 
     for idx, (fact, emb_raw) in enumerate(zip(lines, embeddings_raw)):
-        if progress_cb:
+        if progress_cb is not None:
             progress_cb(idx / max(len(lines), 1), desc=f"Baking fact {idx + 1}/{len(lines)}")
         emb = F.normalize(emb_raw.to(dev), dim=-1) * conduit.output_scale.item()
         emb = emb.to(dev)
@@ -301,7 +518,7 @@ def run_benchmark_demo(
     device = _resolve_device()
     conduit, optimizer, _cfg = _make_conduit(use_vqc=use_vqc, device=device)
 
-    if progress_cb:
+    if progress_cb is not None:
         progress_cb(0.05, desc="Baking demo facts into RingConeChain…")
     baked = _bake_facts(
         conduit,
@@ -311,18 +528,18 @@ def run_benchmark_demo(
         progress_cb=progress_cb,
     )
 
-    if progress_cb:
+    if progress_cb is not None:
         progress_cb(0.55, desc="Measuring recall fidelity…")
     avg_recall, recall_lines = _avg_recall(conduit, baked)
 
-    if progress_cb:
+    if progress_cb is not None:
         progress_cb(0.7, desc="Topological invariants + drift test…")
     stats = conduit.monitor_topological_winding(n_samples=256 if is_hf_space() else 512)
     mean_b, mean_a, protection = _drift_test(conduit, n=int(drift_samples), bandwidth=float(bandwidth))
 
     lattice_path = None
     if include_lattice:
-        if progress_cb:
+        if progress_cb is not None:
             progress_cb(0.85, desc="Rendering braided lattice…")
         lattice_path = tempfile.NamedTemporaryFile(suffix="_qvpic_lattice.png", delete=False).name
         try:
@@ -352,7 +569,7 @@ def run_benchmark_demo(
             *stat_lines,
         ]
     )
-    if progress_cb:
+    if progress_cb is not None:
         progress_cb(1.0, desc="Done")
     return BenchmarkResult(
         metrics_text=metrics,
@@ -377,7 +594,7 @@ def run_query_recall(
     _configure_cpu_threads()
     device = _resolve_device()
     conduit, optimizer, _cfg = _make_conduit(use_vqc=use_vqc, device=device)
-    if progress_cb:
+    if progress_cb is not None:
         progress_cb(0.1, desc="Baking conduit memory…")
     _bake_facts(
         conduit,
@@ -403,6 +620,6 @@ def run_query_recall(
         recalled = conduit.read(s_rec, pol_idx=0, bandwidth=float(bandwidth), num_samples=31)
         cos = safe_cosine(query_emb.unsqueeze(0), recalled.unsqueeze(0)).item()
         lines.append(f"helical recall cos={cos:.4f} at s={s_rec:.2f}")
-    if progress_cb:
+    if progress_cb is not None:
         progress_cb(1.0, desc="Done")
     return "\n".join(lines)
