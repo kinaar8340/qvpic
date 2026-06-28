@@ -454,6 +454,16 @@ def _handle_exec(
 QUARTZ_HEAD = """
 <script>
 (function() {
+    function whenBodyReady(fn) {
+        if (document.body) {
+            fn();
+            return;
+        }
+        document.addEventListener('DOMContentLoaded', fn, { once: true });
+    }
+    function torusMountRoot() {
+        return document.body || null;
+    }
     function fitPanel() {
         var h = window.innerHeight || document.documentElement.clientHeight || 0;
         if (window.visualViewport && window.visualViewport.height > 0) {
@@ -461,7 +471,7 @@ QUARTZ_HEAD = """
         }
         if (h < 1) return;
         document.documentElement.style.setProperty('--quartz-vh', h + 'px');
-        document.body.style.overflow = 'hidden';
+        if (document.body) document.body.style.overflow = 'hidden';
         var gc = document.querySelector('.gradio-container');
         if (gc) { gc.style.height = h + 'px'; gc.style.overflow = 'hidden'; }
         var chrome = 0;
@@ -491,6 +501,8 @@ QUARTZ_HEAD = """
         fitTorusMount();
     }
     function ensureTorusStage() {
+        var root = torusMountRoot();
+        if (!root) return null;
         var stage = document.querySelector('.quartz-torus-stage');
         if (!stage) {
             stage = document.createElement('div');
@@ -503,7 +515,7 @@ QUARTZ_HEAD = """
                 + '<g class="quartz-torus-mesh"></g>'
                 + '<rect class="quartz-torus-core" x="106" y="106" width="8" height="8"></rect>'
                 + '</svg></div>';
-            document.body.appendChild(stage);
+            root.appendChild(stage);
         }
         var frame = stage.querySelector('.quartz-torus-frame');
         if (frame) {
@@ -736,15 +748,18 @@ QUARTZ_HEAD = """
             pulse: function() { state.pulseUntil = Date.now() + 1200; }
         };
     }
-    bootQuartzTorus();
-    fitPanel();
+    whenBodyReady(function() {
+        bootQuartzTorus();
+        fitPanel();
+    });
     window.addEventListener('resize', fitPanel);
     document.addEventListener('DOMContentLoaded', fitPanel);
-    setTimeout(fitPanel, 200);
-    setTimeout(fitPanel, 800);
-    setTimeout(bootQuartzTorus, 300);
-    setTimeout(bootQuartzTorus, 1200);
+    setTimeout(function() { whenBodyReady(fitPanel); }, 200);
+    setTimeout(function() { whenBodyReady(fitPanel); }, 800);
+    setTimeout(function() { whenBodyReady(bootQuartzTorus); }, 300);
+    setTimeout(function() { whenBodyReady(bootQuartzTorus); }, 1200);
     setInterval(function() {
+        if (!torusMountRoot()) return;
         ensureTorusStage();
         fitTorusMount();
         if (!window.quartzTorus || !window.quartzTorus.ready) bootQuartzTorus();
