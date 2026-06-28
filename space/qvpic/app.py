@@ -1031,24 +1031,45 @@ window.quartzMeasureCharCell = function(ta) {
     } catch (e) {}
     return { charW: charW, lineHeight: lineHeight };
 };
-window.quartzMeasureGameGrid = function(ta) {
+window.quartzProbeGameCols = function(ta) {
     var style = window.getComputedStyle(ta);
     var padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+    var innerW = Math.max(1, ta.clientWidth - padX);
+    var cell = window.quartzMeasureCharCell(ta);
+    var cols = Math.max(48, Math.floor(innerW / cell.charW));
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:-9999px;top:0;white-space:pre;margin:0;padding:0;border:0;visibility:hidden;pointer-events:none;font-family:' +
+        (style.fontFamily || 'monospace') + ';font-size:' + style.fontSize + ';font-weight:' +
+        (style.fontWeight || '400') + ';letter-spacing:' + (style.letterSpacing || 'normal') + ';line-height:' +
+        (style.lineHeight || 'normal') + ';';
+    document.body.appendChild(probe);
+    function lineWidth(n) {
+        probe.textContent = new Array(n + 1).join('.');
+        return probe.offsetWidth;
+    }
+    while (cols > 48 && lineWidth(cols) > innerW) cols -= 1;
+    while (cols < 400 && lineWidth(cols + 1) <= innerW) cols += 1;
+    document.body.removeChild(probe);
+    return cols;
+};
+window.quartzMeasureGameGrid = function(ta) {
+    var style = window.getComputedStyle(ta);
     var padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
     var cell = window.quartzMeasureCharCell(ta);
-    var innerW = Math.max(1, ta.clientWidth - padX);
     var innerH = Math.max(1, ta.clientHeight - padY);
-    var cols = Math.max(56, Math.min(160, Math.floor(innerW / cell.charW)));
-    var rows = Math.max(18, Math.min(48, Math.floor(innerH / cell.lineHeight)));
+    var cols = window.quartzProbeGameCols(ta);
+    var rows = Math.max(18, Math.min(52, Math.floor(innerH / cell.lineHeight)));
     return { cols: cols, rows: rows, midLine: Math.floor(cols / 2) };
 };
 window.quartzInitStarField = function(cols, rows) {
     var stars = [];
-    var i, n = cols * rows;
-    for (i = 0; i < n; i++) {
+    var count = Math.max(12, Math.floor((cols * rows) / 200));
+    var i, yBand;
+    for (i = 0; i < count; i++) {
+        yBand = Math.max(1, rows - 2);
         stars.push({
-            y: Math.floor(i / cols) % rows,
-            x: (i * 5 + (i % 7) * 13) % (cols * 3)
+            y: 1 + ((i * 11 + (i % 7) * 5) % yBand),
+            x: (i * 31 + (i % 13) * 19) % (cols * 2 + 24)
         });
     }
     return stars;
@@ -1086,16 +1107,18 @@ window.quartzRenderSpaceInvaders = function(ta, g) {
         for (c = 0; c < g.cols; c++) row[c] = ' ';
         grid[r] = row;
     }
-    g.scroll = (g.scroll + 1) % (g.cols * 3);
+    g.starScroll = (g.starScroll + 1) % (g.cols * 4 + 48);
     g.stars.forEach(function(s) {
-        sx = ((s.x - g.scroll) % g.cols + g.cols) % g.cols;
+        sx = s.x - g.starScroll;
+        while (sx < -4) sx += g.cols + 16;
+        while (sx >= g.cols) sx -= g.cols + 16;
         if (s.y >= 0 && s.y < g.rows && sx >= 0 && sx < g.cols && grid[s.y][sx] === ' ') {
-            grid[s.y][sx] = (s.y + sx + g.scroll) % 4 === 0 ? '*' : '.';
+            grid[s.y][sx] = '.';
         }
     });
     for (r = 0; r < g.rows; r++) {
-        if (g.midLine >= 0 && g.midLine < g.cols && grid[r][g.midLine] === ' ') {
-            grid[r][g.midLine] = (r % 3 === 0) ? '|' : ':';
+        if (r % 4 === 0 && g.midLine >= 0 && g.midLine < g.cols && grid[r][g.midLine] === ' ') {
+            grid[r][g.midLine] = '|';
         }
     }
     g.invaders.forEach(function(inv) {
@@ -1107,6 +1130,9 @@ window.quartzRenderSpaceInvaders = function(ta, g) {
     });
     if (g.player.y >= 0 && g.player.y < g.rows && g.player.x >= 0 && g.player.x < g.cols) {
         grid[g.player.y][g.player.x] = '>';
+        if (g.player.x > 0 && grid[g.player.y][g.player.x - 1] === ' ') {
+            grid[g.player.y][g.player.x - 1] = '-';
+        }
     }
     var hud = ('SCORE ' + g.score + '  WAVE ' + g.wave + '  |  ARROWS  SPACE  ESC');
     while (hud.length < g.cols) hud += ' ';
@@ -1183,9 +1209,9 @@ window.quartzStartSpaceInvaders = function() {
         cols: dims.cols,
         rows: dims.rows,
         midLine: dims.midLine,
-        scroll: 0,
+        starScroll: 0,
         wave: 1,
-        player: { x: 2, y: Math.floor(dims.rows / 2) },
+        player: { x: 3, y: Math.floor(dims.rows / 2) },
         invaders: window.quartzInitInvaders(dims.cols, dims.rows, 1, dims.midLine),
         stars: window.quartzInitStarField(dims.cols, dims.rows),
         bullets: [],
@@ -1230,6 +1256,18 @@ window.quartzStartSpaceInvaders = function() {
         g.stars = window.quartzInitStarField(g.cols, g.rows);
     };
     window.addEventListener('resize', g.resizeHandler);
+    requestAnimationFrame(function() {
+        if (!g.running) return;
+        if (typeof fitPanel === 'function') fitPanel();
+        var rd = window.quartzMeasureGameGrid(ta);
+        g.cols = rd.cols;
+        g.rows = rd.rows;
+        g.midLine = rd.midLine;
+        g.player.y = Math.min(g.rows - 2, Math.max(1, g.player.y));
+        g.stars = window.quartzInitStarField(g.cols, g.rows);
+        g.invaders = window.quartzInitInvaders(g.cols, g.rows, g.wave, g.midLine);
+        window.quartzRenderSpaceInvaders(ta, g);
+    });
     window.quartzRenderSpaceInvaders(ta, g);
 };
 window.quartzStopSpaceInvaders = function() {
@@ -2502,7 +2540,10 @@ html, body {{
     padding: 0.08rem 0.1rem !important;
     cursor: default !important;
     white-space: pre !important;
+    text-align: left !important;
     overflow: hidden !important;
+    width: 100% !important;
+    padding-right: 0.1rem !important;
 }}
 body.quartz-game-on .quartz-torus-stage {{
     display: none !important;
