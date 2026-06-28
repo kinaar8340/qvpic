@@ -44,20 +44,45 @@ PROG_PROMPTS: dict[str, str] = {
     "prog4": "Show topology braiding and drift protection",
 }
 
+ACTIVE_SKIN = "quartz-default"
+
 GRID_LAYER_HTML = """
 <div class="quartz-grid-layer" aria-hidden="true"></div>
 """
 
-DISPLAY_FRAME_HTML = """
-<div class="quartz-display-frame" aria-hidden="true">
-  <span class="quartz-bezel quartz-bezel-top"></span>
-  <span class="quartz-bezel quartz-bezel-bottom"></span>
-  <span class="quartz-bezel quartz-bezel-left"></span>
-  <span class="quartz-bezel quartz-bezel-right"></span>
-  <span class="quartz-mullion quartz-mullion-h"></span>
-  <span class="quartz-mullion quartz-mullion-v"></span>
+DISPLAY_BACKING_HTML = """
+<div class="quartz-display-backing" aria-hidden="true"></div>
+"""
+
+PANEL_SKIN_HTML = """
+<div class="quartz-skin quartz-skin--quartz-default" data-skin="quartz-default" aria-hidden="true">
+  <div class="quartz-skin-case"></div>
+  <div class="quartz-skin-tab-rail"></div>
+  <div class="quartz-skin-display-housing">
+    <span class="quartz-skin-bezel quartz-skin-bezel-top"></span>
+    <span class="quartz-skin-bezel quartz-skin-bezel-bottom"></span>
+    <span class="quartz-skin-bezel quartz-skin-bezel-left"></span>
+    <span class="quartz-skin-bezel quartz-skin-bezel-right"></span>
+  </div>
+  <div class="quartz-skin-prog-tray"></div>
+  <div class="quartz-skin-footer-strip"></div>
 </div>
 """
+
+DISPLAY_OVERLAY_HTML = """
+<div class="quartz-display-overlay" aria-hidden="true">
+  <span class="quartz-skin-mullion quartz-skin-mullion-h"></span>
+  <span class="quartz-skin-mullion quartz-skin-mullion-v"></span>
+</div>
+"""
+
+PANEL_SKINS: dict[str, str] = {
+    "quartz-default": PANEL_SKIN_HTML,
+}
+
+
+def _panel_skin_html() -> str:
+    return PANEL_SKINS.get(ACTIVE_SKIN, PANEL_SKIN_HTML)
 
 INITIAL_TERMINAL = "\n".join(
     [
@@ -440,6 +465,37 @@ QUARTZ_HEAD = """
             ta.style.maxHeight = th + 'px';
         }
         alignGridWindow();
+        fitSkinMetrics();
+        fitDisplayOverlay();
+    }
+    function fitDisplayOverlay() {
+        var panel = document.querySelector('.quartz-panel');
+        var col = document.querySelector('.quartz-terminal-col');
+        if (!panel || !col) return;
+        var pr = panel.getBoundingClientRect();
+        var cr = col.getBoundingClientRect();
+        document.documentElement.style.setProperty('--quartz-overlay-top', (cr.top - pr.top) + 'px');
+        document.documentElement.style.setProperty('--quartz-overlay-left', (cr.left - pr.left) + 'px');
+        document.documentElement.style.setProperty('--quartz-overlay-width', cr.width + 'px');
+        document.documentElement.style.setProperty('--quartz-overlay-height', cr.height + 'px');
+    }
+    function fitSkinMetrics() {
+        var tabs = document.querySelector('.quartz-top-tabs');
+        var prog = document.querySelector('.quartz-prog-row');
+        var footer = document.querySelector('.quartz-footer-wrap');
+        var settings = document.querySelector('.quartz-settings');
+        if (tabs) {
+            document.documentElement.style.setProperty(
+                '--quartz-skin-tab-h',
+                tabs.offsetHeight + 'px'
+            );
+        }
+        var progH = prog ? prog.offsetHeight : 0;
+        var footerH = footer ? footer.offsetHeight : 0;
+        var settingsH = settings && settings.offsetParent ? settings.offsetHeight : 0;
+        document.documentElement.style.setProperty('--quartz-skin-prog-h', progH + 'px');
+        document.documentElement.style.setProperty('--quartz-skin-footer-h', footerH + 'px');
+        document.documentElement.style.setProperty('--quartz-skin-settings-h', settingsH + 'px');
     }
     function alignGridWindow() {
         var root = document.querySelector('.quartz-grid-on');
@@ -492,6 +548,15 @@ QUARTZ_CSS = f"""
     --quartz-inset: 0.2in;
     --quartz-mullion: #3a3f47;
     --quartz-grid-line: rgba(90, 96, 104, 0.55);
+    --quartz-skin-case-top: #2e333b;
+    --quartz-skin-case-mid: #1e2228;
+    --quartz-skin-case-bot: #0a0c0e;
+    --quartz-skin-housing-top: #353a42;
+    --quartz-skin-housing-bot: #14171c;
+    --quartz-skin-tab-h: 2.5rem;
+    --quartz-skin-prog-h: 3rem;
+    --quartz-skin-footer-h: 1.4rem;
+    --quartz-skin-settings-h: 0px;
 }}
 html, body {{
     background: #000000 !important;
@@ -529,15 +594,39 @@ html, body {{
     opacity: 0 !important;
     visibility: hidden !important;
 }}
-.gradio-container .quartz-grid-off .quartz-display-frame {{
+.gradio-container .quartz-grid-off .quartz-display-overlay-mount {{
     opacity: 0 !important;
     visibility: hidden !important;
 }}
-.gradio-container .quartz-grid-on .quartz-panel {{
-    background: transparent !important;
+.gradio-container .quartz-skin-display-housing::before {{
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    border: 2px solid #121418 !important;
+    border-radius: 4px !important;
     box-shadow:
-        inset 0 1px 0 rgba(120,128,140,0.22),
-        0 8px 28px rgba(0,0,0,0.65) !important;
+        inset 0 1px 0 rgba(130,138,150,0.3),
+        inset 0 -4px 12px rgba(0,0,0,0.5),
+        0 2px 10px rgba(0,0,0,0.4) !important;
+    pointer-events: none !important;
+}}
+.gradio-container .quartz-terminal-col > .block:first-child {{
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+}}
+.gradio-container .quartz-grid-off .quartz-display-backing {{
+    background: var(--quartz-display) !important;
+    opacity: 1 !important;
+}}
+.gradio-container .quartz-grid-on .quartz-display-backing {{
+    background: transparent !important;
+    opacity: 0 !important;
 }}
 .gradio-container .quartz-grid-on .quartz-display-bay,
 .gradio-container .quartz-grid-on .quartz-display-bay > .block,
@@ -561,9 +650,6 @@ html, body {{
     border-color: transparent !important;
     box-shadow: none !important;
 }}
-.gradio-container .quartz-grid-on .quartz-footer-wrap {{
-    background: linear-gradient(180deg, #252930 0%, #14171c 100%) !important;
-}}
 .gradio-container .block, .gradio-container .form {{
     background: transparent !important;
     border: none !important;
@@ -572,26 +658,202 @@ html, body {{
 .gradio-container .quartz-panel {{
     position: relative !important;
     z-index: 2 !important;
-    background: linear-gradient(
-        165deg,
-        #2e333b 0%,
-        #252930 12%,
-        #1e2228 55%,
-        #14171c 92%,
-        #0a0c0e 100%
-    ) !important;
-    border: 2px solid #0a0c0e !important;
-    border-radius: 6px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
     padding: 0.45rem 0.55rem 0.35rem !important;
-    box-shadow:
-        inset 0 1px 0 rgba(120,128,140,0.35),
-        inset 0 -4px 12px rgba(0,0,0,0.55),
-        0 8px 28px rgba(0,0,0,0.65) !important;
+    box-shadow: none !important;
     height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
     max-height: calc(var(--quartz-vh, 100dvh) - 0.7rem) !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
+}}
+.gradio-container .quartz-skin-mount {{
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 8 !important;
+    pointer-events: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+}}
+.gradio-container .quartz-skin-mount > .block,
+.gradio-container .quartz-skin-mount > .form {{
+    position: absolute !important;
+    inset: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+}}
+.gradio-container .quartz-skin {{
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+}}
+.gradio-container .quartz-skin-case {{
+    position: absolute !important;
+    inset: 0 !important;
+    border-radius: 6px !important;
+    background: linear-gradient(
+        165deg,
+        var(--quartz-skin-case-top) 0%,
+        #252930 12%,
+        var(--quartz-skin-case-mid) 55%,
+        #14171c 92%,
+        var(--quartz-skin-case-bot) 100%
+    ) !important;
+    border: 2px solid #0a0c0e !important;
+    box-shadow:
+        inset 0 1px 0 rgba(120,128,140,0.35),
+        inset 0 -4px 12px rgba(0,0,0,0.55),
+        0 8px 28px rgba(0,0,0,0.65) !important;
+}}
+.gradio-container .quartz-skin-tab-rail {{
+    position: absolute !important;
+    top: 0.45rem !important;
+    left: 0.55rem !important;
+    right: 0.55rem !important;
+    height: var(--quartz-skin-tab-h) !important;
+    border-radius: 4px 4px 0 0 !important;
+    background: linear-gradient(180deg, #252930 0%, #1a1d22 100%) !important;
+    border: 1px solid #121418 !important;
+    box-shadow: inset 0 1px 0 rgba(90,98,110,0.22) !important;
+}}
+.gradio-container .quartz-skin-display-housing {{
+    position: absolute !important;
+    top: calc(0.45rem + var(--quartz-skin-tab-h) + 0.35rem) !important;
+    left: calc(0.55rem + var(--quartz-inset)) !important;
+    right: calc(0.55rem + var(--quartz-inset)) !important;
+    bottom: calc(
+        0.35rem + var(--quartz-skin-footer-h) + var(--quartz-skin-prog-h)
+        + var(--quartz-skin-settings-h) + 0.54rem
+    ) !important;
+    border-radius: 4px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}}
+.gradio-container .quartz-display-overlay-mount {{
+    position: absolute !important;
+    top: var(--quartz-overlay-top, 30%) !important;
+    left: var(--quartz-overlay-left, 12%) !important;
+    width: var(--quartz-overlay-width, 76%) !important;
+    height: var(--quartz-overlay-height, 40%) !important;
+    z-index: 12 !important;
+    pointer-events: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+}}
+.gradio-container .quartz-display-overlay-mount > .block,
+.gradio-container .quartz-display-overlay-mount > .form {{
+    position: absolute !important;
+    inset: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+}}
+.gradio-container .quartz-display-overlay {{
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+}}
+.gradio-container .quartz-skin-bezel {{
+    position: absolute !important;
+    background: linear-gradient(180deg, #6a707a 0%, #3d434d 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(120,128,140,0.3) !important;
+}}
+.gradio-container .quartz-skin-bezel-top,
+.gradio-container .quartz-skin-bezel-bottom {{
+    left: 0 !important;
+    right: 0 !important;
+    height: 0.42rem !important;
+}}
+.gradio-container .quartz-skin-bezel-top {{ top: 0 !important; }}
+.gradio-container .quartz-skin-bezel-bottom {{ bottom: 0 !important; }}
+.gradio-container .quartz-skin-bezel-left,
+.gradio-container .quartz-skin-bezel-right {{
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 0.42rem !important;
+}}
+.gradio-container .quartz-skin-bezel-left {{ left: 0 !important; }}
+.gradio-container .quartz-skin-bezel-right {{ right: 0 !important; }}
+.gradio-container .quartz-skin-mullion {{
+    position: absolute !important;
+    z-index: 12 !important;
+    background: linear-gradient(
+        90deg,
+        #3a3f47 0%,
+        #6e7582 18%,
+        #525862 50%,
+        #6e7582 82%,
+        #3a3f47 100%
+    ) !important;
+    box-shadow:
+        0 0 0 1px rgba(0,0,0,0.65),
+        inset 0 1px 0 rgba(140,148,160,0.28) !important;
+}}
+.gradio-container .quartz-skin-mullion-h {{
+    left: 0.42rem !important;
+    right: 0.42rem !important;
+    top: 50% !important;
+    height: 0.38rem !important;
+    transform: translateY(-50%) !important;
+}}
+.gradio-container .quartz-skin-mullion-v {{
+    top: 0.42rem !important;
+    bottom: 0.42rem !important;
+    left: 50% !important;
+    width: 0.38rem !important;
+    transform: translateX(-50%) !important;
+    background: linear-gradient(
+        180deg,
+        #3a3f47 0%,
+        #6e7582 18%,
+        #525862 50%,
+        #6e7582 82%,
+        #3a3f47 100%
+    ) !important;
+}}
+.gradio-container .quartz-skin-prog-tray {{
+    position: absolute !important;
+    left: 0.55rem !important;
+    right: 0.55rem !important;
+    bottom: calc(0.35rem + var(--quartz-skin-footer-h) + 0.1rem) !important;
+    height: var(--quartz-skin-prog-h) !important;
+    border-radius: 4px !important;
+    background: linear-gradient(180deg, #252930 0%, #1a1d22 100%) !important;
+    border: 1px solid #1e2228 !important;
+    box-shadow: inset 0 1px 0 rgba(100,108,120,0.2) !important;
+}}
+.gradio-container .quartz-skin-footer-strip {{
+    position: absolute !important;
+    left: 0.55rem !important;
+    right: 0.55rem !important;
+    bottom: 0.35rem !important;
+    height: var(--quartz-skin-footer-h) !important;
+    border-top: 2px solid #1e2228 !important;
+    background: linear-gradient(180deg, #252930 0%, #14171c 100%) !important;
+}}
+.gradio-container .quartz-content {{
+    position: relative !important;
+    z-index: 10 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
 }}
 .gradio-container .quartz-top-tabs {{
     gap: 0.28rem !important;
@@ -666,96 +928,23 @@ html, body {{
     flex-direction: column !important;
     padding: 0.38rem !important;
     border-radius: 4px !important;
-    background: linear-gradient(
-        155deg,
-        #353a42 0%,
-        #2a2e35 30%,
-        #1e2228 70%,
-        #14171c 100%
-    ) !important;
-    border: 2px solid #121418 !important;
-    box-shadow:
-        inset 0 1px 0 rgba(130,138,150,0.3),
-        inset 0 -4px 12px rgba(0,0,0,0.5),
-        0 2px 10px rgba(0,0,0,0.4) !important;
-    box-sizing: border-box !important;
-}}
-.gradio-container .quartz-display-shell > .block:first-child {{
-    position: absolute !important;
-    inset: 0 !important;
-    z-index: 6 !important;
-    pointer-events: none !important;
     background: transparent !important;
     border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
 }}
-.gradio-container .quartz-display-frame {{
+.gradio-container .quartz-display-backing {{
     position: absolute !important;
-    inset: 0.38rem !important;
-    pointer-events: none !important;
-    z-index: 6 !important;
-}}
-.gradio-container .quartz-bezel {{
-    position: absolute !important;
-    background: linear-gradient(180deg, #6a707a 0%, #3d434d 100%) !important;
-    box-shadow: inset 0 1px 0 rgba(120,128,140,0.3) !important;
-}}
-.gradio-container .quartz-bezel-top,
-.gradio-container .quartz-bezel-bottom {{
-    left: 0 !important;
-    right: 0 !important;
-    height: 0.42rem !important;
-}}
-.gradio-container .quartz-bezel-top {{ top: 0 !important; }}
-.gradio-container .quartz-bezel-bottom {{ bottom: 0 !important; }}
-.gradio-container .quartz-bezel-left,
-.gradio-container .quartz-bezel-right {{
-    top: 0 !important;
+    inset: 0.42rem 0.42rem auto 0.42rem !important;
     bottom: 0 !important;
-    width: 0.42rem !important;
-}}
-.gradio-container .quartz-bezel-left {{ left: 0 !important; }}
-.gradio-container .quartz-bezel-right {{ right: 0 !important; }}
-.gradio-container .quartz-mullion {{
-    position: absolute !important;
-    background: linear-gradient(
-        90deg,
-        #3a3f47 0%,
-        #6e7582 18%,
-        #525862 50%,
-        #6e7582 82%,
-        #3a3f47 100%
-    ) !important;
-    box-shadow:
-        0 0 0 1px rgba(0,0,0,0.65),
-        inset 0 1px 0 rgba(140,148,160,0.28) !important;
-}}
-.gradio-container .quartz-mullion-h {{
-    left: 0.42rem !important;
-    right: 0.42rem !important;
-    top: 50% !important;
-    height: 0.38rem !important;
-    transform: translateY(-50%) !important;
-}}
-.gradio-container .quartz-mullion-v {{
-    top: 0.42rem !important;
-    bottom: 0.42rem !important;
-    left: 50% !important;
-    width: 0.38rem !important;
-    transform: translateX(-50%) !important;
-    background: linear-gradient(
-        180deg,
-        #3a3f47 0%,
-        #6e7582 18%,
-        #525862 50%,
-        #6e7582 82%,
-        #3a3f47 100%
-    ) !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+    border-radius: 2px !important;
+    transition: opacity 0.15s ease !important;
 }}
 .gradio-container .quartz-terminal-col {{
     position: relative !important;
-    z-index: 1 !important;
+    z-index: 2 !important;
     min-width: 0 !important;
     min-height: 0 !important;
     flex: 1 1 auto !important;
@@ -898,10 +1087,10 @@ html, body {{
     margin: 0.32rem 0 0.22rem 0 !important;
     flex-shrink: 0 !important;
     padding: 0.28rem 0.22rem !important;
-    background: linear-gradient(180deg, #252930 0%, #1a1d22 100%) !important;
-    border: 1px solid #1e2228 !important;
+    background: transparent !important;
+    border: none !important;
     border-radius: 4px !important;
-    box-shadow: inset 0 1px 0 rgba(100,108,120,0.2) !important;
+    box-shadow: none !important;
 }}
 .gradio-container button.quartz-prog {{
     flex: 1 1 0 !important;
@@ -927,8 +1116,9 @@ html, body {{
     flex-shrink: 0 !important;
     text-align: right !important;
     padding: 0.18rem 0.35rem 0.05rem 0 !important;
-    border-top: 2px solid #1e2228 !important;
+    border-top: none !important;
     margin-top: 0.1rem !important;
+    background: transparent !important;
 }}
 .gradio-container .quartz-footer {{
     color: var(--quartz-phosphor-dim) !important;
@@ -979,85 +1169,89 @@ def build_app() -> gr.Blocks:
         with gr.Column(elem_classes=_root_classes(True)) as root_col:
             gr.HTML(GRID_LAYER_HTML)
             with gr.Column(elem_classes=["quartz-panel"]):
-                with gr.Row(elem_classes=["quartz-top-tabs"]):
-                    for tab_id in TOP_TABS:
-                        tab_btns[tab_id] = gr.Button(
-                            TAB_LABELS[tab_id],
-                            elem_classes=_tab_btn_classes("chat", tab_id),
-                            variant="secondary",
-                        )
-
-                with gr.Column(elem_classes=["quartz-display-bay"]):
-                    with gr.Column(elem_classes=["quartz-display-shell"]):
-                        gr.HTML(DISPLAY_FRAME_HTML)
-                        with gr.Column(elem_classes=["quartz-terminal-col"]):
-                            terminal = gr.Textbox(
-                                value=INITIAL_TERMINAL,
-                                label="Terminal",
-                                show_label=False,
-                                interactive=False,
-                                lines=12,
-                                max_lines=80,
-                                elem_classes=["quartz-terminal"],
+                gr.HTML(_panel_skin_html(), elem_classes=["quartz-skin-mount"])
+                with gr.Column(elem_classes=["quartz-content"]):
+                    with gr.Row(elem_classes=["quartz-top-tabs"]):
+                        for tab_id in TOP_TABS:
+                            tab_btns[tab_id] = gr.Button(
+                                TAB_LABELS[tab_id],
+                                elem_classes=_tab_btn_classes("chat", tab_id),
+                                variant="secondary",
                             )
-                            with gr.Row(elem_classes=["quartz-input-row"]):
-                                cmd_input = gr.Textbox(
-                                    placeholder="Type command or message...",
+
+                    with gr.Column(elem_classes=["quartz-display-bay"]):
+                        with gr.Column(elem_classes=["quartz-display-shell"]):
+                            with gr.Column(elem_classes=["quartz-terminal-col"]):
+                                gr.HTML(DISPLAY_BACKING_HTML)
+                                terminal = gr.Textbox(
+                                    value=INITIAL_TERMINAL,
+                                    label="Terminal",
                                     show_label=False,
-                                    max_lines=1,
-                                    scale=5,
-                                    elem_classes=["quartz-cmd-input"],
+                                    interactive=False,
+                                    lines=12,
+                                    max_lines=80,
+                                    elem_classes=["quartz-terminal"],
                                 )
-                                send_btn = gr.Button(
-                                    "SEND",
-                                    scale=0,
-                                    elem_classes=_metallic_btn("quartz-send"),
-                                )
+                                with gr.Row(elem_classes=["quartz-input-row"]):
+                                    cmd_input = gr.Textbox(
+                                        placeholder="Type command or message...",
+                                        show_label=False,
+                                        max_lines=1,
+                                        scale=5,
+                                        elem_classes=["quartz-cmd-input"],
+                                    )
+                                    send_btn = gr.Button(
+                                        "SEND",
+                                        scale=0,
+                                        elem_classes=_metallic_btn("quartz-send"),
+                                    )
 
-                with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
-                    with gr.Row():
-                        bake_steps = gr.Slider(
-                            10, 150, value=_DEFAULTS["bake_steps"], step=5, label="Bake steps"
-                        )
-                        bandwidth = gr.Slider(
-                            0.1, 1.0, value=_DEFAULTS["bandwidth"], step=0.05, label="Bandwidth"
-                        )
-                        drift_samples = gr.Slider(
-                            10, 80, value=_DEFAULTS["drift_samples"], step=5, label="Drift samples"
-                        )
-                        max_facts = gr.Slider(
-                            3, 12, value=_DEFAULTS["max_facts"], step=1, label="Max facts"
-                        )
-                        use_vqc = gr.Checkbox(label="VQCEnhanced", value=_DEFAULTS["use_vqc"])
+                    with gr.Column(elem_classes=["quartz-settings"], visible=False) as settings_panel:
+                        with gr.Row():
+                            bake_steps = gr.Slider(
+                                10, 150, value=_DEFAULTS["bake_steps"], step=5, label="Bake steps"
+                            )
+                            bandwidth = gr.Slider(
+                                0.1, 1.0, value=_DEFAULTS["bandwidth"], step=0.05, label="Bandwidth"
+                            )
+                            drift_samples = gr.Slider(
+                                10, 80, value=_DEFAULTS["drift_samples"], step=5, label="Drift samples"
+                            )
+                            max_facts = gr.Slider(
+                                3, 12, value=_DEFAULTS["max_facts"], step=1, label="Max facts"
+                            )
+                            use_vqc = gr.Checkbox(label="VQCEnhanced", value=_DEFAULTS["use_vqc"])
 
-                with gr.Row(elem_classes=["quartz-prog-row"]):
-                    prog_btns = {}
-                    for index in range(1, 5):
-                        prog_btns[f"prog{index}"] = gr.Button(
-                            f"PROG {index}",
-                            elem_classes=_metallic_btn("quartz-prog"),
+                    with gr.Row(elem_classes=["quartz-prog-row"]):
+                        prog_btns = {}
+                        for index in range(1, 5):
+                            prog_btns[f"prog{index}"] = gr.Button(
+                                f"PROG {index}",
+                                elem_classes=_metallic_btn("quartz-prog"),
+                            )
+                        exec_btn = gr.Button(
+                            "EXEC",
+                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
                         )
-                    exec_btn = gr.Button(
-                        "EXEC",
-                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                    )
-                    clear_btn = gr.Button(
-                        "CLEAR",
-                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                    )
-                    mode_btn = gr.Button(
-                        "MODE",
-                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
-                    )
-                    help_btn = gr.Button(
-                        "HELP",
-                        elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
+                        clear_btn = gr.Button(
+                            "CLEAR",
+                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
+                        )
+                        mode_btn = gr.Button(
+                            "MODE",
+                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
+                        )
+                        help_btn = gr.Button(
+                            "HELP",
+                            elem_classes=_metallic_btn("quartz-prog", "quartz-prog-led"),
+                        )
+
+                    gr.HTML(
+                        '<div class="quartz-footer-wrap"><span class="quartz-footer">'
+                        "QUARTZ AI SYNTHESIZER</span></div>"
                     )
 
-                gr.HTML(
-                    '<div class="quartz-footer-wrap"><span class="quartz-footer">'
-                    "QUARTZ AI SYNTHESIZER</span></div>"
-                )
+                gr.HTML(DISPLAY_OVERLAY_HTML, elem_classes=["quartz-display-overlay-mount"])
 
         core_outputs = [terminal, cmd_input, ui_state]
         tune_inputs = [bake_steps, bandwidth, use_vqc, drift_samples, max_facts]
