@@ -1588,17 +1588,17 @@ html, body {{
 .gradio-container button.quartz-prog {{
     flex: 1 1 0 !important;
     min-width: 0 !important;
-    min-height: clamp(1.28rem, 2.6vh, 1.62rem) !important;
+    min-height: clamp(2.56rem, 5.2vh, 3.24rem) !important;
     font-size: clamp(0.42rem, 0.9vh, 0.56rem) !important;
     letter-spacing: 0.03em !important;
-    padding: 0.1rem 0.34rem 0.1rem 0.06rem !important;
+    padding: 0.2rem 0.34rem 0.2rem 0.06rem !important;
     position: relative !important;
     text-transform: none !important;
 }}
 .gradio-container button.quartz-prog-active::after {{
     content: "" !important;
     position: absolute !important;
-    top: 0.16rem !important;
+    top: 0.32rem !important;
     right: 0.14rem !important;
     width: 5px !important;
     height: 5px !important;
