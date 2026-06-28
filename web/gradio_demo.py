@@ -1178,10 +1178,22 @@ def _quartz_games_js_block() -> str:
         canvas.height = h;
         g.width = w;
         g.height = h;
-        g.scale = Math.max(2, Math.floor(Math.min(w / 56, h / 64)));
+        g.scale = Math.max(2, Math.min(Math.floor(w / 72), Math.floor(h / 56)));
+        g.gridW = Math.max(56, Math.floor(w / g.scale));
+        g.gridH = Math.max(48, Math.floor(h / g.scale));
+        g.offsetX = Math.max(0, Math.floor((w - g.gridW * g.scale) / 2));
+        g.offsetY = Math.max(0, Math.floor((h - g.gridH * g.scale) / 2));
+        g.player.x = Math.floor(g.gridW / 2);
+        g.player.y = g.gridH - 6;
         g.ctx = canvas.getContext('2d');
         if (!g.ctx) return false;
         g.ctx.imageSmoothingEnabled = false;
+        if (!g.layoutReady || g._lastGridW !== g.gridW || g._lastGridH !== g.gridH) {
+            g._lastGridW = g.gridW;
+            g._lastGridH = g.gridH;
+            g.layoutReady = true;
+            resetWave(g);
+        }
         return true;
     }
     function activateGameOverlay(g) {
@@ -1264,9 +1276,8 @@ def _quartz_games_js_block() -> str:
     }
     function initBunkers(g) {
         var bw = 15;
-        var bh = 11;
-        var gap = Math.floor((g.gridW - bw * 4) / 5);
-        var y = Math.floor(g.gridH * 0.72);
+        var gap = Math.max(4, Math.floor((g.gridW - bw * 4) / 5));
+        var y = Math.floor(g.gridH * 0.74);
         var bunkers = [];
         var i, x;
         for (i = 0; i < 4; i++) {
@@ -1307,7 +1318,11 @@ def _quartz_games_js_block() -> str:
         g.enemyBullets = [];
         g.playerBullet = null;
         g.bunkers = initBunkers(g);
-        g.invaderSpeed = Math.max(4, 22 - g.wave * 2);
+        g.invaderSpeed = g.attractMode
+            ? Math.max(26, 34 - g.wave * 2)
+            : Math.max(4, 22 - g.wave * 2);
+        g.player.x = Math.floor(g.gridW / 2);
+        g.player.y = g.gridH - 6;
     }
     function initGameState(opts) {
         opts = opts || {};
@@ -1319,12 +1334,17 @@ def _quartz_games_js_block() -> str:
             scale: 3,
             gridW: 56,
             gridH: 64,
+            offsetX: 0,
+            offsetY: 0,
+            layoutReady: false,
+            _lastGridW: 0,
+            _lastGridH: 0,
             ctx: null,
             wave: 1,
             score: 0,
             hiScore: parseInt(localStorage.getItem('qvpic-invaders-hi') || '0', 10) || 0,
             lives: 3,
-            player: { x: 26, y: 58 },
+            player: { x: 28, y: 58 },
             invaders: [],
             direction: 1,
             stepDown: false,
@@ -1340,9 +1360,9 @@ def _quartz_games_js_block() -> str:
             gameOver: false,
             attractTimer: 0,
             attractShootTimer: 0,
-            attractResetTimer: 0
+            attractResetTimer: 0,
+            warmupTicks: opts.attract ? 120 : 30
         };
-        resetWave(g);
         return g;
     }
     function tickAttract(g) {
@@ -1378,9 +1398,9 @@ def _quartz_games_js_block() -> str:
         ctx.save();
         ctx.imageSmoothingEnabled = false;
         ctx.fillStyle = bright ? PHOSPHOR_BRIGHT : PHOSPHOR;
-        ctx.font = 'bold ' + Math.max(8, Math.floor(scale * 5.5)) + 'px "Courier New", Courier, monospace';
+        ctx.font = 'bold ' + Math.max(8, Math.floor(scale * 5.2)) + 'px "Courier New", Courier, monospace';
         ctx.shadowColor = PHOSPHOR;
-        ctx.shadowBlur = Math.max(2, scale * 0.8);
+        ctx.shadowBlur = bright ? 3 : 1;
         ctx.fillText(text, Math.floor(x * scale), Math.floor((y + 4) * scale));
         ctx.restore();
     }
@@ -1399,11 +1419,11 @@ def _quartz_games_js_block() -> str:
         ctx.clearRect(0, 0, g.width, g.height);
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, g.width, g.height);
-        ctx.shadowColor = PHOSPHOR;
-        ctx.shadowBlur = scale * 0.55;
-        drawText(ctx, 'SPACE INVADERS', 9, 2, scale, true);
-        drawText(ctx, 'SCORE<' + String(g.score).padStart(4, '0') + '>', 2, 9, scale, false);
-        drawText(ctx, 'HI<' + String(Math.max(g.score, g.hiScore)).padStart(4, '0') + '>', 30, 9, scale, false);
+        ctx.translate(g.offsetX || 0, g.offsetY || 0);
+        drawText(ctx, 'SPACE INVADERS', Math.max(2, Math.floor(g.gridW / 2) - 8), 2, scale, true);
+        drawText(ctx, 'SCORE ' + String(g.score).padStart(4, '0'), 2, 9, scale, false);
+        drawText(ctx, 'HI ' + String(Math.max(g.score, g.hiScore)).padStart(4, '0'),
+            Math.max(24, g.gridW - 16), 9, scale, false);
         var frame = g.animFrame % 2;
         g.invaders.forEach(function(inv) {
             if (!inv.alive) return;
@@ -1431,7 +1451,7 @@ def _quartz_games_js_block() -> str:
                 drawSprite(ctx, lifeSprite, 14 + i * 8, g.gridH - 6, scale, false);
             }
             if (blink) {
-                drawText(ctx, '<- -> TO PLAY', 32, g.gridH - 4, scale, true);
+                drawText(ctx, 'ARROWS TO PLAY', Math.max(18, g.gridW - 28), g.gridH - 4, scale, true);
             }
         } else {
             drawText(ctx, 'LIVES', 2, g.gridH - 4, scale, false);
@@ -1441,13 +1461,9 @@ def _quartz_games_js_block() -> str:
                 drawSprite(ctx, lifeSprite, 14 + j * 8, g.gridH - 6, scale, false);
             }
         }
-        if (g.gameOver) {
-            if (g.attractMode) {
-                drawText(ctx, 'GAME OVER', 16, Math.floor(g.gridH / 2), scale, true);
-            } else {
-                drawText(ctx, 'GAME OVER', 16, Math.floor(g.gridH / 2), scale, true);
-                drawText(ctx, 'ESC TO QUIT', 15, Math.floor(g.gridH / 2) + 8, scale, false);
-            }
+        if (g.gameOver && !g.attractMode) {
+            drawText(ctx, 'GAME OVER', Math.floor(g.gridW / 2) - 5, Math.floor(g.gridH / 2), scale, true);
+            drawText(ctx, 'ESC TO QUIT', Math.floor(g.gridW / 2) - 5, Math.floor(g.gridH / 2) + 8, scale, false);
         }
         ctx.restore();
     }
@@ -1495,20 +1511,8 @@ def _quartz_games_js_block() -> str:
     function tickGame(g) {
         if (!g.running) return;
         g.animFrame += 1;
-        if (g.gameOver && g.attractMode) {
-            g.attractResetTimer += 1;
-            if (g.attractResetTimer > 90) {
-                g.score = 0;
-                g.lives = 3;
-                g.wave = 1;
-                g.gameOver = false;
-                g.attractResetTimer = 0;
-                resetWave(g);
-            }
-            renderGame(g);
-            return;
-        }
         if (!g.gameOver) {
+            if (g.warmupTicks > 0) g.warmupTicks -= 1;
             if (g.attractMode) {
                 tickAttract(g);
             } else {
@@ -1532,10 +1536,12 @@ def _quartz_games_js_block() -> str:
                     }
                 }
             }
-            if (g.enemyShootCooldown <= 0) {
+            if (g.warmupTicks <= 0 && g.enemyShootCooldown <= 0) {
                 fireEnemyBullet(g);
-                g.enemyShootCooldown = Math.max(18, 48 - g.wave * 3);
-            } else {
+                g.enemyShootCooldown = g.attractMode
+                    ? Math.max(52, 68 - g.wave * 2)
+                    : Math.max(18, 48 - g.wave * 3);
+            } else if (g.enemyShootCooldown > 0) {
                 g.enemyShootCooldown -= 1;
             }
         }
@@ -1567,7 +1573,11 @@ def _quartz_games_js_block() -> str:
         g.enemyBullets = g.enemyBullets.filter(function(b) {
             b.y += b.vy;
             if (b.y > g.gridH) return false;
-            if (!g.gameOver && Math.abs(b.x - g.player.x) < 3 && b.y >= g.player.y && b.y <= g.player.y + 7) {
+            if (!g.gameOver && g.warmupTicks <= 0 &&
+                Math.abs(b.x - g.player.x) < 3 && b.y >= g.player.y && b.y <= g.player.y + 7) {
+                if (g.attractMode) {
+                    return false;
+                }
                 g.lives -= 1;
                 if (g.lives <= 0) g.gameOver = true;
                 return false;
@@ -1577,7 +1587,13 @@ def _quartz_games_js_block() -> str:
         });
         if (!g.gameOver) {
             var bounds = invaderBounds(g);
-            if (bounds && bounds.maxY >= g.player.y - 2) g.gameOver = true;
+            if (bounds && bounds.maxY >= g.player.y - 2) {
+                if (g.attractMode) {
+                    resetWave(g);
+                } else {
+                    g.gameOver = true;
+                }
+            }
             if (!aliveInvaders(g).length) {
                 g.wave += 1;
                 resetWave(g);
@@ -1604,6 +1620,7 @@ def _quartz_games_js_block() -> str:
             g.lives = 3;
             g.wave = 1;
             g.gameOver = false;
+            g.warmupTicks = 30;
             g.attractResetTimer = 0;
             resetWave(g);
             renderGame(g);
@@ -3001,7 +3018,7 @@ body.quartz-game-on .quartz-terminal .wrap {{
     background: #000000 !important;
     image-rendering: pixelated !important;
     image-rendering: crisp-edges !important;
-    filter: drop-shadow(0 0 2px rgba(0, 212, 255, 0.5)) !important;
+    filter: none !important;
 }}
 .gradio-container .quartz-invaders-crt {{
     position: absolute !important;
